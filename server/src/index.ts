@@ -36,6 +36,9 @@ app.use(cookieParser());
 import { auth } from './lib/auth';
 import { toNodeHandler } from 'better-auth/node';
 import { ensureDatabaseSchema } from './lib/db-healing';
+import { db } from './db';
+import { user, candidate } from './db/schema';
+import { sql } from 'drizzle-orm';
 
 app.all('/api/auth/*', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
   console.log(`[AUTH] request: ${req.method} ${req.url}`);
@@ -186,46 +189,48 @@ app.get('/api/debug-db', async (req: Request, res: Response) => {
   };
 
   try {
-    const { default: prisma } = await import('./lib/prisma');
-    
     // Attempt database query with a 3-second timeout so it doesn't hang
     const dbPromise = (async () => {
-      const rawResult = await prisma.$queryRaw`SELECT 1 + 1 AS result`;
-      const userCount = await prisma.user.count();
-      const candidateCount = await prisma.candidate.count();
+      const rawResult = await db.execute(sql`SELECT 1 + 1 AS result`);
+      
+      const userCountResult = await db.select({ count: sql<number>`count(*)` }).from(user);
+      const userCount = Number(userCountResult[0]?.count || 0);
+
+      const candidateCountResult = await db.select({ count: sql<number>`count(*)` }).from(candidate);
+      const candidateCount = Number(candidateCountResult[0]?.count || 0);
       
       // Diagnose tables and columns
       let tables: any[] = [];
       try {
-        tables = await prisma.$queryRawUnsafe<any[]>('SHOW TABLES');
+        tables = (await db.execute(sql`SHOW TABLES`))[0] as unknown as any[];
       } catch (e: any) {
         tables = [{ error: e.message }];
       }
 
       let leaderColumns: any[] = [];
       try {
-        leaderColumns = await prisma.$queryRawUnsafe<any[]>('SHOW COLUMNS FROM Leader');
+        leaderColumns = (await db.execute(sql`SHOW COLUMNS FROM Leader`))[0] as unknown as any[];
       } catch (e: any) {
         leaderColumns = [{ error: e.message }];
       }
 
       let brokerColumns: any[] = [];
       try {
-        brokerColumns = await prisma.$queryRawUnsafe<any[]>('SHOW COLUMNS FROM Broker');
+        brokerColumns = (await db.execute(sql`SHOW COLUMNS FROM Broker`))[0] as unknown as any[];
       } catch (e: any) {
         brokerColumns = [{ error: e.message }];
       }
 
       // Check client models
-      const clientModels = Object.keys(prisma).filter(k => !k.startsWith('$') && !k.startsWith('_'));
+      const clientModels = ['leader', 'broker', 'candidate', 'user', 'session', 'account', 'verification'];
 
       return { 
         rawResult, 
         userCount, 
         candidateCount,
         clientModels,
-        hasLeaderModel: 'leader' in prisma,
-        hasBrokerModel: 'broker' in prisma,
+        hasLeaderModel: true,
+        hasBrokerModel: true,
         tables,
         leaderColumns,
         brokerColumns
