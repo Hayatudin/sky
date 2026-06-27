@@ -1,5 +1,4 @@
 import { auth } from './lib/auth';
-import prisma from './lib/prisma';
 import express from 'express';
 
 const app = express();

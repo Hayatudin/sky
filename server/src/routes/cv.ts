@@ -1,15 +1,16 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { candidate, generatedCV } from '../db/schema';
+import { eq, inArray } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 const ImageModule = require('docxtemplater-image-module-free');
-import mammoth from 'mammoth';
-import { chromium } from 'playwright';
-import QRCode from 'qrcode';
 import JSZip from 'jszip';
 import crypto from 'crypto';
+import QRCode from 'qrcode';
+import { chromium } from 'playwright';
 
 const router = Router();
 
@@ -43,19 +44,16 @@ const fetchImageAsBase64 = async (url: string) => {
     return url.split(',')[1] || url;
   }
 
-  // Try local file system first (faster and more reliable on cPanel)
+  // Try local file system first
   try {
-    // Handle both relative paths and absolute-looking relative paths
     let cleanUrl = url.startsWith('http') ? new URL(url).pathname : url;
 
-    // If it uses our new proxy route /api/assets/..., strip it to get the real path
     if (cleanUrl.includes('/api/assets/')) {
       cleanUrl = cleanUrl.split('/api/assets/')[1];
     }
 
     const relativePath = cleanUrl.startsWith('/') ? cleanUrl.slice(1) : cleanUrl;
 
-    // Try common locations: root/public/uploads or root/uploads
     const pathsToTry = [
       path.join(process.cwd(), 'public', relativePath),
       path.join(process.cwd(), relativePath),
@@ -73,7 +71,7 @@ const fetchImageAsBase64 = async (url: string) => {
     console.warn(`[DOCX] Local read failed for: ${url}`, e);
   }
 
-  // Fallback to remote fetch if local fails
+  // Fallback to remote fetch
   if (url.startsWith('http')) {
     try {
       console.log(`[DOCX] Fetching remote image: ${url}`);
@@ -115,28 +113,15 @@ router.post('/generate', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const candidate = await prisma.candidate.findUnique({
-      where: { id: candidateId },
+    const cand = await db.query.candidate.findFirst({
+      where: eq(candidate.id, candidateId)
     });
 
-    if (!candidate) {
+    if (!cand) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
 
-    let candidateIsLocked = false;
-    try {
-      const rawRows: any[] = await prisma.$queryRawUnsafe(
-        'SELECT isLocked FROM `Candidate` WHERE id = ? LIMIT 1',
-        candidateId
-      );
-      if (rawRows.length > 0) {
-        candidateIsLocked = rawRows[0].isLocked === 1 || rawRows[0].isLocked === true;
-      }
-    } catch (e) {
-      console.warn('[CV] Could not query candidate isLocked:', e);
-    }
-
-    if (candidateIsLocked) {
+    if (cand.isLocked) {
       return res.status(403).json({ error: 'This candidate is locked. CV downloading is restricted.' });
     }
 
@@ -150,9 +135,6 @@ router.post('/generate', async (req: Request, res: Response) => {
       const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
       try {
         const page = await browser.newPage();
-
-        // Construct the print URL (assuming client is on port 3000)
-        // NOTE: For 'al-shablan' or 'ussus', the printUrl uses the route name
         const clientTemplateRoute = (templateRef === 'CV Al-shablan.docx' ? 'al-shablan' : (templateRef === 'CV Ussus.docx' ? 'ussus' : templateRef));
         const printUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/cv-print/${candidateId}/${clientTemplateRoute}`;
         console.log('Generating from URL:', printUrl);
@@ -175,7 +157,7 @@ router.post('/generate', async (req: Request, res: Response) => {
 
         await browser.close();
         res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="CV_${candidate.surname}.${extension}"`);
+        res.setHeader('Content-Disposition', `attachment; filename="CV_${cand.surname}.${extension}"`);
         return res.send(outputBuf);
       } catch (err: any) {
         await browser.close();
@@ -261,10 +243,8 @@ router.post('/generate', async (req: Request, res: Response) => {
             const ratio = dimensions.width / dimensions.height;
 
             if (ratio > maxWidth / maxHeight) {
-              // Limited by width
               return [maxWidth, Math.round(maxWidth / ratio)];
             } else {
-              // Limited by height
               return [Math.round(maxHeight * ratio), maxHeight];
             }
           } catch (e) {
@@ -280,9 +260,9 @@ router.post('/generate', async (req: Request, res: Response) => {
         modules: [new ImageModule(imageOptions)],
       });
 
-      const skillsArray = Array.isArray(candidate.skills) ? candidate.skills.map(String) : [];
-      const langsArray = Array.isArray(candidate.languages) ? candidate.languages.map(String) : [];
-      const isExperienced = Array.isArray(candidate.workExperience) && (candidate.workExperience as any[]).some((e: any) => e.experienceStatus === 'Have experience');
+      const skillsArray = Array.isArray(cand.skills) ? cand.skills.map(String) : [];
+      const langsArray = Array.isArray(cand.languages) ? cand.languages.map(String) : [];
+      const isExperienced = Array.isArray(cand.workExperience) && (cand.workExperience as any[]).some((e: any) => e.experienceStatus === 'Have experience');
       const hasSkill = (keyword: string) => {
         const kw = keyword.toLowerCase();
         if (kw.includes('cook') || kw.includes('arabic')) {
@@ -298,66 +278,55 @@ router.post('/generate', async (req: Request, res: Response) => {
       };
       const hasLang = (keyword: string) => langsArray.some((l: string) => l.toLowerCase().includes(keyword.toLowerCase())) ? 'Yes' : 'No';
 
-
       const [facePhotoData, fullBodyPhotoData, passportPhotoData] = await Promise.all([
-        fetchImageAsBase64(facePhoto || candidate.passportImageUrl || ''),
-        fetchImageAsBase64(fullBodyPhoto || candidate.fullBodyPhotoUrl || ''),
-        fetchImageAsBase64(candidate.passportImageUrl || '')
+        fetchImageAsBase64(facePhoto || cand.passportImageUrl || ''),
+        fetchImageAsBase64(fullBodyPhoto || cand.fullBodyPhotoUrl || ''),
+        fetchImageAsBase64(cand.passportImageUrl || '')
       ]);
-      let finalVideoUrl = (candidate as any).videoUrl;
-      try {
-        const rawRows: any[] = await prisma.$queryRawUnsafe(
-          `SELECT Youtube_URL FROM \`Candidate\` WHERE id = ?`,
-          candidateId
-        );
-        if (rawRows.length > 0 && rawRows[0].Youtube_URL) {
-          finalVideoUrl = rawRows[0].Youtube_URL;
-        }
-      } catch (_) {}
+      const finalVideoUrl = cand.videoUrl;
       const qrCodeData = finalVideoUrl ? await QRCode.toDataURL(finalVideoUrl) : '';
 
       const formatValue = (val: any) => (val && val !== 'undefined' && val !== 'null' && String(val).trim() !== '' ? val : '-');
 
       const data = {
-        refNumber: candidate.id.slice(-6).toUpperCase(),
-        givenNames: formatValue(candidate.givenNames),
-        surname: formatValue(candidate.surname),
-        fullName: `${formatValue(candidate.givenNames)} ${formatValue(candidate.surname)}`.replace(/-/g, '').trim() || '-',
-        passportNumber: formatValue(candidate.passportNumber),
-        dateOfBirth: candidate.dateOfBirth ? candidate.dateOfBirth.toISOString().split('T')[0] : '-',
-        dob: candidate.dateOfBirth ? candidate.dateOfBirth.toISOString().split('T')[0] : '-',
-        gender: formatValue(candidate.gender),
-        nationality: formatValue(candidate.nationality),
-        issuingCountry: formatValue(candidate.issuingCountry),
-        dateOfIssue: candidate.dateOfIssue ? candidate.dateOfIssue.toISOString().split('T')[0] : '-',
-        issueDate: candidate.dateOfIssue ? candidate.dateOfIssue.toISOString().split('T')[0] : '-',
-        dateOfExpiry: candidate.dateOfExpiry ? candidate.dateOfExpiry.toISOString().split('T')[0] : '-',
-        expiryDate: candidate.dateOfExpiry ? candidate.dateOfExpiry.toISOString().split('T')[0] : '-',
-        issuePlace: formatValue(candidate.issuingCountry),
-        maritalStatus: formatValue(candidate.maritalStatus),
-        numberOfChildren: candidate.numberOfChildren || 0,
-        religion: formatValue(candidate.religion),
-        bloodType: formatValue(candidate.bloodType),
-        height: formatValue(candidate.height),
-        weight: formatValue(candidate.weight),
-        phone: formatValue(candidate.phone),
-        email: formatValue(candidate.email),
-        address: formatValue(candidate.city),
-        city: formatValue(candidate.city),
-        state: formatValue(candidate.state),
-        country: formatValue(candidate.country),
-        educationLevel: formatValue(candidate.educationLevel),
+        refNumber: cand.id.slice(-6).toUpperCase(),
+        givenNames: formatValue(cand.givenNames),
+        surname: formatValue(cand.surname),
+        fullName: `${formatValue(cand.givenNames)} ${formatValue(cand.surname)}`.replace(/-/g, '').trim() || '-',
+        passportNumber: formatValue(cand.passportNumber),
+        dateOfBirth: cand.dateOfBirth ? cand.dateOfBirth.toISOString().split('T')[0] : '-',
+        dob: cand.dateOfBirth ? cand.dateOfBirth.toISOString().split('T')[0] : '-',
+        gender: formatValue(cand.gender),
+        nationality: formatValue(cand.nationality),
+        issuingCountry: formatValue(cand.issuingCountry),
+        dateOfIssue: cand.dateOfIssue ? cand.dateOfIssue.toISOString().split('T')[0] : '-',
+        issueDate: cand.dateOfIssue ? cand.dateOfIssue.toISOString().split('T')[0] : '-',
+        dateOfExpiry: cand.dateOfExpiry ? cand.dateOfExpiry.toISOString().split('T')[0] : '-',
+        expiryDate: cand.dateOfExpiry ? cand.dateOfExpiry.toISOString().split('T')[0] : '-',
+        issuePlace: formatValue(cand.issuingCountry),
+        maritalStatus: formatValue(cand.maritalStatus),
+        numberOfChildren: cand.numberOfChildren || 0,
+        religion: formatValue(cand.religion),
+        bloodType: formatValue(cand.bloodType),
+        height: formatValue(cand.height),
+        weight: formatValue(cand.weight),
+        phone: formatValue(cand.phone),
+        email: formatValue(cand.email),
+        address: formatValue(cand.city),
+        city: formatValue(cand.city),
+        state: formatValue(cand.state),
+        country: formatValue(cand.country),
+        educationLevel: formatValue(cand.educationLevel),
         languages: langsArray.join(', ') || '-',
-        workExperience: formatValue(candidate.workExperience),
+        workExperience: formatValue(cand.workExperience),
         skills: skillsArray.join(', ') || '-',
-        medicalStatus: formatValue(candidate.medicalStatus),
-        knownConditions: formatValue(candidate.knownConditions),
-        emergencyName: formatValue(candidate.emergencyContactName),
-        emergencyPhone: formatValue(candidate.emergencyContactPhone),
-        job: formatValue(candidate.job),
-        age: calculateAge(candidate.dateOfBirth),
+        medicalStatus: formatValue(cand.medicalStatus),
+        knownConditions: formatValue(cand.knownConditions),
+        emergencyName: formatValue(cand.emergencyContactName),
+        emergencyPhone: formatValue(cand.emergencyContactPhone),
+        job: formatValue(cand.job),
+        age: calculateAge(cand.dateOfBirth),
 
-        // Skill specific tags
         skillBaby: formatValue(hasSkill('baby')),
         skillChildren: formatValue(hasSkill('child')),
         skillTutor: formatValue(hasSkill('tutor')),
@@ -371,13 +340,10 @@ router.post('/generate', async (req: Request, res: Response) => {
         skillDrive: formatValue(hasSkill('driv')),
         skillDisabled: formatValue(hasSkill('disabl')),
 
-        // Language specific tags
         english: formatValue(hasLang('english')),
         arabic: formatValue(hasLang('arabic')),
 
         qrCode: qrCodeData,
-
-        // Experience placeholders
         expCountry: '-',
         expPeriod: '-',
 
@@ -388,32 +354,32 @@ router.post('/generate', async (req: Request, res: Response) => {
         'passport image': passportPhotoData,
         deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
         generatedAt: new Date().toLocaleDateString(),
-        FULL_NAME: `${formatValue(candidate.givenNames)} ${formatValue(candidate.surname)}`.replace(/-/g, '').trim() || '-',
+        FULL_NAME: `${formatValue(cand.givenNames)} ${formatValue(cand.surname)}`.replace(/-/g, '').trim() || '-',
         NAME_AR: 'الاسم الكامل',
-        PASSPORT_NO: formatValue(candidate.passportNumber),
-        DOB: candidate.dateOfBirth ? candidate.dateOfBirth.toISOString().split('T')[0] : '-',
-        NATIONALITY: formatValue(candidate.nationality),
-        GENDER: formatValue(candidate.gender),
-        PHONE: formatValue(candidate.phone),
-        phoneNumber: formatValue(candidate.phone),
-        HEIGHT: formatValue(candidate.height),
-        WEIGHT: formatValue(candidate.weight),
-        EXPERIENCE: formatValue(candidate.workExperience),
-        workPeriod: formatValue(candidate.workExperience ? 'Experienced' : 'Fresher'),
-        position: formatValue(candidate.job),
+        PASSPORT_NO: formatValue(cand.passportNumber),
+        DOB: cand.dateOfBirth ? cand.dateOfBirth.toISOString().split('T')[0] : '-',
+        NATIONALITY: formatValue(cand.nationality),
+        GENDER: formatValue(cand.gender),
+        PHONE: formatValue(cand.phone),
+        phoneNumber: formatValue(cand.phone),
+        HEIGHT: formatValue(cand.height),
+        WEIGHT: formatValue(cand.weight),
+        EXPERIENCE: formatValue(cand.workExperience),
+        workPeriod: formatValue(cand.workExperience ? 'Experienced' : 'Fresher'),
+        position: formatValue(cand.job),
         salary: '-',
         SKILLS: skillsArray.join(', ') || '-',
-        PLACE_OF_BIRTH: formatValue(candidate.placeOfBirth),
-        AGE: calculateAge(candidate.dateOfBirth),
+        PLACE_OF_BIRTH: formatValue(cand.placeOfBirth),
+        AGE: calculateAge(cand.dateOfBirth),
         expPosition: '-',
       };
 
-      const exps = Array.isArray(candidate.workExperience) ? candidate.workExperience as any[] : [];
+      const exps = Array.isArray(cand.workExperience) ? cand.workExperience as any[] : [];
       const validExp = exps.find(e => e.experienceStatus === 'Have experience');
       if (validExp) {
         data.expCountry = validExp.country || '-';
         data.expPeriod = validExp.yearsOfExperience ? `${validExp.yearsOfExperience} YEARS` : '-';
-        data.expPosition = validExp.position || candidate.job || '-';
+        data.expPosition = validExp.position || cand.job || '-';
       }
 
       doc.render(data);
@@ -421,7 +387,7 @@ router.post('/generate', async (req: Request, res: Response) => {
       const docxBuf = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename="CV_${candidate.surname}.docx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="CV_${cand.surname}.docx"`);
       return res.send(docxBuf);
     }
 
@@ -443,7 +409,7 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
       progress: 0,
       total: candidateIds.length,
       status: 'pending',
-      expiresAt: Date.now() + 15 * 60 * 1000 // expires in 15 mins
+      expiresAt: Date.now() + 15 * 60 * 1000
     };
 
     res.json({ jobId });
@@ -454,29 +420,13 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
       const zip = new JSZip();
 
       try {
-        const dbCandidates = await prisma.candidate.findMany({
-          where: { 
-            id: { in: candidateIds }
-          },
-          include: { generatedCVs: true }
+        const dbCandidates = await db.query.candidate.findMany({
+          where: inArray(candidate.id, candidateIds),
+          with: { generatedCVs: true }
         });
 
-        // Query candidate lock states via raw SQL to bypass stale Prisma Client
-        let lockedIds = new Set<string>();
-        try {
-          const rawLocks: any[] = await prisma.$queryRawUnsafe(
-            `SELECT id, isLocked FROM \`Candidate\` WHERE id IN (${candidateIds.map(id => `'${id}'`).join(',')})`
-          );
-          for (const row of rawLocks) {
-            if (row.isLocked === 1 || row.isLocked === true) {
-              lockedIds.add(row.id);
-            }
-          }
-        } catch (e) {
-          console.warn('[CV] Failed to fetch bulk isLocked map:', e);
-        }
-
-        const candidates = dbCandidates.filter(c => !lockedIds.has(c.id));
+        // Filter out locked candidates directly
+        const candidates = dbCandidates.filter(c => !c.isLocked);
 
         if (format === 'doc' || format === 'docx') {
           const BATCH_SIZE = 20;
@@ -484,9 +434,9 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
 
           for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
             const batch = candidates.slice(i, i + BATCH_SIZE);
-            await Promise.all(batch.map(async (candidate) => {
+            await Promise.all(batch.map(async (candItem) => {
               try {
-                const firstCv = candidate.generatedCVs?.[0];
+                const firstCv = candItem.generatedCVs?.[0];
                 const rawTemplateId = firstCv ? firstCv.templateId : 'alm';
                 const templateId = rawTemplateId.startsWith('tmpl-') ? rawTemplateId : `tmpl-${rawTemplateId}`;
 
@@ -526,30 +476,21 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                   candidateZip.file('word/document.xml', docXml);
                 }
 
-                const facePhotoUrl = firstCv ? firstCv.facePhotoUrl : candidate.facePhotoUrl;
-                const fullBodyPhotoUrl = firstCv ? firstCv.fullBodyPhotoUrl : candidate.fullBodyPhotoUrl;
+                const facePhotoUrl = firstCv ? firstCv.facePhotoUrl : candItem.facePhotoUrl;
+                const fullBodyPhotoUrl = firstCv ? firstCv.fullBodyPhotoUrl : candItem.fullBodyPhotoUrl;
 
                 const [facePhotoData, fullBodyPhotoData, passportPhotoData] = await Promise.all([
-                  fetchImageAsBase64(facePhotoUrl || candidate.passportImageUrl || ''),
-                  fetchImageAsBase64(fullBodyPhotoUrl || candidate.fullBodyPhotoUrl || ''),
-                  fetchImageAsBase64(candidate.passportImageUrl || '')
+                  fetchImageAsBase64(facePhotoUrl || candItem.passportImageUrl || ''),
+                  fetchImageAsBase64(fullBodyPhotoUrl || candItem.fullBodyPhotoUrl || ''),
+                  fetchImageAsBase64(candItem.passportImageUrl || '')
                 ]);
 
-                let finalVideoUrl = (candidate as any).videoUrl;
-                try {
-                  const rawRows: any[] = await prisma.$queryRawUnsafe(
-                    `SELECT Youtube_URL FROM \`Candidate\` WHERE id = ?`,
-                    candidate.id
-                  );
-                  if (rawRows.length > 0 && rawRows[0].Youtube_URL) {
-                    finalVideoUrl = rawRows[0].Youtube_URL;
-                  }
-                } catch (_) {}
+                const finalVideoUrl = candItem.videoUrl;
                 const qrCodeData = finalVideoUrl ? await QRCode.toDataURL(finalVideoUrl) : '';
 
-                const skillsArray = Array.isArray(candidate.skills) ? candidate.skills.map(String) : [];
-                const langsArray = Array.isArray(candidate.languages) ? candidate.languages.map(String) : [];
-                const isExperienced = Array.isArray(candidate.workExperience) && (candidate.workExperience as any[]).some((e: any) => e.experienceStatus === 'Have experience');
+                const skillsArray = Array.isArray(candItem.skills) ? candItem.skills.map(String) : [];
+                const langsArray = Array.isArray(candItem.languages) ? candItem.languages.map(String) : [];
+                const isExperienced = Array.isArray(candItem.workExperience) && (candItem.workExperience as any[]).some((e: any) => e.experienceStatus === 'Have experience');
                 const hasSkill = (keyword: string) => {
                   const kw = keyword.toLowerCase();
                   if (kw.includes('cook') || kw.includes('arabic')) {
@@ -568,43 +509,43 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                 const formatValue = (val: any) => (val && val !== 'undefined' && val !== 'null' && String(val).trim() !== '' ? val : '-');
 
                 const data = {
-                  refNumber: candidate.id.slice(-6).toUpperCase(),
-                  givenNames: formatValue(candidate.givenNames),
-                  surname: formatValue(candidate.surname),
-                  fullName: `${formatValue(candidate.givenNames)} ${formatValue(candidate.surname)}`.replace(/-/g, '').trim() || '-',
-                  passportNumber: formatValue(candidate.passportNumber),
-                  dateOfBirth: candidate.dateOfBirth ? candidate.dateOfBirth.toISOString().split('T')[0] : '-',
-                  dob: candidate.dateOfBirth ? candidate.dateOfBirth.toISOString().split('T')[0] : '-',
-                  gender: formatValue(candidate.gender),
-                  nationality: formatValue(candidate.nationality),
-                  issuingCountry: formatValue(candidate.issuingCountry),
-                  dateOfIssue: candidate.dateOfIssue ? candidate.dateOfIssue.toISOString().split('T')[0] : '-',
-                  issueDate: candidate.dateOfIssue ? candidate.dateOfIssue.toISOString().split('T')[0] : '-',
-                  dateOfExpiry: candidate.dateOfExpiry ? candidate.dateOfExpiry.toISOString().split('T')[0] : '-',
-                  expiryDate: candidate.dateOfExpiry ? candidate.dateOfExpiry.toISOString().split('T')[0] : '-',
-                  issuePlace: formatValue(candidate.issuingCountry),
-                  maritalStatus: formatValue(candidate.maritalStatus),
-                  numberOfChildren: candidate.numberOfChildren || 0,
-                  religion: formatValue(candidate.religion),
-                  bloodType: formatValue(candidate.bloodType),
-                  height: formatValue(candidate.height),
-                  weight: formatValue(candidate.weight),
-                  phone: formatValue(candidate.phone),
-                  email: formatValue(candidate.email),
-                  address: formatValue(candidate.city),
-                  city: formatValue(candidate.city),
-                  state: formatValue(candidate.state),
-                  country: formatValue(candidate.country),
-                  educationLevel: formatValue(candidate.educationLevel),
+                  refNumber: candItem.id.slice(-6).toUpperCase(),
+                  givenNames: formatValue(candItem.givenNames),
+                  surname: formatValue(candItem.surname),
+                  fullName: `${formatValue(candItem.givenNames)} ${formatValue(candItem.surname)}`.replace(/-/g, '').trim() || '-',
+                  passportNumber: formatValue(candItem.passportNumber),
+                  dateOfBirth: candItem.dateOfBirth ? candItem.dateOfBirth.toISOString().split('T')[0] : '-',
+                  dob: candItem.dateOfBirth ? candItem.dateOfBirth.toISOString().split('T')[0] : '-',
+                  gender: formatValue(candItem.gender),
+                  nationality: formatValue(candItem.nationality),
+                  issuingCountry: formatValue(candItem.issuingCountry),
+                  dateOfIssue: candItem.dateOfIssue ? candItem.dateOfIssue.toISOString().split('T')[0] : '-',
+                  issueDate: candItem.dateOfIssue ? candItem.dateOfIssue.toISOString().split('T')[0] : '-',
+                  dateOfExpiry: candItem.dateOfExpiry ? candItem.dateOfExpiry.toISOString().split('T')[0] : '-',
+                  expiryDate: candItem.dateOfExpiry ? candItem.dateOfExpiry.toISOString().split('T')[0] : '-',
+                  issuePlace: formatValue(candItem.issuingCountry),
+                  maritalStatus: formatValue(candItem.maritalStatus),
+                  numberOfChildren: candItem.numberOfChildren || 0,
+                  religion: formatValue(candItem.religion),
+                  bloodType: formatValue(candItem.bloodType),
+                  height: formatValue(candItem.height),
+                  weight: formatValue(candItem.weight),
+                  phone: formatValue(candItem.phone),
+                  email: formatValue(candItem.email),
+                  address: formatValue(candItem.city),
+                  city: formatValue(candItem.city),
+                  state: formatValue(candItem.state),
+                  country: formatValue(candItem.country),
+                  educationLevel: formatValue(candItem.educationLevel),
                   languages: langsArray.join(', ') || '-',
-                  workExperience: formatValue(candidate.workExperience),
+                  workExperience: formatValue(candItem.workExperience),
                   skills: skillsArray.join(', ') || '-',
-                  medicalStatus: formatValue(candidate.medicalStatus),
-                  knownConditions: formatValue(candidate.knownConditions),
-                  emergencyName: formatValue(candidate.emergencyContactName),
-                  emergencyPhone: formatValue(candidate.emergencyContactPhone),
-                  job: formatValue(candidate.job),
-                  age: calculateAge(candidate.dateOfBirth),
+                  medicalStatus: formatValue(candItem.medicalStatus),
+                  knownConditions: formatValue(candItem.knownConditions),
+                  emergencyName: formatValue(candItem.emergencyContactName),
+                  emergencyPhone: formatValue(candItem.emergencyContactPhone),
+                  job: formatValue(candItem.job),
+                  age: calculateAge(candItem.dateOfBirth),
 
                   skillBaby: formatValue(hasSkill('baby')),
                   skillChildren: formatValue(hasSkill('child')),
@@ -623,7 +564,6 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                   arabic: formatValue(hasLang('arabic')),
 
                   qrCode: qrCodeData,
-
                   expCountry: '-',
                   expPeriod: '-',
 
@@ -634,32 +574,32 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                   'passport image': passportPhotoData,
                   deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
                   generatedAt: new Date().toLocaleDateString(),
-                  FULL_NAME: `${formatValue(candidate.givenNames)} ${formatValue(candidate.surname)}`.replace(/-/g, '').trim() || '-',
+                  FULL_NAME: `${formatValue(candItem.givenNames)} ${formatValue(candItem.surname)}`.replace(/-/g, '').trim() || '-',
                   NAME_AR: 'الاسم الكامل',
-                  PASSPORT_NO: formatValue(candidate.passportNumber),
-                  DOB: candidate.dateOfBirth ? candidate.dateOfBirth.toISOString().split('T')[0] : '-',
-                  NATIONALITY: formatValue(candidate.nationality),
-                  GENDER: formatValue(candidate.gender),
-                  PHONE: formatValue(candidate.phone),
-                  phoneNumber: formatValue(candidate.phone),
-                  HEIGHT: formatValue(candidate.height),
-                  WEIGHT: formatValue(candidate.weight),
-                  EXPERIENCE: formatValue(candidate.workExperience),
-                  workPeriod: formatValue(candidate.workExperience ? 'Experienced' : 'Fresher'),
-                  position: formatValue(candidate.job),
+                  PASSPORT_NO: formatValue(candItem.passportNumber),
+                  DOB: candItem.dateOfBirth ? candItem.dateOfBirth.toISOString().split('T')[0] : '-',
+                  NATIONALITY: formatValue(candItem.nationality),
+                  GENDER: formatValue(candItem.gender),
+                  PHONE: formatValue(candItem.phone),
+                  phoneNumber: formatValue(candItem.phone),
+                  HEIGHT: formatValue(candItem.height),
+                  WEIGHT: formatValue(candItem.weight),
+                  EXPERIENCE: formatValue(candItem.workExperience),
+                  workPeriod: formatValue(candItem.workExperience ? 'Experienced' : 'Fresher'),
+                  position: formatValue(candItem.job),
                   salary: '-',
                   SKILLS: skillsArray.join(', ') || '-',
-                  PLACE_OF_BIRTH: formatValue(candidate.placeOfBirth),
-                  AGE: calculateAge(candidate.dateOfBirth),
+                  PLACE_OF_BIRTH: formatValue(candItem.placeOfBirth),
+                  AGE: calculateAge(candItem.dateOfBirth),
                   expPosition: '-',
                 };
 
-                const exps = Array.isArray(candidate.workExperience) ? candidate.workExperience as any[] : [];
+                const exps = Array.isArray(candItem.workExperience) ? candItem.workExperience as any[] : [];
                 const validExp = exps.find(e => e.experienceStatus === 'Have experience');
                 if (validExp) {
                   data.expCountry = validExp.country || '-';
                   data.expPeriod = validExp.yearsOfExperience ? `${validExp.yearsOfExperience} YEARS` : '-';
-                  data.expPosition = validExp.position || candidate.job || '-';
+                  data.expPosition = validExp.position || candItem.job || '-';
                 }
 
                 const sizeOf = require('image-size');
@@ -707,14 +647,14 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                 doc.render(data);
                 const docxBuf = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 
-                const passportNo = candidate.passportNumber || candidate.id.slice(-6);
-                const namePart = `${candidate.givenNames || ''}_${candidate.surname || ''}`.replace(/[^a-zA-Z0-9_]/g, '');
+                const passportNo = candItem.passportNumber || candItem.id.slice(-6);
+                const namePart = `${candItem.givenNames || ''}_${candItem.surname || ''}`.replace(/[^a-zA-Z0-9_]/g, '');
                 const safeName = `${namePart}_${passportNo}`.replace(/[^a-zA-Z0-9_]/g, '');
 
                 zip.file(`${safeName}.docx`, docxBuf);
               } catch (err: any) {
-                console.error(`[Bulk CV] Error generating DOCX for candidate ${candidate.id}:`, err);
-                errors.push(`Candidate ${candidate.givenNames} ${candidate.surname}: ${err.message}`);
+                console.error(`[Bulk CV] Error generating DOCX for candidate ${candItem.id}:`, err);
+                errors.push(`Candidate ${candItem.givenNames} ${candItem.surname}: ${err.message}`);
               } finally {
                 bulkJobs[jobId].progress += 1;
               }
@@ -733,16 +673,16 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
             const queue = [...candidates];
             const workers = Array.from({ length: Math.min(BATCH_SIZE, queue.length) }, async () => {
               while (queue.length > 0) {
-                const candidate = queue.shift();
-                if (!candidate) break;
+                const candItem = queue.shift();
+                if (!candItem) break;
 
                 const page = await browser.newPage();
                 try {
-                  const firstCv = candidate.generatedCVs?.[0];
+                  const firstCv = candItem.generatedCVs?.[0];
                   const rawTemplateId = firstCv ? firstCv.templateId : 'alm';
                   const clientTemplateRoute = rawTemplateId.replace('tmpl-', '').toLowerCase();
 
-                  const printUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/cv-print/${candidate.id}/${clientTemplateRoute}`;
+                  const printUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/cv-print/${candItem.id}/${clientTemplateRoute}`;
 
                   await page.goto(printUrl, { waitUntil: 'networkidle', timeout: 30000 });
 
@@ -757,14 +697,14 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                     extension = 'jpg';
                   }
 
-                  const passportNo = candidate.passportNumber || candidate.id.slice(-6);
-                  const namePart = `${candidate.givenNames || ''}_${candidate.surname || ''}`.replace(/[^a-zA-Z0-9_]/g, '');
+                  const passportNo = candItem.passportNumber || candItem.id.slice(-6);
+                  const namePart = `${candItem.givenNames || ''}_${candItem.surname || ''}`.replace(/[^a-zA-Z0-9_]/g, '');
                   const safeName = `${namePart}_${passportNo}`.replace(/[^a-zA-Z0-9_]/g, '');
 
                   zip.file(`${safeName}.${extension}`, outputBuf);
                 } catch (err: any) {
-                  console.error(`[Bulk CV] Error rendering page for candidate ${candidate.id}:`, err);
-                  errors.push(`Candidate ${candidate.givenNames} ${candidate.surname}: ${err.message}`);
+                  console.error(`[Bulk CV] Error rendering page for candidate ${candItem.id}:`, err);
+                  errors.push(`Candidate ${candItem.givenNames} ${candItem.surname}: ${err.message}`);
                 } finally {
                   await page.close();
                   bulkJobs[jobId].progress += 1;
@@ -789,27 +729,23 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
         console.log(`[Bulk CV] Completed job: ${jobId}`);
 
         // Update database in bulk
-        const placeholders = candidateIds.map(() => '?').join(', ');
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`cvDownloaded\` = 1 WHERE \`id\` IN (${placeholders})`,
-          ...candidateIds
-        );
+        await db.update(candidate)
+          .set({ cvDownloaded: true })
+          .where(inArray(candidate.id, candidateIds));
 
-        for (const candidate of candidates) {
+        for (const candItem of candidates) {
           try {
-            const firstCv = candidate.generatedCVs?.[0];
+            const firstCv = candItem.generatedCVs?.[0];
             if (!firstCv) {
-              await prisma.generatedCV.create({
-                data: {
-                  candidateId: candidate.id,
-                  templateId: 'alm',
-                  facePhotoUrl: candidate.facePhotoUrl || '',
-                  fullBodyPhotoUrl: candidate.fullBodyPhotoUrl || ''
-                }
+              await db.insert(generatedCV).values({
+                candidateId: candItem.id,
+                templateId: 'alm',
+                facePhotoUrl: candItem.facePhotoUrl || '',
+                fullBodyPhotoUrl: candItem.fullBodyPhotoUrl || ''
               });
             }
           } catch (dbErr) {
-            console.warn(`[Bulk CV] Failed to create default GeneratedCV for candidate ${candidate.id}`, dbErr);
+            console.warn(`[Bulk CV] Failed to create default GeneratedCV for candidate ${candItem.id}`, dbErr);
           }
         }
 
@@ -854,7 +790,7 @@ router.get('/bulk-generate/download/:jobId', (req: Request, res: Response) => {
   res.setHeader('Content-Disposition', `attachment; filename="CVs_Bulk_${Date.now()}.zip"`);
   res.send(job.zipBuffer);
 
-  // Clean up memory immediately after download starts/completes
+  // Clean up memory immediately
   delete bulkJobs[jobId];
 });
 
@@ -865,33 +801,16 @@ router.post('/candidates-batch', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'candidateIds must be a non-empty array' });
     }
 
-    const dbCandidates = await prisma.candidate.findMany({
-      where: { 
-        id: { in: candidateIds }
-      },
-      include: { 
+    const dbCandidates = await db.query.candidate.findMany({
+      where: inArray(candidate.id, candidateIds),
+      with: { 
         generatedCVs: true,
         broker: true,
         registeredBy: true
       }
     });
 
-    // Query candidate lock states via raw SQL to bypass stale Prisma Client
-    let lockedIds = new Set<string>();
-    try {
-      const rawLocks: any[] = await prisma.$queryRawUnsafe(
-        `SELECT id, isLocked FROM \`Candidate\` WHERE id IN (${candidateIds.map(id => `'${id}'`).join(',')})`
-      );
-      for (const row of rawLocks) {
-        if (row.isLocked === 1 || row.isLocked === true) {
-          lockedIds.add(row.id);
-        }
-      }
-    } catch (e) {
-      console.warn('[CV] Failed to fetch candidates-batch isLocked map:', e);
-    }
-
-    const candidates = dbCandidates.filter(c => !lockedIds.has(c.id));
+    const candidates = dbCandidates.filter(c => !c.isLocked);
 
     const formatDate = (date: Date | null | undefined) => date?.toISOString().split('T')[0] || '';
 

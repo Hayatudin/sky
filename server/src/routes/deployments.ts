@@ -1,8 +1,7 @@
 import express, { Request, Response } from 'express';
-import prisma from '../lib/prisma'; // adjust import path as needed
-import path from 'path';
-import fs from 'fs';
-import * as mime from 'mime-types';
+import { db } from '../db';
+import { generatedCV } from '../db/schema';
+import { inArray, sql } from 'drizzle-orm';
 import ExcelJS from 'exceljs';
 
 const router = express.Router();
@@ -10,8 +9,7 @@ const router = express.Router();
 // GET deployments list (visaSelected = true, has deployedDate on candidate)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // Use raw SQL to read deployedDate from Candidate (not Invoice)
-    const rawCandidates: any[] = await prisma.$queryRawUnsafe(`
+    const rawCandidates = (await db.execute(sql`
       SELECT c.id, c.givenNames, c.surname, c.passportNumber, c.deployedDate,
              b.name AS brokerName,
              (SELECT COUNT(1) FROM \`Invoice\` i WHERE i.candidateId = c.id) AS invoiceCount
@@ -20,17 +18,20 @@ router.get('/', async (req: Request, res: Response) => {
       WHERE c.visaSelected = 1
         AND c.deployedDate IS NOT NULL
       ORDER BY c.deployedDate DESC
-    `);
+    `))[0] as unknown as any[];
 
     // Get CV templates for these candidates
     const candidateIds = rawCandidates.map((c: any) => c.id);
     let cvMap: Record<string, string> = {};
     if (candidateIds.length > 0) {
       try {
-        const cvRows: any[] = await prisma.$queryRawUnsafe(
-          `SELECT candidateId, templateId FROM \`GeneratedCV\` WHERE candidateId IN (${candidateIds.map(() => '?').join(',')})`,
-          ...candidateIds
-        );
+        const cvRows = await db.select({
+          candidateId: generatedCV.candidateId,
+          templateId: generatedCV.templateId,
+        })
+        .from(generatedCV)
+        .where(inArray(generatedCV.candidateId, candidateIds));
+
         for (const row of cvRows) {
           if (!cvMap[row.candidateId]) {
             cvMap[row.candidateId] = row.templateId;
@@ -61,8 +62,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST export Excel
 router.post('/export', async (req: Request, res: Response) => {
   try {
-    // Use raw SQL to read deployedDate from Candidate (not Invoice)
-    const rawCandidates: any[] = await prisma.$queryRawUnsafe(`
+    const rawCandidates = (await db.execute(sql`
       SELECT c.id, c.givenNames, c.surname, c.passportNumber, c.deployedDate,
              b.name AS brokerName
       FROM \`Candidate\` c
@@ -70,17 +70,20 @@ router.post('/export', async (req: Request, res: Response) => {
       WHERE c.visaSelected = 1
         AND c.deployedDate IS NOT NULL
       ORDER BY c.deployedDate DESC
-    `);
+    `))[0] as unknown as any[];
 
     // Get CV templates for these candidates
     const candidateIds = rawCandidates.map((c: any) => c.id);
     let cvMap: Record<string, string> = {};
     if (candidateIds.length > 0) {
       try {
-        const cvRows: any[] = await prisma.$queryRawUnsafe(
-          `SELECT candidateId, templateId FROM \`GeneratedCV\` WHERE candidateId IN (${candidateIds.map(() => '?').join(',')})`,
-          ...candidateIds
-        );
+        const cvRows = await db.select({
+          candidateId: generatedCV.candidateId,
+          templateId: generatedCV.templateId,
+        })
+        .from(generatedCV)
+        .where(inArray(generatedCV.candidateId, candidateIds));
+
         for (const row of cvRows) {
           if (!cvMap[row.candidateId]) {
             cvMap[row.candidateId] = row.templateId;

@@ -1,67 +1,26 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { candidate, broker, generatedCV, invoice, notification, quickRegistration, user, preRegisteredVideo } from '../db/schema';
+import { eq, inArray, and, or, like, sql, not, isNotNull } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
 import { encryptPath, sanitizeIncomingPath } from '../lib/crypto';
-
-function formatPrismaError(error: any): string {
-  if (!error) return 'Unknown error';
-  
-  let msg = error.message || String(error);
-  let codeStr = error.code ? `[Prisma Error ${error.code}]: ` : '';
-  
-  // Clean up any Prisma validation/invocation errors by extracting the reason after the query block
-  if (msg.includes('invocation:')) {
-    const lastBraceIdx = msg.lastIndexOf('}');
-    if (lastBraceIdx !== -1) {
-      const reason = msg.substring(lastBraceIdx + 1).trim();
-      if (reason) {
-        return codeStr + reason.split('\n').map((l: string) => l.trim()).filter(Boolean).join(' | ');
-      }
-    }
-  }
-  
-  // Fallback: If there are newlines, try to get the last lines that aren't query structure
-  if (msg.includes('\n')) {
-    const lines = msg.split('\n').map((l: string) => l.trim()).filter(Boolean);
-    const actualReasonLines = [];
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      if (
-        line.includes('prisma.') || 
-        line.includes('invocation:') || 
-        line.startsWith('{') || 
-        line.startsWith('}') || 
-        line.startsWith('where:') || 
-        line.startsWith('data:')
-      ) {
-        break;
-      }
-      actualReasonLines.unshift(line);
-    }
-    if (actualReasonLines.length > 0) {
-      return codeStr + actualReasonLines.join(' | ');
-    }
-  }
-  
-  return codeStr + msg;
-}
+import { createId } from '@paralleldrive/cuid2';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
-
 async function getBrokerLockMap(): Promise<Record<string, boolean>> {
   try {
-    const rows = await prisma.$queryRawUnsafe<{ id: string; isLocked: number | boolean }[]>(
-      'SELECT id, isLocked FROM Broker'
-    );
+    const rows = await db.select({ id: broker.id, isLocked: broker.isLocked }).from(broker);
     const map: Record<string, boolean> = {};
     for (const row of rows) {
-      map[row.id] = row.isLocked === 1 || row.isLocked === true;
+      map[row.id] = row.isLocked;
     }
     return map;
   } catch (e) {
-    console.warn('[CANDIDATES] Could not fetch isLocked column via raw SQL:', e);
+    console.warn('[CANDIDATES] Could not fetch isLocked column:', e);
     return {};
   }
 }
@@ -72,91 +31,47 @@ router.get('/', async (req: Request, res: Response) => {
     const session = await getSession(req);
     const role = (session?.user as any)?.role;
     const isSuperAdmin = role === 'super_admin';
+
     // Fetch all brokers and their lock status safely
     const lockMap = await getBrokerLockMap();
     const brokerMap = new Map<string, any>();
     try {
-      const dbBrokers = await prisma.broker.findMany({
-        select: { id: true, name: true }
-      });
+      const dbBrokers = await db.select({ id: broker.id, name: broker.name, isLocked: broker.isLocked }).from(broker);
       for (const b of dbBrokers) {
         brokerMap.set(b.id, {
           id: b.id,
           name: b.name,
-          isLocked: lockMap[b.id] ?? false
+          isLocked: lockMap[b.id] ?? b.isLocked ?? false
         });
       }
     } catch (err) {
       console.warn('Could not fetch brokers for candidates mapping:', err);
     }
 
-    let dbCandidates;
-    try {
-      dbCandidates = await prisma.candidate.findMany({
-        orderBy: { registeredAt: 'desc' },
-        include: {
-          generatedCVs: { orderBy: { createdAt: 'desc' }, select: { id: true, templateId: true } },
-          registeredBy: { select: { name: true } },
-          invoices: { select: { isDelivered: true } }
-        }
-      });
-    } catch (schemaError: any) {
-      console.warn('Prisma schema out of sync. Falling back to basic fetch.');
-      dbCandidates = await prisma.candidate.findMany({
-        orderBy: { registeredAt: 'desc' },
-        include: {
-          generatedCVs: { orderBy: { createdAt: 'desc' }, select: { id: true, templateId: true } }
-        }
-      });
-      
-      // Fetch invoices safely
-      try {
-        const invoices = await prisma.$queryRawUnsafe<any[]>(`SELECT candidateId, isDelivered FROM \`Invoice\``);
-        const invoiceMap = new Map<string, any[]>();
-        for (const inv of invoices) {
-          const existing = invoiceMap.get(inv.candidateId) || [];
-          existing.push({ isDelivered: Boolean(inv.isDelivered) });
-          invoiceMap.set(inv.candidateId, existing);
-        }
-        for (const cand of dbCandidates) {
-          (cand as any).invoices = invoiceMap.get(cand.id) || [];
-        }
-      } catch (invErr) {
-        console.warn('Could not fetch invoices for candidates:', invErr);
+    const dbCandidates = await db.query.candidate.findMany({
+      orderBy: (c, { desc }) => [desc(c.registeredAt)],
+      with: {
+        generatedCVs: {
+          orderBy: (gc, { desc }) => [desc(gc.createdAt)],
+          columns: { id: true, templateId: true }
+        },
+        registeredBy: { columns: { name: true } },
+        invoices: { columns: { isDelivered: true } }
       }
-    }
+    });
 
-    // Read Youtube_URL, deployedDate and isLocked via raw SQL (before synchronous map)
-    let youtubeUrlMap: Record<string, string | null> = {};
-    let deployedDateMap: Record<string, string | null> = {};
-    let candidateLockMap: Record<string, boolean> = {};
-    let candidateCvDownloadedMap: Record<string, boolean> = {};
-    let candidatePriceMap: Record<string, string | null> = {};
-    let registeredByMap: Record<string, string> = {};
-    try {
-      const users: any[] = await prisma.$queryRawUnsafe(`SELECT \`id\`, \`name\` FROM \`User\``);
-      const userMap = new Map<string, string>();
-      for (const u of users) {
-        userMap.set(u.id, u.name);
-      }
-
-      const rawRows: any[] = await prisma.$queryRawUnsafe(
-        `SELECT id, Youtube_URL, deployedDate, isLocked, cvDownloaded, registeredById, price FROM \`Candidate\``
-      );
-      for (const row of rawRows) {
-        youtubeUrlMap[row.id] = row.Youtube_URL || null;
-        deployedDateMap[row.id] = row.deployedDate ? new Date(row.deployedDate).toISOString() : null;
-        candidateLockMap[row.id] = row.isLocked === 1 || row.isLocked === true;
-        candidateCvDownloadedMap[row.id] = row.cvDownloaded === 1 || row.cvDownloaded === true;
-        candidatePriceMap[row.id] = row.price || null;
-        if (row.registeredById && userMap.has(row.registeredById)) {
-          registeredByMap[row.id] = userMap.get(row.registeredById)!;
-        }
-      }
-    } catch (_) { /* columns may not exist yet */ }
+    const userList = await db.select({ id: user.id, name: user.name }).from(user);
+    const userMap = new Map<string, string>();
+    userList.forEach(u => userMap.set(u.id, u.name));
 
     const candidates = dbCandidates.map((c: any) => {
-      const formatDate = (date: Date | null | undefined) => date?.toISOString().split('T')[0] || '';
+      const formatDate = (date: Date | null | undefined) => {
+        if (!date) return '';
+        const d = new Date(date);
+        return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+      };
+
+      const registeredByName = c.registeredById ? (userMap.get(c.registeredById) || c.registeredBy?.name || 'Admin') : 'Admin';
 
       return {
         id: c.id,
@@ -224,20 +139,20 @@ router.get('/', async (req: Request, res: Response) => {
         isRequested: c.isRequested || false,
         visaOrContractNumber: c.visaOrContractNumber || null,
         isFlagged: c.isFlagged || false,
-        isLocked: candidateLockMap[c.id] ?? false,
-        cvDownloaded: candidateCvDownloadedMap[c.id] ?? false,
-        videoUrl: encryptPath(youtubeUrlMap[c.id] ?? (c as any).videoUrl ?? null),
-        Youtube_URL: youtubeUrlMap[c.id] ?? null,
-        deployedDate: deployedDateMap[c.id] ?? null,
-        registeredAt: c.registeredAt.toISOString(),
+        isLocked: c.isLocked ?? false,
+        cvDownloaded: c.cvDownloaded ?? false,
+        videoUrl: encryptPath(c.videoUrl),
+        Youtube_URL: c.videoUrl, // Maps to Youtube_URL in schema.ts
+        deployedDate: c.deployedDate ? c.deployedDate.toISOString() : null,
+        registeredAt: c.registeredAt instanceof Date ? c.registeredAt.toISOString() : c.registeredAt,
         status: c.status,
         visaSelected: c.visaSelected,
         visaDate: c.visaDate ? c.visaDate.toISOString() : null,
         salary: c.salary || '1000SR',
-        price: isSuperAdmin ? (candidatePriceMap[c.id] ?? null) : null,
+        price: isSuperAdmin ? (c.price ?? null) : null,
         generatedCVs: c.generatedCVs?.map((cv: any) => ({ id: cv.id, templateId: cv.templateId })) || [],
         latestCVTemplate: c.generatedCVs?.[0]?.templateId || null,
-        registeredBy: registeredByMap[c.id] || c.registeredBy?.name || 'Admin',
+        registeredBy: registeredByName,
         hasInvoice: c.invoices && c.invoices.length > 0,
         isInvoiceDelivered: c.invoices?.some((i: any) => i.isDelivered) || false,
         agency: c.agency || 'daera',
@@ -250,16 +165,12 @@ router.get('/', async (req: Request, res: Response) => {
     console.error('Failed to fetch candidates:', error);
     res.status(500).json({ 
       error: 'Failed to fetch candidates', 
-      message: error?.message || String(error),
-      code: error?.code,
-      meta: error?.meta,
-      stack: error?.stack
+      message: error?.message || String(error)
     });
   }
 });
 
 // POST /api/candidates/promote-from-quick
-// Pushes documents from a verified QuickRegistration into the matching Candidate record
 router.post('/promote-from-quick', async (req: Request, res: Response) => {
   try {
     const { quickRegistrationId } = req.body;
@@ -267,73 +178,38 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'quickRegistrationId is required' });
     }
 
-    // 1. Fetch the QuickRegistration record (including raw videoUrl)
-    const qr: any = await prisma.quickRegistration.findUnique({
-      where: { id: quickRegistrationId },
+    const qr = await db.query.quickRegistration.findFirst({
+      where: eq(quickRegistration.id, quickRegistrationId)
     });
     if (!qr) {
       return res.status(404).json({ error: 'Quick registration not found' });
     }
 
-
-    // Also fetch raw videoUrl and allowVideo which may not be in Prisma Client cache
-    let videoUrl = qr.videoUrl || null;
-    let allowVideo = qr.allowVideo ?? false;
-    try {
-      const rawRows: any[] = await prisma.$queryRawUnsafe(
-        `SELECT \`videoUrl\`, \`allowVideo\` FROM \`QuickRegistration\` WHERE \`id\` = ?`,
-        quickRegistrationId
-      );
-      if (rawRows.length > 0) {
-        if (rawRows[0].videoUrl) videoUrl = rawRows[0].videoUrl;
-        allowVideo = rawRows[0].allowVideo === 1 || rawRows[0].allowVideo === true;
-      }
-    } catch (_) { /* column may not exist yet */ }
-
-    // 2. Find the matching Candidate by passport number
-    const candidate = await prisma.candidate.findFirst({
-      where: {
-        OR: [
-          { passportNumber: qr.passportNumber },
-          { passportNumber: qr.passportNumber?.toUpperCase() },
-          { passportNumber: qr.passportNumber?.toLowerCase() },
-        ]
-      }
+    const passportUpper = (qr.passportNumber || '').trim().toUpperCase();
+    const targetCandidate = await db.query.candidate.findFirst({
+      where: (c, { eq }) => eq(sql`upper(${c.passportNumber})`, passportUpper)
     });
 
-    if (!candidate) {
+    if (!targetCandidate) {
       return res.status(404).json({ error: `No candidate found with passport number ${qr.passportNumber}. Please complete full registration first.` });
     }
 
-    // 3. Push documents from QR into Candidate via raw SQL (safe for stale Prisma cache)
-    const setClauses: string[] = [];
-    const params: any[] = [];
+    const updateData: any = {
+      allowVideo: qr.allowVideo
+    };
 
-    if (qr.cocDocumentUrl) {
-      setClauses.push('`cocDocumentUrl` = ?');
-      params.push(qr.cocDocumentUrl);
-    }
-    if (qr.labourIdUrl) {
-      setClauses.push('`labourIdUrl` = ?');
-      params.push(qr.labourIdUrl);
-    }
-    if (qr.candidateIdImageUrl) {
-      setClauses.push('`candidateIdImageUrl` = ?');
-      params.push(qr.candidateIdImageUrl);
-    }
-    if (qr.relativeIdImageUrl) {
-      setClauses.push('`relativeIdImageUrl` = ?');
-      params.push(qr.relativeIdImageUrl);
-    }
+    if (qr.cocDocumentUrl) updateData.cocDocumentUrl = qr.cocDocumentUrl;
+    if (qr.labourIdUrl) updateData.labourIdUrl = qr.labourIdUrl;
+    if (qr.candidateIdImageUrl) updateData.candidateIdImageUrl = qr.candidateIdImageUrl;
+    if (qr.relativeIdImageUrl) updateData.relativeIdImageUrl = qr.relativeIdImageUrl;
+    
     let hasRemoteVideo = false;
-    if (videoUrl) {
-      if (videoUrl.startsWith('http')) {
-        setClauses.push('`Youtube_URL` = ?');
-        params.push(videoUrl);
+    if (qr.videoUrl) {
+      if (qr.videoUrl.startsWith('http')) {
+        updateData.videoUrl = qr.videoUrl;
         hasRemoteVideo = true;
       } else {
-        setClauses.push('`quickVideoUrl` = ?');
-        params.push(videoUrl);
+        updateData.quickVideoUrl = qr.videoUrl;
       }
     }
 
@@ -342,13 +218,11 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
       try {
         const pNum = (qr.passportNumber || '').trim().toUpperCase();
         if (pNum) {
-          const matchingVideo = await prisma.preRegisteredVideo.findUnique({
-            where: { passportNumber: pNum }
+          const matchingVideo = await db.query.preRegisteredVideo.findFirst({
+            where: eq(preRegisteredVideo.passportNumber, pNum)
           });
-
           if (matchingVideo) {
-            setClauses.push('`videoUrl` = ?');
-            params.push(matchingVideo.videoUrl);
+            updateData.videoUrl = matchingVideo.videoUrl;
             console.log(`[AUTO-MATCH-PROMOTE] Linked pre-registered YouTube video: ${matchingVideo.videoUrl}`);
           }
         }
@@ -357,36 +231,26 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
       }
     }
     if (qr.agency) {
-      setClauses.push('`agency` = ?');
-      params.push(qr.agency);
-    }
-    setClauses.push('`allowVideo` = ?');
-    params.push(allowVideo ? 1 : 0);
-
-    if (setClauses.length > 0) {
-      params.push(candidate.id);
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Candidate\` SET ${setClauses.join(', ')} WHERE \`id\` = ?`,
-        ...params
-      );
-      console.log(`[PROMOTE] Pushed ${setClauses.length} document fields from QR ${quickRegistrationId} to Candidate ${candidate.id}`);
+      updateData.agency = qr.agency;
     }
 
-    // 4. Mark QR as promoted
-    try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`QuickRegistration\` SET \`promotedAt\` = NOW(), \`promotedCandidateId\` = ?, \`verificationStatus\` = 'promoted' WHERE \`id\` = ?`,
-        candidate.id,
-        quickRegistrationId
-      );
-    } catch (e) {
-      console.error(`Failed to update QuickRegistration promotion via raw SQL:`, e);
-    }
+    await db.update(candidate)
+      .set(updateData)
+      .where(eq(candidate.id, targetCandidate.id));
+
+    // Mark QR as promoted
+    await db.update(quickRegistration)
+      .set({
+        promotedAt: new Date(),
+        promotedCandidateId: targetCandidate.id,
+        verificationStatus: 'promoted'
+      })
+      .where(eq(quickRegistration.id, quickRegistrationId));
 
     res.json({
       success: true,
-      candidateId: candidate.id,
-      message: `Documents successfully pushed to candidate ${candidate.passportNumber}`,
+      candidateId: targetCandidate.id,
+      message: `Documents successfully pushed to candidate ${targetCandidate.passportNumber}`,
     });
   } catch (error: any) {
     console.error('Failed to promote quick registration:', error);
@@ -399,30 +263,17 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const body = req.body;
 
-    // Ensure allowVideo columns exist in database (self-healing fallback)
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE \`Candidate\` ADD COLUMN \`allowVideo\` TINYINT(1) NOT NULL DEFAULT 0`);
-    } catch (_) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE \`QuickRegistration\` ADD COLUMN \`allowVideo\` TINYINT(1) NOT NULL DEFAULT 0`);
-    } catch (_) {}
-
-
     // Resolve logged in user from session to populate registeredById
     let registeredById = body.registeredById || null;
     let userRole = null;
     console.log('[DEBUG] POST /candidates - body.registeredById:', body.registeredById);
 
     try {
-      // Build proper Web Request for Better Auth
       const session = await getSession(req);
-
       if (session?.user?.id) {
         registeredById = session.user.id;
         userRole = (session?.user as any)?.role;
         console.log('[DEBUG] Resolved registeredById from server session:', registeredById, 'User Name:', session.user.name);
-      } else {
-        console.log('[DEBUG] Server session returned null or no user ID.');
       }
     } catch (sessionError) {
       console.error('[DEBUG] Failed to get session in POST candidate route:', sessionError);
@@ -450,17 +301,13 @@ router.post('/', async (req: Request, res: Response) => {
       uploadToLocal(body.videoUrl, 'videos')
     ]);
 
-    // Separate file counter for shelfId to prevent reuse when candidate is deleted
-    const fs = require('fs');
-    const path = require('path');
     const counterFilePath = path.join(process.cwd(), 'shelf_counter.json');
     let currentCounter = 0;
 
-    // 1. Try reading from file
     if (fs.existsSync(counterFilePath)) {
       try {
-        const data = fs.readFileSync(counterFilePath, 'utf8');
-        const parsed = JSON.parse(data);
+        const fileData = fs.readFileSync(counterFilePath, 'utf8');
+        const parsed = JSON.parse(fileData);
         if (typeof parsed.counter === 'number') {
           currentCounter = parsed.counter;
         }
@@ -469,11 +316,10 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    // 2. Fallback to DB if file counter is 0
     if (currentCounter === 0) {
-      const lastCand = await prisma.candidate.findFirst({
-        where: { shelfId: { not: null } },
-        orderBy: { shelfId: 'desc' }
+      const lastCand = await db.query.candidate.findFirst({
+        where: isNotNull(candidate.shelfId),
+        orderBy: (c, { desc }) => [desc(c.shelfId)]
       });
       if (lastCand && lastCand.shelfId) {
         const parsed = parseInt(lastCand.shelfId, 10);
@@ -485,7 +331,6 @@ router.post('/', async (req: Request, res: Response) => {
 
     const nextNum = currentCounter + 1;
 
-    // 3. Write back to file
     try {
       fs.writeFileSync(counterFilePath, JSON.stringify({ counter: nextNum }), 'utf8');
     } catch (e) {
@@ -499,10 +344,9 @@ router.post('/', async (req: Request, res: Response) => {
     try {
       const pNum = (body.passportData.passportNumber || '').trim().toUpperCase();
       if (pNum) {
-        const matchingVideo = await prisma.preRegisteredVideo.findUnique({
-          where: { passportNumber: pNum }
+        const matchingVideo = await db.query.preRegisteredVideo.findFirst({
+          where: eq(preRegisteredVideo.passportNumber, pNum)
         });
-
         if (matchingVideo) {
           matchedPreRegisteredVideoUrl = matchingVideo.videoUrl;
           console.log(`[AUTO-MATCH] Linked pre-registered video to Candidate: ${matchedPreRegisteredVideoUrl}`);
@@ -515,13 +359,16 @@ router.post('/', async (req: Request, res: Response) => {
     let finalBrokerId = body.personalInfo?.brokerId;
     if (userRole === 'calling' || body.personalInfo?.brokerId === 'calling-broker' || body.isCalling) {
       try {
-        let callingBroker = await prisma.broker.findUnique({
-          where: { name: 'Calling' }
+        let callingBroker = await db.query.broker.findFirst({
+          where: eq(broker.name, 'Calling')
         });
         if (!callingBroker) {
-          callingBroker = await prisma.broker.create({
-            data: { name: 'Calling' }
+          const newBrokerId = createId();
+          await db.insert(broker).values({
+            id: newBrokerId,
+            name: 'Calling'
           });
+          callingBroker = { id: newBrokerId, name: 'Calling', isLocked: false, createdAt: new Date(), leaderId: null };
         }
         finalBrokerId = callingBroker.id;
       } catch (brokerErr) {
@@ -529,144 +376,106 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    const candidateData: any = {
-        shelfId: nextShelfId,
-        passportNumber: body.passportData.passportNumber,
-        surname: body.passportData.surname,
-        givenNames: body.passportData.givenNames,
-        dateOfBirth: body.passportData.dateOfBirth ? new Date(body.passportData.dateOfBirth) : new Date(),
-        gender: body.passportData.gender,
-        nationality: body.passportData.nationality,
-        issuingCountry: body.passportData.issuingCountry,
-        dateOfIssue: body.passportData.dateOfIssue ? new Date(body.passportData.dateOfIssue) : new Date(),
-        dateOfExpiry: body.passportData.dateOfExpiry ? new Date(body.passportData.dateOfExpiry) : new Date(),
-        placeOfBirth: body.passportData.placeOfBirth,
+    const generatedId = createId();
 
-        idNumber: body.personalInfo.idNumber,
-        job: body.personalInfo.job,
-        maritalStatus: body.personalInfo.maritalStatus,
-        numberOfChildren: body.personalInfo.numberOfChildren,
-        religion: body.personalInfo.religion,
-        bloodType: body.personalInfo.bloodType,
-        height: body.personalInfo.height,
-        weight: body.personalInfo.weight,
-        phone: body.personalInfo.phone,
-        email: body.personalInfo.email,
-        address: body.personalInfo.address,
-        city: body.personalInfo.city,
-        state: body.personalInfo.state,
-        country: body.personalInfo.country,
-        educationLevel: body.personalInfo.educationLevel,
-        languages: body.personalInfo.languages,
-        workExperience: body.personalInfo.workExperience,
-        skills: body.personalInfo.skills,
-        medicalStatus: body.personalInfo.medicalStatus,
-        biometricStatus: body.personalInfo.biometricStatus,
-        medicalDate: body.personalInfo.medicalDate ? new Date(body.personalInfo.medicalDate) : null,
-        biometricDate: body.personalInfo.biometricDate ? new Date(body.personalInfo.biometricDate) : null,
-        knownConditions: body.personalInfo.knownConditions,
-        emergencyContactName: body.personalInfo.emergencyContactName,
-        emergencyContactRelation: body.personalInfo.emergencyContactRelation,
-        emergencyContactPhone: body.personalInfo.emergencyContactPhone,
-        emergencyContactAddress: body.personalInfo.emergencyContactAddress,
-        additionalPhones: body.personalInfo.additionalPhones || [],
-        ...(finalBrokerId ? {
-          broker: { connect: { id: finalBrokerId } }
-        } : {}),
+    const candidateValues: any = {
+      id: generatedId,
+      shelfId: nextShelfId,
+      passportNumber: body.passportData.passportNumber,
+      surname: body.passportData.surname,
+      givenNames: body.passportData.givenNames,
+      dateOfBirth: body.passportData.dateOfBirth ? new Date(body.passportData.dateOfBirth) : new Date(),
+      gender: body.passportData.gender,
+      nationality: body.passportData.nationality,
+      issuingCountry: body.passportData.issuingCountry,
+      dateOfIssue: body.passportData.dateOfIssue ? new Date(body.passportData.dateOfIssue) : new Date(),
+      dateOfExpiry: body.passportData.dateOfExpiry ? new Date(body.passportData.dateOfExpiry) : new Date(),
+      placeOfBirth: body.passportData.placeOfBirth,
 
-        passportImageUrl,
-        facePhotoUrl,
-        fullBodyPhotoUrl,
-        cocDocumentUrl,
-        medicalDocumentUrl,
-        candidateIdImageUrl,
-        relativeIdImageUrl,
-        labourIdUrl,
-        videoUrl: null, // YouTube URL saved separately via raw SQL
-        status: body.status || 'pending',
-        agency: body.agency || 'daera',
+      idNumber: body.personalInfo.idNumber,
+      job: body.personalInfo.job,
+      maritalStatus: body.personalInfo.maritalStatus,
+      numberOfChildren: body.personalInfo.numberOfChildren || 0,
+      religion: body.personalInfo.religion,
+      bloodType: body.personalInfo.bloodType,
+      height: body.personalInfo.height,
+      weight: body.personalInfo.weight,
+      phone: body.personalInfo.phone,
+      email: body.personalInfo.email,
+      address: body.personalInfo.address,
+      city: body.personalInfo.city,
+      state: body.personalInfo.state,
+      country: body.personalInfo.country,
+      educationLevel: body.personalInfo.educationLevel,
+      languages: body.personalInfo.languages,
+      workExperience: body.personalInfo.workExperience,
+      skills: body.personalInfo.skills,
+      medicalStatus: body.personalInfo.medicalStatus || 'Pending',
+      biometricStatus: body.personalInfo.biometricStatus || 'Pending',
+      medicalDate: body.personalInfo.medicalDate ? new Date(body.personalInfo.medicalDate) : null,
+      biometricDate: body.personalInfo.biometricDate ? new Date(body.personalInfo.biometricDate) : null,
+      knownConditions: body.personalInfo.knownConditions,
+      emergencyContactName: body.personalInfo.emergencyContactName,
+      emergencyContactRelation: body.personalInfo.emergencyContactRelation,
+      emergencyContactPhone: body.personalInfo.emergencyContactPhone,
+      emergencyContactAddress: body.personalInfo.emergencyContactAddress,
+      additionalPhones: body.personalInfo.additionalPhones || [],
+      brokerId: finalBrokerId || null,
+
+      passportImageUrl,
+      facePhotoUrl,
+      fullBodyPhotoUrl,
+      cocDocumentUrl,
+      medicalDocumentUrl,
+      candidateIdImageUrl,
+      relativeIdImageUrl,
+      labourIdUrl,
+      videoUrl: matchedPreRegisteredVideoUrl || (videoUrl && videoUrl.startsWith('http') ? videoUrl : null),
+      quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
+      status: body.status || 'pending',
+      agency: body.agency || 'daera',
+      salary: body.personalInfo?.salary || '1000SR',
+      allowVideo: body.allowVideo ? true : false,
+      registeredById,
+      price: body.price || null
     };
 
-    let candidate;
-    try {
-      candidate = await prisma.candidate.create({
-        data: { ...candidateData, registeredById: registeredById }
-      });
-    } catch (createError: any) {
-      console.error('[DEBUG] Prisma Create Error:', createError);
-      if (createError.message && (createError.message.includes('registeredById') || createError.message.includes('Unknown arg'))) {
-        console.warn('[DEBUG] Prisma schema out of sync (registeredById missing). Falling back to basic create.');
-        candidate = await prisma.candidate.create({
-          data: candidateData
-        });
-      } else {
-        throw new Error(`Database Error: ${createError.message}`);
-      }
+    await db.insert(candidate).values(candidateValues);
+
+    const createdCandidate = await db.query.candidate.findFirst({
+      where: eq(candidate.id, generatedId)
+    });
+
+    if (!createdCandidate) {
+      throw new Error('Failed to retrieve candidate after creation');
     }
 
-    // Save pre-registered video URL (from video uploads portal) if matched
-    if (matchedPreRegisteredVideoUrl) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`Youtube_URL\` = ? WHERE \`id\` = ?`,
-          matchedPreRegisteredVideoUrl,
-          candidate.id
-        );
-      } catch (err) {
-        console.error('Failed to save Youtube_URL via raw SQL:', err);
-      }
-    }
-
-    // Save salary separately with graceful fallback (in case column doesn't exist in DB yet)
-    try {
-      const salaryValue = body.personalInfo?.salary || '1000SR';
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Candidate\` SET \`salary\` = ? WHERE \`id\` = ?`,
-        salaryValue,
-        candidate.id
-      );
-    } catch (_) { /* salary column may not exist yet, ignore */ }
-
-    // Save agency separately with graceful fallback
-    try {
-      const agencyValue = body.agency || 'daera';
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Candidate\` SET \`agency\` = ? WHERE \`id\` = ?`,
-        agencyValue,
-        candidate.id
-      );
-    } catch (_) { /* agency column may not exist yet, ignore */ }
-
-    // Automatically create a GeneratedCV record for Calling candidates with the selected Office (template ID)
+    // Automatically create a GeneratedCV record for Calling candidates with the selected Office
     if (userRole === 'calling' || body.personalInfo?.brokerId === 'calling-broker' || body.isCalling) {
       const templateId = body.office || body.templateId || body.agency || '';
       const validTemplates = ['ussus', 'al-shablan', 'alm', 'ka7', 'ku2', 'ma', 'ra', 'vision'];
       if (validTemplates.includes(templateId.toLowerCase())) {
         try {
-          const existingCV = await prisma.generatedCV.findFirst({
-            where: {
-              candidateId: candidate.id,
-              templateId: templateId.toLowerCase()
-            }
+          const existingCV = await db.query.generatedCV.findFirst({
+            where: and(
+              eq(generatedCV.candidateId, createdCandidate.id),
+              eq(generatedCV.templateId, templateId.toLowerCase())
+            )
           });
           if (!existingCV) {
-            await prisma.generatedCV.create({
-              data: {
-                candidateId: candidate.id,
-                templateId: templateId.toLowerCase(),
-                facePhotoUrl: facePhotoUrl || null,
-                fullBodyPhotoUrl: null
-              }
+            await db.insert(generatedCV).values({
+              candidateId: createdCandidate.id,
+              templateId: templateId.toLowerCase(),
+              facePhotoUrl: facePhotoUrl || null,
+              fullBodyPhotoUrl: null
             });
             // Also update cvDeadline
             const deadline = new Date();
             deadline.setDate(deadline.getDate() + 30);
-            await prisma.$executeRawUnsafe(
-              `UPDATE \`Candidate\` SET \`cvDeadline\` = ? WHERE \`id\` = ?`,
-              deadline,
-              candidate.id
-            );
-            console.log(`[AUTO-CV] Created initial GeneratedCV for Calling candidate ${candidate.id} using template: ${templateId}`);
+            await db.update(candidate)
+              .set({ cvDeadline: deadline })
+              .where(eq(candidate.id, createdCandidate.id));
+            console.log(`[AUTO-CV] Created initial GeneratedCV for Calling candidate ${createdCandidate.id} using template: ${templateId}`);
           }
         } catch (cvErr) {
           console.error('[AUTO-CV] Failed to create initial GeneratedCV for calling candidate:', cvErr);
@@ -674,84 +483,37 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    // Save allowVideo separately with graceful fallback (to prevent schema validation errors on stale cPanel instances)
-    try {
-      const allowVideoVal = body.allowVideo ?? false;
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Candidate\` SET \`allowVideo\` = ? WHERE \`id\` = ?`,
-        allowVideoVal ? 1 : 0,
-        candidate.id
-      );
-      console.log(`[DEBUG] Saved allowVideo (${allowVideoVal}) via raw SQL in POST`);
-    } catch (e) {
-      console.error('Failed to save allowVideo via raw SQL in POST:', e);
-    }
-
-    // Save registeredById separately with graceful fallback (to prevent schema validation errors on stale cPanel instances)
-    if (registeredById) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`registeredById\` = ? WHERE \`id\` = ?`,
-          registeredById,
-          candidate.id
-        );
-        console.log(`[DEBUG] Saved registeredById (${registeredById}) via raw SQL in POST`);
-      } catch (e) {
-        console.error('Failed to save registeredById via raw SQL in POST:', e);
-      }
-    }
-
-    // Save entry page video URL (local or remote) to quickVideoUrl
-    if (videoUrl) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`quickVideoUrl\` = ? WHERE \`id\` = ?`,
-          videoUrl,
-          candidate.id
-        );
-      } catch (err) {
-        console.error('Failed to save quickVideoUrl via raw SQL:', err);
-      }
-    }
-
     // If quickRegistrationId is provided, mark it as promoted
     if (body.quickRegistrationId) {
       try {
-        // Query allowVideo from QuickRegistration
-        const qrRows: any[] = await prisma.$queryRawUnsafe(
-          `SELECT \`allowVideo\` FROM \`QuickRegistration\` WHERE \`id\` = ?`,
-          body.quickRegistrationId
-        );
-        let qrAllowVideo = false;
-        if (qrRows && qrRows.length > 0) {
-          qrAllowVideo = qrRows[0].allowVideo === 1 || qrRows[0].allowVideo === true;
-          // Update the newly created Candidate's allowVideo field
-          await prisma.$executeRawUnsafe(
-            `UPDATE \`Candidate\` SET \`allowVideo\` = ? WHERE \`id\` = ?`,
-            qrAllowVideo ? 1 : 0,
-            candidate.id
-          );
-          console.log(`[DEBUG] Copied allowVideo (${qrAllowVideo}) from QuickRegistration to Candidate ${candidate.id}`);
+        const qrRecord = await db.query.quickRegistration.findFirst({
+          where: eq(quickRegistration.id, body.quickRegistrationId)
+        });
+        if (qrRecord) {
+          await db.update(candidate)
+            .set({ allowVideo: qrRecord.allowVideo })
+            .where(eq(candidate.id, createdCandidate.id));
         }
 
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`QuickRegistration\` SET \`promotedAt\` = NOW(), \`promotedCandidateId\` = ?, \`verificationStatus\` = 'promoted' WHERE \`id\` = ?`,
-          candidate.id,
-          body.quickRegistrationId
-        );
-        console.log(`[DEBUG] Successfully promoted QuickRegistration ID ${body.quickRegistrationId} to Candidate ID ${candidate.id}`);
+        await db.update(quickRegistration)
+          .set({
+            promotedAt: new Date(),
+            promotedCandidateId: createdCandidate.id,
+            verificationStatus: 'promoted'
+          })
+          .where(eq(quickRegistration.id, body.quickRegistrationId));
       } catch (promotionError) {
         console.error(`[DEBUG] Failed to update QuickRegistration promotion:`, promotionError);
       }
     }
 
-    res.status(201).json(candidate);
+    res.status(201).json(createdCandidate);
   } catch (error: any) {
     console.error('Failed to create candidate:', error);
-    if (error?.code === 'P2002') {
+    if (error.message?.includes('Duplicate entry') || error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'A candidate with this Passport Number already exists in the system.' });
     }
-    res.status(500).json({ error: formatPrismaError(error) });
+    res.status(500).json({ error: error.message || String(error) });
   }
 });
 
@@ -759,27 +521,20 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/by-passport/:passportNumber', async (req: Request, res: Response) => {
   try {
     const { passportNumber } = req.params;
-    const candidate = await prisma.candidate.findFirst({
-      where: {
-        OR: [
-          { passportNumber: passportNumber },
-          { passportNumber: passportNumber.toUpperCase() },
-          { passportNumber: passportNumber.toLowerCase() },
-        ]
-      },
-      select: {
-        givenNames: true,
-        surname: true
-      }
+    const passportUpper = passportNumber.trim().toUpperCase();
+
+    const cand = await db.query.candidate.findFirst({
+      where: (c, { eq }) => eq(sql`upper(${c.passportNumber})`, passportUpper),
+      columns: { givenNames: true, surname: true }
     });
 
-    if (!candidate) {
+    if (!cand) {
       return res.json({ found: false });
     }
 
     res.json({
       found: true,
-      fullName: `${candidate.surname} ${candidate.givenNames}`.trim()
+      fullName: `${cand.surname} ${cand.givenNames}`.trim()
     });
   } catch (err: any) {
     console.error('Failed to lookup candidate by passport:', err);
@@ -794,48 +549,22 @@ router.get('/:id', async (req: Request, res: Response) => {
     const role = (session?.user as any)?.role;
     const isSuperAdmin = role === 'super_admin';
     const { id } = req.params;
-    let c;
-    try {
-      c = await prisma.candidate.findUnique({ 
-        where: { id },
-        include: { 
-          broker: true,
-          generatedCVs: { orderBy: { createdAt: 'desc' }, take: 1 },
-          registeredBy: { select: { name: true } }
-        }
-      });
-    } catch (schemaError) {
-      console.warn('Prisma schema out of sync (registeredBy missing) in GET /:id. Falling back.');
-      c = await prisma.candidate.findUnique({ 
-        where: { id },
-        include: { 
-          broker: true,
-          generatedCVs: { orderBy: { createdAt: 'desc' }, take: 1 }
-        }
-      });
-    }
+
+    const c = await db.query.candidate.findFirst({
+      where: eq(candidate.id, id),
+      with: {
+        broker: true,
+        generatedCVs: {
+          orderBy: (gc, { desc }) => [desc(gc.createdAt)],
+          limit: 1
+        },
+        registeredBy: { columns: { name: true } }
+      }
+    });
+
     if (!c) return res.status(404).json({ error: 'Not found' });
 
-    // Read Youtube_URL, deployedDate, isLocked and price via raw SQL
-    let youtubeUrl: string | null = null;
-    let candidateDeployedDate: string | null = null;
-    let candidateIsLocked = false;
-    let candidateCvDownloaded = false;
-    let candidatePrice: string | null = null;
-    try {
-      const rawRows: any[] = await prisma.$queryRawUnsafe(
-        `SELECT Youtube_URL, deployedDate, isLocked, cvDownloaded, price FROM \`Candidate\` WHERE id = ?`, id
-      );
-      if (rawRows.length > 0) {
-        youtubeUrl = rawRows[0].Youtube_URL || null;
-        candidateDeployedDate = rawRows[0].deployedDate ? new Date(rawRows[0].deployedDate).toISOString() : null;
-        candidateIsLocked = rawRows[0].isLocked === 1 || rawRows[0].isLocked === true;
-        candidateCvDownloaded = rawRows[0].cvDownloaded === 1 || rawRows[0].cvDownloaded === true;
-        candidatePrice = rawRows[0].price || null;
-      }
-    } catch (_) { /* columns may not exist yet */ }
-
-    const candidate = {
+    const formatted = {
       id: c.id,
       shelfId: c.shelfId,
       cvDeadline: c.cvDeadline?.toISOString().split('T')[0],
@@ -899,25 +628,26 @@ router.get('/:id', async (req: Request, res: Response) => {
       status: c.status,
       isRequested: c.isRequested,
       visaOrContractNumber: c.visaOrContractNumber || null,
-      videoUrl: encryptPath(youtubeUrl ?? (c as any).videoUrl ?? null),
-      Youtube_URL: youtubeUrl,
-      quickVideoUrl: encryptPath((c as any).quickVideoUrl || null),
-      deployedDate: candidateDeployedDate,
+      videoUrl: encryptPath(c.videoUrl),
+      Youtube_URL: c.videoUrl,
+      quickVideoUrl: encryptPath(c.quickVideoUrl),
+      deployedDate: c.deployedDate ? c.deployedDate.toISOString() : null,
       registeredAt: c.registeredAt.toISOString(),
       broker: c.broker,
       visaSelected: c.visaSelected,
       visaDate: c.visaDate ? c.visaDate.toISOString() : null,
       salary: c.salary || '1000SR',
-      isLocked: candidateIsLocked,
-      cvDownloaded: candidateCvDownloaded,
+      isLocked: c.isLocked ?? false,
+      cvDownloaded: c.cvDownloaded ?? false,
       latestCVTemplate: c.generatedCVs?.[0]?.templateId || null,
-      registeredBy: (c as any).registeredBy?.name || 'Admin',
+      registeredBy: c.registeredBy?.name || 'Admin',
       agency: c.agency || 'daera',
       allowVideo: c.allowVideo ?? false,
-      price: isSuperAdmin ? candidatePrice : null,
+      price: isSuperAdmin ? c.price : null,
     };
-    res.json(candidate);
+    res.json(formatted);
   } catch (error) {
+    console.error('Failed to get candidate:', error);
     res.status(500).json({ error: 'Failed' });
   }
 });
@@ -926,23 +656,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
     const body = req.body;
     
-    // Extract and strip price field to bypass stale Prisma client static schema errors
     const priceVal = body.price;
     delete body.price;
     if (body.personalInfo) {
       delete body.personalInfo.price;
     }
-
-    // Ensure allowVideo columns exist in database (self-healing fallback)
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE \`Candidate\` ADD COLUMN \`allowVideo\` TINYINT(1) NOT NULL DEFAULT 0`);
-    } catch (_) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE \`QuickRegistration\` ADD COLUMN \`allowVideo\` TINYINT(1) NOT NULL DEFAULT 0`);
-    } catch (_) {}
 
     // Resolve logged in user from session to populate registeredById
     let registeredById = body.registeredById || null;
@@ -950,12 +670,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     try {
       const session = await getSession(req);
-
       if (session?.user?.id) {
         registeredById = session.user.id;
         console.log('[DEBUG] Resolved registeredById from server session in PUT:', registeredById);
-      } else {
-        console.log('[DEBUG] Server session returned null or no user ID in PUT.');
       }
     } catch (sessionError) {
       console.error('[DEBUG] Failed to get session in PUT candidate route:', sessionError);
@@ -983,171 +700,104 @@ router.put('/:id', async (req: Request, res: Response) => {
       uploadToLocal(body.videoUrl, 'videos')
     ]);
 
-    const existingCandidate = await prisma.candidate.findUnique({ where: { id } });
-    let visaDateVal = existingCandidate?.visaDate;
+    const existingCandidate = await db.query.candidate.findFirst({ where: eq(candidate.id, id) });
+    if (!existingCandidate) return res.status(404).json({ error: 'Candidate not found' });
+
+    let visaDateVal = existingCandidate.visaDate;
     if (body.visaSelected) {
-      visaDateVal = existingCandidate?.visaDate || new Date();
+      visaDateVal = existingCandidate.visaDate || new Date();
     } else if (body.visaSelected === false) {
       visaDateVal = null;
     }
 
-    const candidate = await prisma.candidate.update({
-      where: { id },
-      data: {
-        passportNumber: body.passportData.passportNumber,
-        surname: body.passportData.surname,
-        givenNames: body.passportData.givenNames,
-        dateOfBirth: body.passportData.dateOfBirth ? new Date(body.passportData.dateOfBirth) : new Date(),
-        gender: body.passportData.gender,
-        nationality: body.passportData.nationality,
-        issuingCountry: body.passportData.issuingCountry,
-        dateOfIssue: body.passportData.dateOfIssue ? new Date(body.passportData.dateOfIssue) : new Date(),
-        dateOfExpiry: body.passportData.dateOfExpiry ? new Date(body.passportData.dateOfExpiry) : new Date(),
-        placeOfBirth: body.passportData.placeOfBirth,
+    const updateData: any = {
+      passportNumber: body.passportData.passportNumber,
+      surname: body.passportData.surname,
+      givenNames: body.passportData.givenNames,
+      dateOfBirth: body.passportData.dateOfBirth ? new Date(body.passportData.dateOfBirth) : new Date(),
+      gender: body.passportData.gender,
+      nationality: body.passportData.nationality,
+      issuingCountry: body.passportData.issuingCountry,
+      dateOfIssue: body.passportData.dateOfIssue ? new Date(body.passportData.dateOfIssue) : new Date(),
+      dateOfExpiry: body.passportData.dateOfExpiry ? new Date(body.passportData.dateOfExpiry) : new Date(),
+      placeOfBirth: body.passportData.placeOfBirth,
 
-        idNumber: body.personalInfo.idNumber,
-        job: body.personalInfo.job,
-        maritalStatus: body.personalInfo.maritalStatus,
-        numberOfChildren: body.personalInfo.numberOfChildren,
-        religion: body.personalInfo.religion,
-        bloodType: body.personalInfo.bloodType,
-        height: body.personalInfo.height,
-        weight: body.personalInfo.weight,
-        phone: body.personalInfo.phone,
-        email: body.personalInfo.email,
-        address: body.personalInfo.address,
-        city: body.personalInfo.city,
-        state: body.personalInfo.state,
-        country: body.personalInfo.country,
-        educationLevel: body.personalInfo.educationLevel,
-        languages: body.personalInfo.languages,
-        workExperience: body.personalInfo.workExperience,
-        skills: body.personalInfo.skills,
-        medicalStatus: body.personalInfo.medicalStatus,
-        biometricStatus: body.personalInfo.biometricStatus,
-        medicalDate: body.personalInfo.medicalDate ? new Date(body.personalInfo.medicalDate) : null,
-        biometricDate: body.personalInfo.biometricDate ? new Date(body.personalInfo.biometricDate) : null,
-        knownConditions: body.personalInfo.knownConditions,
-        emergencyContactName: body.personalInfo.emergencyContactName,
-        emergencyContactRelation: body.personalInfo.emergencyContactRelation,
-        emergencyContactPhone: body.personalInfo.emergencyContactPhone,
-        emergencyContactAddress: body.personalInfo.emergencyContactAddress,
-        additionalPhones: body.personalInfo.additionalPhones || [],
-        ...(body.personalInfo.brokerId ? {
-          broker: { connect: { id: body.personalInfo.brokerId } }
-        } : {
-          broker: { disconnect: true }
-        }),
+      idNumber: body.personalInfo.idNumber,
+      job: body.personalInfo.job,
+      maritalStatus: body.personalInfo.maritalStatus,
+      numberOfChildren: body.personalInfo.numberOfChildren || 0,
+      religion: body.personalInfo.religion,
+      bloodType: body.personalInfo.bloodType,
+      height: body.personalInfo.height,
+      weight: body.personalInfo.weight,
+      phone: body.personalInfo.phone,
+      email: body.personalInfo.email,
+      address: body.personalInfo.address,
+      city: body.personalInfo.city,
+      state: body.personalInfo.state,
+      country: body.personalInfo.country,
+      educationLevel: body.personalInfo.educationLevel,
+      languages: body.personalInfo.languages,
+      workExperience: body.personalInfo.workExperience,
+      skills: body.personalInfo.skills,
+      medicalStatus: body.personalInfo.medicalStatus,
+      biometricStatus: body.personalInfo.biometricStatus,
+      medicalDate: body.personalInfo.medicalDate ? new Date(body.personalInfo.medicalDate) : null,
+      biometricDate: body.personalInfo.biometricDate ? new Date(body.personalInfo.biometricDate) : null,
+      knownConditions: body.personalInfo.knownConditions,
+      emergencyContactName: body.personalInfo.emergencyContactName,
+      emergencyContactRelation: body.personalInfo.emergencyContactRelation,
+      emergencyContactPhone: body.personalInfo.emergencyContactPhone,
+      emergencyContactAddress: body.personalInfo.emergencyContactAddress,
+      additionalPhones: body.personalInfo.additionalPhones || [],
+      brokerId: body.personalInfo.brokerId || null,
 
-        ...(passportImageUrl && { passportImageUrl }),
-        ...(facePhotoUrl && { facePhotoUrl }),
-        ...(fullBodyPhotoUrl && { fullBodyPhotoUrl }),
-        ...(cocDocumentUrl && { cocDocumentUrl }),
-        ...(medicalDocumentUrl && { medicalDocumentUrl }),
-        ...(candidateIdImageUrl && { candidateIdImageUrl }),
-        ...(relativeIdImageUrl && { relativeIdImageUrl }),
-        ...(labourIdUrl && { labourIdUrl }),
-        ...(videoUrl && videoUrl.startsWith('http') ? {} : (videoUrl ? { videoUrl } : {})),
-        status: body.status,
-        isRequested: body.isRequested,
-        visaSelected: body.visaSelected,
-        agency: body.agency,
-      },
+      status: body.status,
+      isRequested: body.isRequested,
+      visaSelected: body.visaSelected,
+      agency: body.agency,
+      visaDate: visaDateVal,
+      salary: body.personalInfo?.salary || '1000SR',
+      allowVideo: body.allowVideo ? true : false,
+      price: priceVal !== undefined ? priceVal : existingCandidate.price
+    };
+
+    if (passportImageUrl) updateData.passportImageUrl = passportImageUrl;
+    if (facePhotoUrl) updateData.facePhotoUrl = facePhotoUrl;
+    if (fullBodyPhotoUrl) updateData.fullBodyPhotoUrl = fullBodyPhotoUrl;
+    if (cocDocumentUrl) updateData.cocDocumentUrl = cocDocumentUrl;
+    if (medicalDocumentUrl) updateData.medicalDocumentUrl = medicalDocumentUrl;
+    if (candidateIdImageUrl) updateData.candidateIdImageUrl = candidateIdImageUrl;
+    if (relativeIdImageUrl) updateData.relativeIdImageUrl = relativeIdImageUrl;
+    if (labourIdUrl) updateData.labourIdUrl = labourIdUrl;
+    
+    if (videoUrl) {
+      if (videoUrl.startsWith('http')) {
+        updateData.videoUrl = videoUrl;
+      } else {
+        updateData.quickVideoUrl = videoUrl;
+      }
+    }
+
+    if (!existingCandidate.registeredById && registeredById) {
+      updateData.registeredById = registeredById;
+    }
+
+    await db.update(candidate)
+      .set(updateData)
+      .where(eq(candidate.id, id));
+
+    const updatedCandidate = await db.query.candidate.findFirst({
+      where: eq(candidate.id, id)
     });
 
-    // Save allowVideo separately with graceful fallback (to prevent schema validation errors on stale cPanel instances)
-    try {
-      const allowVideoVal = body.allowVideo ?? false;
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Candidate\` SET \`allowVideo\` = ? WHERE \`id\` = ?`,
-        allowVideoVal ? 1 : 0,
-        candidate.id
-      );
-      console.log(`[DEBUG] Saved allowVideo (${allowVideoVal}) via raw SQL in PUT`);
-    } catch (e) {
-      console.error('Failed to save allowVideo via raw SQL in PUT:', e);
-    }
-
-    // Save YouTube URL separately via raw SQL
-    if (videoUrl && videoUrl.startsWith('http')) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`Youtube_URL\` = ? WHERE \`id\` = ?`,
-          videoUrl,
-          candidate.id
-        );
-      } catch (err) {
-        console.warn('[DEBUG] Failed to save Youtube_URL via raw SQL:', err);
-      }
-    }
-
-    // Save registeredById separately with graceful fallback (to prevent schema validation errors on stale cPanel instances)
-    if (!existingCandidate?.registeredById && registeredById) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`registeredById\` = ? WHERE \`id\` = ?`,
-          registeredById,
-          candidate.id
-        );
-      } catch (e) {
-        console.warn('[DEBUG] Failed to save registeredById via raw SQL (schema may be out of sync):', e);
-      }
-    }
-
-    // Save agency separately with graceful fallback
-    if (body.agency) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`agency\` = ? WHERE \`id\` = ?`,
-          body.agency,
-          candidate.id
-        );
-      } catch (err) {
-        console.warn('[DEBUG] Failed to save agency via raw SQL in PUT:', err);
-      }
-    }
-
-    // Save visaDate separately with graceful fallback (to prevent schema validation errors on stale cPanel instances)
-    try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Candidate\` SET \`visaDate\` = ? WHERE \`id\` = ?`,
-        visaDateVal,
-        candidate.id
-      );
-    } catch (e) {
-      console.error('Failed to save visaDate via raw SQL:', e);
-    }
-
-    // Save salary separately with graceful fallback (in case column doesn't exist in DB yet)
-    try {
-      const salaryValue = body.personalInfo?.salary || '1000SR';
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Candidate\` SET \`salary\` = ? WHERE \`id\` = ?`,
-        salaryValue,
-        candidate.id
-      );
-    } catch (_) { /* salary column may not exist yet, ignore */ }
-
-    // Save price separately with graceful fallback (to prevent schema validation errors on stale cPanel instances)
-    if (priceVal !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`price\` = ? WHERE \`id\` = ?`,
-          priceVal,
-          candidate.id
-        );
-      } catch (e) {
-        console.error('Failed to save price via raw SQL in PUT:', e);
-      }
-    }
-
-    res.json(candidate);
+    res.json(updatedCandidate);
   } catch (error: any) {
     console.error('Failed to update candidate:', error);
-    if (error?.code === 'P2002') {
+    if (error.message?.includes('Duplicate entry') || error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'A candidate with this Passport Number already exists.' });
     }
-    res.status(500).json({ error: formatPrismaError(error) });
+    res.status(500).json({ error: error.message || String(error) });
   }
 });
 
@@ -1159,33 +809,27 @@ router.patch('/bulk-cv-downloaded', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'candidateIds must be a non-empty array' });
     }
     
-    // Perform bulk update using raw SQL to be safe
-    const placeholders = candidateIds.map(() => '?').join(', ');
-    await prisma.$executeRawUnsafe(
-      `UPDATE \`Candidate\` SET \`cvDownloaded\` = ? WHERE \`id\` IN (${placeholders})`,
-      cvDownloaded ? 1 : 0,
-      ...candidateIds
-    );
+    await db.update(candidate)
+      .set({ cvDownloaded })
+      .where(inArray(candidate.id, candidateIds));
 
-    // If marked as downloaded, make sure GeneratedCV entries exist so they appear in CV downloaded list
+    // If marked as downloaded, make sure GeneratedCV entries exist
     if (cvDownloaded) {
       for (const id of candidateIds) {
         try {
-          const existing = await prisma.generatedCV.findFirst({
-            where: { candidateId: id }
+          const existing = await db.query.generatedCV.findFirst({
+            where: eq(generatedCV.candidateId, id)
           });
           if (!existing) {
-            const candidate = await prisma.candidate.findUnique({
-              where: { id }
+            const cand = await db.query.candidate.findFirst({
+              where: eq(candidate.id, id)
             });
-            if (candidate) {
-              await prisma.generatedCV.create({
-                data: {
-                  candidateId: id,
-                  templateId: 'alm',
-                  facePhotoUrl: candidate.facePhotoUrl || '',
-                  fullBodyPhotoUrl: candidate.fullBodyPhotoUrl || ''
-                }
+            if (cand) {
+              await db.insert(generatedCV).values({
+                candidateId: id,
+                templateId: 'alm',
+                facePhotoUrl: cand.facePhotoUrl || '',
+                fullBodyPhotoUrl: cand.fullBodyPhotoUrl || ''
               });
             }
           }
@@ -1212,52 +856,15 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     if (body.medicalStatus === 'Unfit') {
       body.isRequested = true;
-      // Only delete CVs if they are UNFIT
-      await prisma.generatedCV.deleteMany({
-        where: { candidateId: id }
-      });
+      // Delete CVs if they are UNFIT
+      await db.delete(generatedCV).where(eq(generatedCV.candidateId, id));
     }
 
-    // Ensure isFlagged is handled correctly if passed
     if (body.isFlagged !== undefined) {
       body.isFlagged = Boolean(body.isFlagged);
     }
 
-    // Handle isLocked via raw SQL to bypass stale Prisma Client
-    const isLockedVal = body.isLocked;
-    delete body.isLocked;
-
-    // Handle cvDownloaded via raw SQL to bypass stale Prisma Client
-    const cvDownloadedVal = body.cvDownloaded;
-    delete body.cvDownloaded;
-
-    // Extract and strip price field to bypass stale Prisma client static schema errors
-    const priceVal = body.price;
-    delete body.price;
-    if (body.personalInfo) {
-      delete body.personalInfo.price;
-    }
-
-    const videoUrlVal = body.videoUrl;
-    const allowVideoVal = body.allowVideo;
-
-    let visaDateVal: any = undefined;
-    if (body.visaSelected) {
-      const existing = await prisma.candidate.findUnique({ where: { id } });
-      visaDateVal = existing?.visaDate || new Date();
-    } else if (body.visaSelected === false) {
-      visaDateVal = null;
-    }
-
-    // Strip videoUrl and deployedDate from the payload to prevent Prisma Client validation error on stale client builds
-    delete body.visaDate;
-    delete body.videoUrl;
-    delete body.allowVideo;
-    const deployedDateVal = body.deployedDate;
-    delete body.deployedDate;
-    delete body.Youtube_URL;
-
-    // Process base64 file uploads if any are passed
+    // Process base64 files
     const docFields = [
       { key: 'passportImageUrl', dir: 'passports' },
       { key: 'facePhotoUrl', dir: 'faces' },
@@ -1283,8 +890,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 
     let quickVideoUrlVal = body.quickVideoUrl;
-    delete body.quickVideoUrl;
-
     if (quickVideoUrlVal) {
       quickVideoUrlVal = sanitizeIncomingPath(quickVideoUrlVal);
       if (quickVideoUrlVal.startsWith('data:')) {
@@ -1296,150 +901,86 @@ router.patch('/:id', async (req: Request, res: Response) => {
       }
     }
 
-    const updated = await prisma.candidate.update({
-      where: { id },
-      data: body,
+    const existingCandidate = await db.query.candidate.findFirst({ where: eq(candidate.id, id) });
+    if (!existingCandidate) return res.status(404).json({ error: 'Candidate not found' });
+
+    let visaDateVal = body.visaDate;
+    if (body.visaSelected !== undefined) {
+      if (body.visaSelected) {
+        visaDateVal = existingCandidate.visaDate || new Date();
+      } else {
+        visaDateVal = null;
+      }
+    }
+
+    const updateData: any = {};
+    const stringFields = [
+      'shelfId', 'passportNumber', 'surname', 'givenNames', 'gender', 'nationality',
+      'issuingCountry', 'placeOfBirth', 'idNumber', 'job', 'maritalStatus', 'religion',
+      'bloodType', 'height', 'weight', 'phone', 'email', 'address', 'city', 'state',
+      'country', 'educationLevel', 'medicalStatus', 'biometricStatus', 'knownConditions',
+      'emergencyContactName', 'emergencyContactRelation', 'emergencyContactPhone',
+      'emergencyContactAddress', 'passportImageUrl', 'facePhotoUrl', 'fullBodyPhotoUrl',
+      'cocDocumentUrl', 'medicalDocumentUrl', 'candidateIdImageUrl', 'relativeIdImageUrl',
+      'labourIdUrl', 'status', 'agency', 'salary', 'price'
+    ];
+
+    stringFields.forEach(f => {
+      if (body[f] !== undefined) updateData[f] = body[f];
     });
 
-    // Save quickVideoUrl separately via raw SQL to bypass stale Prisma client static schema check
-    if (quickVideoUrlVal !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`quickVideoUrl\` = ? WHERE \`id\` = ?`,
-          quickVideoUrlVal || null,
-          id
-        );
-        (updated as any).quickVideoUrl = quickVideoUrlVal;
-      } catch (err) {
-        console.error('Failed to save quickVideoUrl via raw SQL in PATCH:', err);
-      }
+    const dateFields = ['dateOfBirth', 'dateOfIssue', 'dateOfExpiry', 'medicalDate', 'biometricDate', 'cvDeadline'];
+    dateFields.forEach(f => {
+      if (body[f] !== undefined) updateData[f] = body[f] ? new Date(body[f]) : null;
+    });
+
+    const jsonFields = ['languages', 'workExperience', 'skills', 'additionalPhones'];
+    jsonFields.forEach(f => {
+      if (body[f] !== undefined) updateData[f] = body[f];
+    });
+
+    const booleanFields = ['isRequested', 'isFlagged', 'visaSelected', 'isLocked', 'cvDownloaded', 'allowVideo'];
+    booleanFields.forEach(f => {
+      if (body[f] !== undefined) updateData[f] = Boolean(body[f]);
+    });
+
+    if (body.numberOfChildren !== undefined) updateData.numberOfChildren = parseInt(body.numberOfChildren) || 0;
+    if (body.brokerId !== undefined) updateData.brokerId = body.brokerId || null;
+
+    if (quickVideoUrlVal !== undefined) updateData.quickVideoUrl = quickVideoUrlVal;
+    if (body.videoUrl !== undefined) updateData.videoUrl = sanitizeIncomingPath(body.videoUrl);
+    if (visaDateVal !== undefined) updateData.visaDate = visaDateVal;
+    
+    if (body.deployedDate !== undefined) {
+      updateData.deployedDate = body.deployedDate ? new Date(body.deployedDate) : null;
     }
 
-    // Save videoUrl separately if passed (updates Youtube_URL database column)
-    if (videoUrlVal !== undefined) {
-      try {
-        const sanitizedVideoUrl = sanitizeIncomingPath(videoUrlVal);
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`Youtube_URL\` = ? WHERE \`id\` = ?`,
-          sanitizedVideoUrl || null,
-          id
-        );
-        (updated as any).videoUrl = sanitizedVideoUrl;
-      } catch (e) {
-        console.error('Failed to save Youtube_URL via raw SQL in PATCH:', e);
-      }
-    }
+    await db.update(candidate)
+      .set(updateData)
+      .where(eq(candidate.id, id));
 
-    // Save allowVideo if passed
-    if (allowVideoVal !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`allowVideo\` = ? WHERE \`id\` = ?`,
-          allowVideoVal ? 1 : 0,
-          id
-        );
-        (updated as any).allowVideo = Boolean(allowVideoVal);
-      } catch (e) {
-        console.error('Failed to save allowVideo via raw SQL in PATCH:', e);
-      }
-    }
+    const updated = await db.query.candidate.findFirst({
+      where: eq(candidate.id, id)
+    });
 
-    if (visaDateVal !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`visaDate\` = ? WHERE \`id\` = ?`,
-          visaDateVal,
-          id
-        );
-        updated.visaDate = visaDateVal;
-      } catch (e) {
-        console.error('Failed to save visaDate via raw SQL:', e);
-      }
-    }
-
-    // Save deployedDate if passed
-    if (deployedDateVal !== undefined) {
-      try {
-        const depDateParsed = deployedDateVal ? new Date(deployedDateVal) : null;
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`deployedDate\` = ? WHERE \`id\` = ?`,
-          depDateParsed,
-          id
-        );
-        (updated as any).deployedDate = depDateParsed;
-      } catch (e) {
-        console.error('Failed to save deployedDate via raw SQL:', e);
-      }
-    }
-
-    // Save isLocked if passed
-    if (isLockedVal !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`isLocked\` = ? WHERE \`id\` = ?`,
-          isLockedVal ? 1 : 0,
-          id
-        );
-        (updated as any).isLocked = Boolean(isLockedVal);
-      } catch (e) {
-        console.error('Failed to save isLocked via raw SQL:', e);
-      }
-    }
-
-    // Save cvDownloaded if passed
-    if (cvDownloadedVal !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`cvDownloaded\` = ? WHERE \`id\` = ?`,
-          cvDownloadedVal ? 1 : 0,
-          id
-        );
-        (updated as any).cvDownloaded = Boolean(cvDownloadedVal);
-
-        // If marked as downloaded, make sure GeneratedCV entry exists so they appear in CV downloaded list
-        if (cvDownloadedVal === true || cvDownloadedVal === 1) {
-          const existing = await prisma.generatedCV.findFirst({
-            where: { candidateId: id }
-          });
-          if (!existing) {
-            const candidateObj = await prisma.candidate.findUnique({
-              where: { id }
-            });
-            if (candidateObj) {
-              await prisma.generatedCV.create({
-                data: {
-                  candidateId: id,
-                  templateId: 'alm',
-                  facePhotoUrl: candidateObj.facePhotoUrl || '',
-                  fullBodyPhotoUrl: candidateObj.fullBodyPhotoUrl || ''
-                }
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Failed to save cvDownloaded / auto-create GeneratedCV via raw SQL:', e);
-      }
-    }
-
-    // Save price if passed
-    if (priceVal !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Candidate\` SET \`price\` = ? WHERE \`id\` = ?`,
-          priceVal,
-          id
-        );
-        (updated as any).price = priceVal;
-      } catch (e) {
-        console.error('Failed to save price via raw SQL in PATCH:', e);
+    if (updated && (updateData.cvDownloaded === true)) {
+      const existing = await db.query.generatedCV.findFirst({
+        where: eq(generatedCV.candidateId, id)
+      });
+      if (!existing) {
+        await db.insert(generatedCV).values({
+          candidateId: id,
+          templateId: 'alm',
+          facePhotoUrl: updated.facePhotoUrl || '',
+          fullBodyPhotoUrl: updated.fullBodyPhotoUrl || ''
+        });
       }
     }
 
     res.json(updated);
   } catch (error: any) {
     console.error('Failed to update candidate:', error);
-    res.status(500).json({ error: formatPrismaError(error) });
+    res.status(500).json({ error: error.message || String(error) });
   }
 });
 
@@ -1448,47 +989,25 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    await db.transaction(async (tx) => {
+      // 1. Delete generated CVs
+      await tx.delete(generatedCV).where(eq(generatedCV.candidateId, id));
 
-    // 1. Delete all generated CVs
-    try {
-      await prisma.generatedCV.deleteMany({
-        where: { candidateId: id }
-      });
-    } catch (e) {
-      console.warn(`Failed to delete related GeneratedCVs for candidate ${id}:`, e);
-    }
+      // 2. Delete invoices
+      await tx.delete(invoice).where(eq(invoice.candidateId, id));
 
-    // 2. Delete all related invoices
-    try {
-      await prisma.invoice.deleteMany({
-        where: { candidateId: id }
-      });
-    } catch (e) {
-      console.warn(`Failed to delete related Invoices for candidate ${id}:`, e);
-    }
+      // 3. Delete notifications
+      await tx.delete(notification).where(eq(notification.candidateId, id));
 
-    // 3. Delete related notifications
-    try {
-      await prisma.notification.deleteMany({
-        where: { candidateId: id }
-      });
-    } catch (e) {
-      console.warn(`Failed to delete related Notifications for candidate ${id}:`, e);
-    }
+      // 4. Update QuickRegistration promotions
+      await tx.update(quickRegistration)
+        .set({ promotedCandidateId: null, verificationStatus: 'verified' })
+        .where(eq(quickRegistration.promotedCandidateId, id));
 
-    // 4. Update QuickRegistration entries to null out promotedCandidateId
-    try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`QuickRegistration\` SET \`promotedCandidateId\` = NULL, \`verificationStatus\` = 'verified' WHERE \`promotedCandidateId\` = ?`,
-        id
-      );
-    } catch (e) {
-      console.warn(`Failed to null out related QuickRegistration entries for candidate ${id}:`, e);
-    }
+      // 5. Delete the candidate
+      await tx.delete(candidate).where(eq(candidate.id, id));
+    });
 
-    // 5. Delete the candidate itself
-    await prisma.candidate.delete({ where: { id } });
-    
     res.json({ success: true });
   } catch (error: any) {
     console.error('Failed to delete candidate:', error);

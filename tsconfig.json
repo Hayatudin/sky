@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "drizzle-orm": ["server/node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["server/node_modules/drizzle-orm/*"],
+      "@paralleldrive/cuid2": ["server/node_modules/@paralleldrive/cuid2"],
+      "@paralleldrive/cuid2/*": ["server/node_modules/@paralleldrive/cuid2/*"]
+    },
+    "typeRoots": ["server/node_modules/@types"]
+  },
+  "include": [
+    "create-admin.ts",
+    "print-users.ts"
+  ]
+}

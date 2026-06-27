@@ -1,14 +1,18 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { broker, candidate, generatedCV } from '../db/schema';
+import { eq, and, not, desc } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 
 const router = Router();
 
-
-
 const formatCandidate = (c: any) => {
   if (!c) return null;
-  const formatDate = (date: Date | null | undefined) => date?.toISOString().split('T')[0] || '';
+  const formatDate = (date: Date | null | undefined) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+  };
   return {
     id: c.id,
     shelfId: c.shelfId,
@@ -81,22 +85,20 @@ const formatCandidate = (c: any) => {
     visaSelected: c.visaSelected,
     visaDate: c.visaDate ? (c.visaDate instanceof Date ? c.visaDate.toISOString() : c.visaDate) : null,
     salary: c.salary || '1000SR',
-    cvDownloaded: false as boolean,
+    cvDownloaded: c.cvDownloaded || false,
   };
 };
 
 async function getBrokerLockMap(): Promise<Record<string, boolean>> {
   try {
-    const rows = await prisma.$queryRawUnsafe<{ id: string; isLocked: number | boolean }[]>(
-      'SELECT id, isLocked FROM Broker'
-    );
+    const rows = await db.select({ id: broker.id, isLocked: broker.isLocked }).from(broker);
     const map: Record<string, boolean> = {};
     for (const row of rows) {
-      map[row.id] = row.isLocked === 1 || row.isLocked === true;
+      map[row.id] = row.isLocked;
     }
     return map;
   } catch (e) {
-    console.warn('[GENERATED-CVS] Could not fetch isLocked column via raw SQL:', e);
+    console.warn('[GENERATED-CVS] Could not fetch isLocked column:', e);
     return {};
   }
 }
@@ -104,36 +106,23 @@ async function getBrokerLockMap(): Promise<Record<string, boolean>> {
 // GET /api/generated-cvs
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const generatedCVs = await prisma.generatedCV.findMany({
-      include: {
+    const generatedCVsList = await db.query.generatedCV.findMany({
+      with: {
         candidate: {
-          include: {
+          with: {
             broker: true
           }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: (gc, { desc }) => [desc(gc.createdAt)]
     });
     
     const lockMap = await getBrokerLockMap();
-    let cvDownloadedMap: Record<string, boolean> = {};
-    try {
-      const rawRows = await prisma.$queryRawUnsafe<{ id: string; cvDownloaded: number | boolean }[]>(
-        'SELECT id, cvDownloaded FROM `Candidate`'
-      );
-      for (const row of rawRows) {
-        cvDownloadedMap[row.id] = row.cvDownloaded === 1 || row.cvDownloaded === true;
-      }
-    } catch (e) {
-      console.warn('[GENERATED-CVS] Could not fetch cvDownloaded column via raw SQL:', e);
-    }
 
-    const mappedCVs = generatedCVs.map((cv: any) => {
+    const mappedCVs = generatedCVsList.map((cv: any) => {
       const formattedCandidateObj = formatCandidate(cv.candidate);
       if (formattedCandidateObj) {
-        formattedCandidateObj.cvDownloaded = cvDownloadedMap[formattedCandidateObj.id] ?? false;
+        formattedCandidateObj.cvDownloaded = cv.candidate?.cvDownloaded ?? false;
         if (formattedCandidateObj.broker) {
           formattedCandidateObj.broker.isLocked = lockMap[formattedCandidateObj.broker.id] ?? false;
         }
@@ -160,20 +149,16 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing candidateId or templateId' });
     }
     
-    const candidate = await prisma.candidate.findUnique({
-      where: { id: candidateId }
+    const cand = await db.query.candidate.findFirst({
+      where: eq(candidate.id, candidateId)
     });
     
-    if (!candidate) {
+    if (!cand) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
 
-
-
-    const duplicateCV = await prisma.generatedCV.findFirst({
-      where: {
-        candidateId: candidateId
-      }
+    const duplicateCV = await db.query.generatedCV.findFirst({
+      where: eq(generatedCV.candidateId, candidateId)
     });
 
     if (duplicateCV) {
@@ -192,25 +177,28 @@ router.post('/', async (req: Request, res: Response) => {
     deadline.setDate(deadline.getDate() + 30);
 
     const cleanTemplateId = templateId.replace('tmpl-', '').toLowerCase();
-    const [generatedCV] = await prisma.$transaction([
-      prisma.generatedCV.create({
-        data: {
-          candidateId,
-          templateId,
-          facePhotoUrl: faceUrl,
-          fullBodyPhotoUrl: fullBodyUrl
-        }
-      }),
-      prisma.candidate.update({
-        where: { id: candidateId },
-        data: { 
+    
+    const cvRecord = await db.transaction(async (tx) => {
+      await tx.insert(generatedCV).values({
+        candidateId,
+        templateId,
+        facePhotoUrl: faceUrl,
+        fullBodyPhotoUrl: fullBodyUrl
+      });
+      
+      await tx.update(candidate)
+        .set({ 
           cvDeadline: deadline,
           agency: cleanTemplateId
-        }
-      })
-    ]);
+        })
+        .where(eq(candidate.id, candidateId));
+
+      return await tx.query.generatedCV.findFirst({
+        where: eq(generatedCV.candidateId, candidateId)
+      });
+    });
     
-    res.json(generatedCV);
+    res.json(cvRecord);
   } catch (error) {
     console.error('Error saving generated CV:', error);
     res.status(500).json({ error: 'Failed to save generated CV' });
@@ -227,22 +215,20 @@ router.patch('/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing templateId' });
     }
     
-    const existingCV = await prisma.generatedCV.findUnique({
-      where: { id }
+    const existingCV = await db.query.generatedCV.findFirst({
+      where: eq(generatedCV.id, id)
     });
     
     if (!existingCV) {
       return res.status(404).json({ error: 'Generated CV not found' });
     }
 
-
-
-    const duplicateCV = await prisma.generatedCV.findFirst({
-      where: {
-        candidateId: existingCV.candidateId,
-        templateId: templateId,
-        id: { not: id }
-      }
+    const duplicateCV = await db.query.generatedCV.findFirst({
+      where: and(
+        eq(generatedCV.candidateId, existingCV.candidateId),
+        eq(generatedCV.templateId, templateId),
+        not(eq(generatedCV.id, id))
+      )
     });
 
     if (duplicateCV) {
@@ -250,17 +236,23 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 
     const cleanTemplateId = templateId.replace('tmpl-', '').toLowerCase();
-    const [updatedCV] = await prisma.$transaction([
-      prisma.generatedCV.update({
-        where: { id },
-        data: { templateId }
-      }),
-      prisma.$executeRawUnsafe(
-        'UPDATE `Candidate` SET `cvDownloaded` = 0, `agency` = ? WHERE `id` = ?',
-        cleanTemplateId,
-        existingCV.candidateId
-      )
-    ]);
+    
+    const updatedCV = await db.transaction(async (tx) => {
+      await tx.update(generatedCV)
+        .set({ templateId })
+        .where(eq(generatedCV.id, id));
+
+      await tx.update(candidate)
+        .set({ 
+          cvDownloaded: false, 
+          agency: cleanTemplateId 
+        })
+        .where(eq(candidate.id, existingCV.candidateId));
+
+      return await tx.query.generatedCV.findFirst({
+        where: eq(generatedCV.id, id)
+      });
+    });
     
     res.json(updatedCV);
   } catch (error) {
@@ -274,19 +266,15 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    const existingCV = await prisma.generatedCV.findUnique({
-      where: { id }
+    const existingCV = await db.query.generatedCV.findFirst({
+      where: eq(generatedCV.id, id)
     });
     
     if (!existingCV) {
       return res.status(404).json({ error: 'Generated CV not found' });
     }
 
-
-
-    await prisma.generatedCV.delete({
-      where: { id }
-    });
+    await db.delete(generatedCV).where(eq(generatedCV.id, id));
     
     res.json({ success: true });
   } catch (error) {

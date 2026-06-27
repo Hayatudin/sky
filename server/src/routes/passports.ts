@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { passport } from '../db/schema';
+import { eq, desc, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import fs from 'fs';
 import path from 'path';
@@ -36,9 +38,9 @@ const getNextShelfNo = async (): Promise<string> => {
 
   // 2. Fallback / double-check against the max shelf number in the database
   try {
-    const rows = await prisma.$queryRawUnsafe<{ maxShelf: string | number | null }[]>(
-      'SELECT MAX(CAST(shelfNo AS UNSIGNED)) AS maxShelf FROM `Passport`'
-    );
+    const rows = (await db.execute(sql`
+      SELECT MAX(CAST(shelfNo AS UNSIGNED)) AS maxShelf FROM \`Passport\`
+    `))[0] as unknown as any[];
     const dbMax = rows[0]?.maxShelf ? Number(rows[0].maxShelf) : 0;
     if (dbMax > currentCounter) {
       currentCounter = dbMax;
@@ -63,18 +65,7 @@ const getNextShelfNo = async (): Promise<string> => {
 // GET /api/passports
 router.get('/', async (req: Request, res: Response) => {
   try {
-    let passports;
-    try {
-      // Attempt using Prisma client
-      passports = await (prisma as any).passport.findMany({
-        orderBy: { createdAt: 'desc' },
-      });
-    } catch (prismaErr: any) {
-      console.warn('[PASSPORTS] prisma.passport.findMany failed, trying raw SQL fallback:', prismaErr.message || prismaErr);
-      passports = await prisma.$queryRawUnsafe<any[]>(
-        'SELECT * FROM `Passport` ORDER BY `createdAt` DESC'
-      );
-    }
+    const passports = await db.select().from(passport).orderBy(desc(passport.createdAt));
     res.json(passports);
   } catch (error: any) {
     console.error('Failed to fetch passports:', error);
@@ -104,48 +95,25 @@ router.post('/', async (req: Request, res: Response) => {
     const shelfNo = await getNextShelfNo();
     const id = generateCuid('pp');
 
-    let createdPassport;
     try {
-      // Attempt using Prisma client
-      createdPassport = await (prisma as any).passport.create({
-        data: {
-          id,
-          shelfNo,
-          fullName: cleanFullName,
-          passportNumber: cleanPassportNumber,
-          passportImageUrl: savedImageUrl,
-          status: 'Available',
-        },
+      await db.insert(passport).values({
+        id,
+        shelfNo,
+        fullName: cleanFullName,
+        passportNumber: cleanPassportNumber,
+        passportImageUrl: savedImageUrl,
+        status: 'Available',
       });
-    } catch (prismaErr: any) {
-      if (prismaErr.code === 'P2002' || prismaErr.message?.includes('Duplicate entry')) {
+    } catch (insertErr: any) {
+      if (insertErr.message?.includes('Duplicate entry') || insertErr.code === 'ER_DUP_ENTRY') {
         return res.status(400).json({ error: 'A passport with this Passport Number is already registered.' });
       }
-      console.warn('[PASSPORTS] prisma.passport.create failed, trying raw SQL fallback:', prismaErr.message || prismaErr);
-      
-      try {
-        await prisma.$executeRawUnsafe(
-          'INSERT INTO `Passport` (id, shelfNo, fullName, passportNumber, passportImageUrl, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, NOW(3), NOW(3))',
-          id,
-          shelfNo,
-          cleanFullName,
-          cleanPassportNumber,
-          savedImageUrl,
-          'Available'
-        );
-
-        const rows = await prisma.$queryRawUnsafe<any[]>(
-          'SELECT * FROM `Passport` WHERE id = ? LIMIT 1',
-          id
-        );
-        createdPassport = rows[0];
-      } catch (rawErr: any) {
-        if (rawErr.message?.includes('Duplicate entry') || rawErr.code === 'P2002') {
-          return res.status(400).json({ error: 'A passport with this Passport Number is already registered.' });
-        }
-        throw rawErr;
-      }
+      throw insertErr;
     }
+
+    const createdPassport = await db.query.passport.findFirst({
+      where: eq(passport.id, id)
+    });
 
     res.status(201).json(createdPassport);
   } catch (error: any) {
@@ -173,28 +141,14 @@ router.patch('/:id/taken', async (req: Request, res: Response) => {
     const cleanTakerName = takenByName.trim().toUpperCase();
     const cleanTakerPhone = takenByPhone ? takenByPhone.trim() : null;
 
-    try {
-      // Attempt using Prisma client
-      await (prisma as any).passport.update({
-        where: { id },
-        data: {
-          status: 'PassportTaken',
-          takenReason,
-          takenByName: cleanTakerName,
-          takenByPhone: cleanTakerPhone,
-        },
-      });
-    } catch (prismaErr: any) {
-      console.warn('[PASSPORTS] prisma.passport.update failed, trying raw SQL fallback:', prismaErr.message || prismaErr);
-      
-      await prisma.$executeRawUnsafe(
-        "UPDATE `Passport` SET status = 'PassportTaken', takenReason = ?, takenByName = ?, takenByPhone = ?, updatedAt = NOW(3) WHERE id = ?",
+    await db.update(passport)
+      .set({
+        status: 'PassportTaken',
         takenReason,
-        cleanTakerName,
-        cleanTakerPhone,
-        id
-      );
-    }
+        takenByName: cleanTakerName,
+        takenByPhone: cleanTakerPhone,
+      })
+      .where(eq(passport.id, id));
 
     res.json({ success: true, message: 'Passport marked as taken successfully' });
   } catch (error: any) {
@@ -208,25 +162,14 @@ router.patch('/:id/return', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    try {
-      // Attempt using Prisma client
-      await (prisma as any).passport.update({
-        where: { id },
-        data: {
-          status: 'Available',
-          takenReason: null,
-          takenByName: null,
-          takenByPhone: null,
-        },
-      });
-    } catch (prismaErr: any) {
-      console.warn('[PASSPORTS] prisma.passport.update (return) failed, trying raw SQL fallback:', prismaErr.message || prismaErr);
-      
-      await prisma.$executeRawUnsafe(
-        "UPDATE `Passport` SET status = 'Available', takenReason = NULL, takenByName = NULL, takenByPhone = NULL, updatedAt = NOW(3) WHERE id = ?",
-        id
-      );
-    }
+    await db.update(passport)
+      .set({
+        status: 'Available',
+        takenReason: null,
+        takenByName: null,
+        takenByPhone: null,
+      })
+      .where(eq(passport.id, id));
 
     res.json({ success: true, message: 'Passport returned to available successfully' });
   } catch (error: any) {
@@ -240,19 +183,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    try {
-      // Attempt using Prisma client
-      await (prisma as any).passport.delete({
-        where: { id },
-      });
-    } catch (prismaErr: any) {
-      console.warn('[PASSPORTS] prisma.passport.delete failed, trying raw SQL fallback:', prismaErr.message || prismaErr);
-      
-      await prisma.$executeRawUnsafe(
-        'DELETE FROM `Passport` WHERE id = ?',
-        id
-      );
-    }
+    await db.delete(passport).where(eq(passport.id, id));
 
     res.json({ success: true, message: 'Passport deleted successfully' });
   } catch (error: any) {

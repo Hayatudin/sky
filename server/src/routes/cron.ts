@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { candidate, notification } from '../db/schema';
+import { and, gte, lte } from 'drizzle-orm';
 
 const router = Router();
 
@@ -10,14 +12,14 @@ router.get('/check-deadlines', async (req: Request, res: Response) => {
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
-    const candidates = await prisma.candidate.findMany({
-      where: {
-        cvDeadline: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-    });
+    const candidates = await db.select()
+      .from(candidate)
+      .where(
+        and(
+          gte(candidate.cvDeadline, startOfDay),
+          lte(candidate.cvDeadline, endOfDay)
+        )
+      );
 
     if (candidates.length === 0) {
       return res.json({ success: true, message: 'No deadlines today.' });
@@ -33,20 +35,18 @@ router.get('/check-deadlines', async (req: Request, res: Response) => {
     let successCount = 0;
     const errors = [];
 
-    for (const candidate of candidates) {
+    for (const cand of candidates) {
       const message = `🚨 *COOLSTAFF ALERT: CV Deadline Today!* 🚨\n\n` +
-                      `*Candidate:* ${candidate.givenNames} ${candidate.surname}\n` +
-                      `*Passport:* ${candidate.passportNumber}\n` +
-                      `*Job:* ${candidate.job || 'Not specified'}\n\n` +
+                      `*Candidate:* ${cand.givenNames} ${cand.surname}\n` +
+                      `*Passport:* ${cand.passportNumber}\n` +
+                      `*Job:* ${cand.job || 'Not specified'}\n\n` +
                       `_Please ensure the final document has been exported and sent to the agency._`;
 
       try {
-        await prisma.notification.create({
-          data: {
-            title: 'CV Deadline Reached',
-            message: `The 30-day CV deadline for ${candidate.givenNames} ${candidate.surname} (${candidate.passportNumber}) has been reached.`,
-            candidateId: candidate.id
-          }
+        await db.insert(notification).values({
+          title: 'CV Deadline Reached',
+          message: `The 30-day CV deadline for ${cand.givenNames} ${cand.surname} (${cand.passportNumber}) has been reached.`,
+          candidateId: cand.id
         });
 
         const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -56,9 +56,9 @@ router.get('/check-deadlines', async (req: Request, res: Response) => {
         });
 
         if (response.ok) successCount++;
-        else errors.push(`Failed for ${candidate.id}`);
+        else errors.push(`Failed for ${cand.id}`);
       } catch (err: any) {
-        errors.push(`Network error for ${candidate.id}`);
+        errors.push(`Network error for ${cand.id}`);
       }
     }
 

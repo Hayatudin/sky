@@ -12,5 +12,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "check-db.ts", "scratch-check.ts", "drizzle.config.ts"]
 }

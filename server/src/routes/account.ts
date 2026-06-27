@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { user } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { auth } from '../lib/auth';
 
 const router = Router();
@@ -22,9 +24,12 @@ router.patch('/profile', async (req: Request, res: Response) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
-    const updatedUser = await prisma.user.update({
-      where: { id: session.user.id },
-      data: { name },
+    await db.update(user)
+      .set({ name })
+      .where(eq(user.id, session.user.id));
+
+    const updatedUser = await db.query.user.findFirst({
+      where: eq(user.id, session.user.id)
     });
 
     res.json(updatedUser);

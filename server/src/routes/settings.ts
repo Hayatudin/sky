@@ -1,14 +1,13 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { templatePrice } from '../db/schema';
 
 const router = Router();
 
 // GET /api/settings/prices
 router.get('/prices', async (req: Request, res: Response) => {
   try {
-    const rawRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT templateId, price, updatedAt FROM \`TemplatePrice\``
-    );
+    const rawRows = await db.select().from(templatePrice);
     res.json(rawRows);
   } catch (error) {
     // If table doesn't exist yet, return empty array
@@ -29,15 +28,17 @@ router.post('/prices', async (req: Request, res: Response) => {
       if (typeof price !== 'string' && typeof price !== 'number') continue;
       const formattedPrice = String(price).trim();
       
-      // Upsert logic using raw SQL
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO \`TemplatePrice\` (templateId, price, updatedAt) 
-         VALUES (?, ?, NOW()) 
-         ON DUPLICATE KEY UPDATE price = ?, updatedAt = NOW()`,
-        templateId,
-        formattedPrice,
-        formattedPrice
-      );
+      // Upsert logic using Drizzle's onDuplicateKeyUpdate
+      await db.insert(templatePrice)
+        .values({
+          templateId,
+          price: formattedPrice,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            price: formattedPrice,
+          }
+        });
     }
 
     res.json({ success: true, message: 'Prices updated successfully' });

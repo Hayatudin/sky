@@ -1,14 +1,14 @@
-import prisma from './server/src/lib/prisma';
+import { db } from './server/src/db';
+import { user } from './server/src/db/schema';
 
 async function main() {
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true
-    }
-  });
+  const users = await db.select({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role
+  }).from(user);
+  
   console.log('Database Users:', JSON.stringify(users, null, 2));
 }
 

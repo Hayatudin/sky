@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { candidate, generatedCV, notification, user } from '../db/schema';
+import { eq, and, or, sql } from 'drizzle-orm';
 import { getSession } from '../lib/auth-helper';
 import { encryptPath } from '../lib/crypto';
 
@@ -8,7 +10,7 @@ const router = Router();
 // Auto-verify and create missing columns in Candidate table to prevent crashes on stale databases
 async function ensureCandidateColumns() {
   try {
-    const columns: any[] = await prisma.$queryRawUnsafe('SHOW COLUMNS FROM `Candidate`');
+    const columns = (await db.execute(sql`SHOW COLUMNS FROM \`Candidate\``))[0] as unknown as any[];
     const existingFields = new Set(columns.map(c => c.Field.toLowerCase()));
     
     const requiredColumns = [
@@ -25,7 +27,7 @@ async function ensureCandidateColumns() {
     for (const col of requiredColumns) {
       if (!existingFields.has(col.name.toLowerCase())) {
         console.log(`[DATABASE SETUP] Column '${col.name}' is missing in Candidate table. Adding it...`);
-        await prisma.$executeRawUnsafe(`ALTER TABLE \`Candidate\` ADD COLUMN \`${col.name}\` ${col.definition}`);
+        await db.execute(sql`ALTER TABLE \`Candidate\` ADD COLUMN \`${sql.raw(col.name)}\` ${sql.raw(col.definition)}`);
       }
     }
   } catch (err) {
@@ -51,19 +53,17 @@ function inferAgencyFromEmail(email: string): string | null {
 }
 
 // Check and auto-heal agency value in database
-async function resolveAndHealAgency(user: any): Promise<string | null> {
-  if (user.agency) return user.agency;
+async function resolveAndHealAgency(sessionUser: any): Promise<string | null> {
+  if (sessionUser.agency) return sessionUser.agency;
   
-  if (user.email) {
-    const inferred = inferAgencyFromEmail(user.email);
+  if (sessionUser.email) {
+    const inferred = inferAgencyFromEmail(sessionUser.email);
     if (inferred) {
-      console.log(`[AUTH-HEAL] Inferred agency '${inferred}' for user '${user.email}'. Auto-healing user record in DB...`);
+      console.log(`[AUTH-HEAL] Inferred agency '${inferred}' for user '${sessionUser.email}'. Auto-healing user record in DB...`);
       try {
-        await prisma.$executeRawUnsafe(
-          'UPDATE `User` SET `agency` = ? WHERE `id` = ?',
-          inferred,
-          user.id
-        );
+        await db.update(user)
+          .set({ agency: inferred })
+          .where(eq(user.id, sessionUser.id));
       } catch (err) {
         console.error('[AUTH-HEAL] Failed to update user agency in DB:', err);
       }
@@ -85,24 +85,28 @@ router.get('/debug-info', async (req: Request, res: Response) => {
     const agencyName = await resolveAndHealAgency(session.user);
 
     // Get stats from database
-    const totalCandidates = await prisma.candidate.count();
-    const totalCVs = await prisma.generatedCV.count();
+    const candidateCountResult = await db.select({ count: sql<number>`count(*)` }).from(candidate);
+    const totalCandidates = Number(candidateCountResult[0]?.count || 0);
+
+    const cvCountResult = await db.select({ count: sql<number>`count(*)` }).from(generatedCV);
+    const totalCVs = Number(cvCountResult[0]?.count || 0);
     
     // Get unique template IDs in GeneratedCV
-    const uniqueTemplates = await prisma.generatedCV.groupBy({
-      by: ['templateId'],
-      _count: { id: true }
-    });
+    const uniqueTemplates = await db.select({
+      templateId: generatedCV.templateId,
+      count: sql<number>`count(*)`
+    })
+    .from(generatedCV)
+    .groupBy(generatedCV.templateId);
 
-    const sampleCandidates = await prisma.candidate.findMany({
-      take: 5,
-      select: {
-        id: true,
-        givenNames: true,
-        surname: true,
-        agency: true
-      }
-    });
+    const sampleCandidates = await db.select({
+      id: candidate.id,
+      givenNames: candidate.givenNames,
+      surname: candidate.surname,
+      agency: candidate.agency
+    })
+    .from(candidate)
+    .limit(5);
 
     res.json({
       sessionUser: {
@@ -115,7 +119,7 @@ router.get('/debug-info', async (req: Request, res: Response) => {
       databaseStats: {
         totalCandidates,
         totalCVs,
-        uniqueTemplates: uniqueTemplates.map(t => ({ templateId: t.templateId, count: t._count.id })),
+        uniqueTemplates: uniqueTemplates.map(t => ({ templateId: t.templateId, count: Number(t.count) })),
         sampleCandidates
       }
     });
@@ -137,113 +141,45 @@ router.get('/candidates', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const agencyName = await resolveAndHealAgency(session.user); // e.g. 'ussus'
+    const agencyName = await resolveAndHealAgency(session.user);
     if (role === 'agency' && !agencyName) {
       return res.status(400).json({ error: 'User is not assigned to any agency' });
     }
 
     const { agency } = req.query;
-    const queryConditions: any = {
-      agencySelected: true
-    };
+    const conditions: any[] = [eq(candidate.agencySelected, true)];
  
     if (role === 'agency') {
       const agencyStr = agencyName!.toLowerCase();
-      queryConditions.OR = [
-        { agency: agencyStr },
-        {
-          generatedCVs: {
-            some: {
-              templateId: {
-                contains: agencyStr
-              }
-            }
-          }
-        }
-      ];
+      conditions.push(
+        or(
+          eq(candidate.agency, agencyStr),
+          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+        )
+      );
     } else {
-      // super_admin
       if (agency && agency !== 'all') {
         const agencyStr = String(agency).toLowerCase();
-        queryConditions.OR = [
-          { agency: agencyStr },
-          {
-            generatedCVs: {
-              some: {
-                templateId: {
-                  contains: agencyStr
-                }
-              }
-            }
-          }
-        ];
+        conditions.push(
+          or(
+            eq(candidate.agency, agencyStr),
+            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+          )
+        );
       }
     }
 
-    let dbCandidates: any[] = [];
-    try {
-      dbCandidates = await prisma.candidate.findMany({
-        where: queryConditions,
-        orderBy: { registeredAt: 'desc' },
-        include: {
-          generatedCVs: { select: { id: true, templateId: true } },
-          broker: { select: { name: true } },
-          invoices: { select: { id: true, lmisQrCodeUrl: true } }
-        }
-      });
-    } catch (findErr: any) {
-      console.warn('[AGENCY] prisma.candidate.findMany failed, trying raw SQL fallback:', findErr.message || findErr);
-      
-      let sqlQuery = 'SELECT c.*, b.name as brokerName FROM `Candidate` c LEFT JOIN `Broker` b ON c.brokerId = b.id';
-      const sqlParams: any[] = [];
-      const whereClauses: string[] = [];
-      
-      if (role === 'agency') {
-        const agencyStr = agencyName!.toLowerCase();
-        whereClauses.push('c.`agencySelected` = 1');
-        whereClauses.push('(LOWER(c.`agency`) = ? OR c.`id` IN (SELECT `candidateId` FROM `GeneratedCV` WHERE LOWER(`templateId`) LIKE ?))');
-        sqlParams.push(agencyStr, `%${agencyStr}%`);
-      } else {
-        if (agency && agency !== 'all') {
-          const agencyStr = String(agency).toLowerCase();
-          whereClauses.push('c.`agencySelected` = 1');
-          whereClauses.push('(LOWER(c.`agency`) = ? OR c.`id` IN (SELECT `candidateId` FROM `GeneratedCV` WHERE LOWER(`templateId`) LIKE ?))');
-          sqlParams.push(agencyStr, `%${agencyStr}%`);
-        } else {
-          whereClauses.push('c.`agencySelected` = 1');
-        }
+    const dbCandidatesList = await db.query.candidate.findMany({
+      where: and(...conditions),
+      orderBy: (c, { desc }) => [desc(c.registeredAt)],
+      with: {
+        generatedCVs: { columns: { id: true, templateId: true } },
+        broker: { columns: { name: true } },
+        invoices: { columns: { id: true, lmisQrCodeUrl: true } }
       }
-      
-      if (whereClauses.length > 0) {
-        sqlQuery += ' WHERE ' + whereClauses.join(' AND ');
-      }
-      
-      sqlQuery += ' ORDER BY c.`registeredAt` DESC';
-      
-      const rawCands: any[] = await prisma.$queryRawUnsafe(sqlQuery, ...sqlParams);
-      
-      if (rawCands.length > 0) {
-        const candidateIds = rawCands.map(c => c.id);
-        const allCVs = await prisma.generatedCV.findMany({
-          where: { candidateId: { in: candidateIds } },
-          select: { id: true, templateId: true, candidateId: true }
-        });
-        
-        const allInvoices = await prisma.invoice.findMany({
-          where: { candidateId: { in: candidateIds } },
-          select: { candidateId: true, lmisQrCodeUrl: true }
-        });
-        
-        dbCandidates = rawCands.map(c => ({
-          ...c,
-          generatedCVs: allCVs.filter(cv => cv.candidateId === c.id),
-          invoices: allInvoices.filter(i => i.candidateId === c.id),
-          broker: c.brokerName ? { name: c.brokerName } : null
-        }));
-      }
-    }
+    });
 
-    res.json(dbCandidates.map((c: any) => {
+    res.json(dbCandidatesList.map((c: any) => {
       const invoicesList = c.invoices || [];
       const hasQrCode = invoicesList.some((inv: any) => inv.lmisQrCodeUrl && inv.lmisQrCodeUrl.trim() !== '');
       return {
@@ -267,7 +203,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
         job: c.job,
         city: c.city,
         dateOfBirth: c.dateOfBirth ? new Date(c.dateOfBirth).toISOString() : null,
-        videoUrl: encryptPath(c.videoUrl || (c as any).Youtube_URL || null) || null,
+        videoUrl: encryptPath(c.videoUrl) || null,
         registeredAt: c.registeredAt ? new Date(c.registeredAt).toISOString() : null,
         allowVideo: c.allowVideo ?? false,
         visaDate: c.visaDate ? new Date(c.visaDate).toISOString() : null
@@ -299,99 +235,41 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
     }
 
     const { agency } = req.query;
-    const queryConditions: any = {
-      agencySelected: false,
-      generatedCVs: {
-        some: {}
-      }
-    };
+    const conditions: any[] = [
+      eq(candidate.agencySelected, false),
+      sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\`)`
+    ];
  
     if (role === 'agency') {
       const agencyStr = agencyName!.toLowerCase();
-      queryConditions.OR = [
-        { agency: agencyStr },
-        {
-          generatedCVs: {
-            some: {
-              templateId: {
-                contains: agencyStr
-              }
-            }
-          }
-        }
-      ];
+      conditions.push(
+        or(
+          eq(candidate.agency, agencyStr),
+          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+        )
+      );
     } else {
-      // super_admin
       if (agency && agency !== 'all') {
         const agencyStr = String(agency).toLowerCase();
-        queryConditions.OR = [
-          { agency: agencyStr },
-          {
-            generatedCVs: {
-              some: {
-                templateId: {
-                  contains: agencyStr
-                }
-              }
-            }
-          }
-        ];
+        conditions.push(
+          or(
+            eq(candidate.agency, agencyStr),
+            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+          )
+        );
       }
     }
 
-    let dbCandidates: any[] = [];
-    try {
-      dbCandidates = await prisma.candidate.findMany({
-        where: queryConditions,
-        orderBy: { registeredAt: 'desc' },
-        include: {
-          generatedCVs: { select: { id: true, templateId: true } },
-          broker: { select: { name: true } }
-        }
-      });
-    } catch (findErr: any) {
-      console.warn('[AGENCY] prisma.candidate.findMany failed for available candidates, trying raw SQL fallback:', findErr.message || findErr);
-      
-      let sqlQuery = 'SELECT c.*, b.name as brokerName FROM `Candidate` c LEFT JOIN `Broker` b ON c.brokerId = b.id WHERE c.`agencySelected` = 0 AND c.`id` IN (SELECT DISTINCT `candidateId` FROM `GeneratedCV`)';
-      const sqlParams: any[] = [];
-      const whereClauses: string[] = [];
-      
-      if (role === 'agency') {
-        const agencyStr = agencyName!.toLowerCase();
-        whereClauses.push('(LOWER(c.`agency`) = ? OR c.`id` IN (SELECT `candidateId` FROM `GeneratedCV` WHERE LOWER(`templateId`) LIKE ?))');
-        sqlParams.push(agencyStr, `%${agencyStr}%`);
-      } else {
-        if (agency && agency !== 'all') {
-          const agencyStr = String(agency).toLowerCase();
-          whereClauses.push('(LOWER(c.`agency`) = ? OR c.`id` IN (SELECT `candidateId` FROM `GeneratedCV` WHERE LOWER(`templateId`) LIKE ?))');
-          sqlParams.push(agencyStr, `%${agencyStr}%`);
-        }
+    const dbCandidatesList = await db.query.candidate.findMany({
+      where: and(...conditions),
+      orderBy: (c, { desc }) => [desc(c.registeredAt)],
+      with: {
+        generatedCVs: { columns: { id: true, templateId: true } },
+        broker: { columns: { name: true } }
       }
-      
-      if (whereClauses.length > 0) {
-        sqlQuery += ' AND ' + whereClauses.join(' AND ');
-      }
-      
-      sqlQuery += ' ORDER BY c.`registeredAt` DESC';
-      
-      const rawCands: any[] = await prisma.$queryRawUnsafe(sqlQuery, ...sqlParams);
-      
-      if (rawCands.length > 0) {
-        const candidateIds = rawCands.map(c => c.id);
-        const allCVs = await prisma.generatedCV.findMany({
-          where: { candidateId: { in: candidateIds } },
-          select: { id: true, templateId: true, candidateId: true }
-        });
-        
-        dbCandidates = rawCands.map(c => ({
-          ...c,
-          generatedCVs: allCVs.filter(cv => cv.candidateId === c.id),
-          broker: c.brokerName ? { name: c.brokerName } : null
-        }));
-      }
-    }
+    });
 
-    res.json(dbCandidates.map((c: any) => {
+    res.json(dbCandidatesList.map((c: any) => {
       return {
         id: c.id,
         givenNames: c.givenNames,
@@ -413,7 +291,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         job: c.job,
         city: c.city,
         dateOfBirth: c.dateOfBirth ? new Date(c.dateOfBirth).toISOString() : null,
-        videoUrl: encryptPath(c.videoUrl || (c as any).Youtube_URL || null) || null,
+        videoUrl: encryptPath(c.videoUrl) || null,
         registeredAt: c.registeredAt ? new Date(c.registeredAt).toISOString() : null,
         facePhotoUrl: c.facePhotoUrl,
         fullBodyPhotoUrl: c.fullBodyPhotoUrl,
@@ -455,75 +333,43 @@ router.post('/candidates/:id/select', async (req: Request, res: Response) => {
 
     // Verify candidate belongs to agency if updating as agency
     if (role === 'agency') {
-      const candidate = await prisma.candidate.findFirst({
-        where: {
-          id,
-          generatedCVs: {
-            some: {
-              templateId: {
-                contains: agencyName!.toLowerCase()
-              }
-            }
-          }
-        }
+      const agencyStr = agencyName!.toLowerCase();
+      const hasAccess = await db.query.candidate.findFirst({
+        where: and(
+          eq(candidate.id, id),
+          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+        )
       });
-      if (!candidate) {
+      if (!hasAccess) {
         return res.status(403).json({ error: 'Forbidden: You do not have access to this candidate' });
       }
     }
 
-    const candidate = await prisma.candidate.findUnique({
-      where: { id }
+    const cand = await db.query.candidate.findFirst({
+      where: eq(candidate.id, id)
     });
 
-    if (!candidate) {
+    if (!cand) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
 
     const agencyLabel = agencyName ? agencyName.toUpperCase() : 'AGENCY';
 
-    try {
-      const updated = await prisma.candidate.update({
-        where: { id },
-        data: {
-          agencySelected: true
-        }
-      });
+    await db.update(candidate)
+      .set({ agencySelected: true })
+      .where(eq(candidate.id, id));
       
-      await prisma.notification.create({
-        data: {
-          title: 'Candidate Selected',
-          message: `Candidate ${candidate.givenNames} ${candidate.surname} (${candidate.passportNumber}) has been selected by agency ${agencyLabel}.`,
-          candidateId: candidate.id
-        }
-      });
+    await db.insert(notification).values({
+      title: 'Candidate Selected',
+      message: `Candidate ${cand.givenNames} ${cand.surname} (${cand.passportNumber}) has been selected by agency ${agencyLabel}.`,
+      candidateId: cand.id
+    });
+
+    const updated = await db.query.candidate.findFirst({
+      where: eq(candidate.id, id)
+    });
       
-      res.json(updated);
-    } catch (updateErr: any) {
-      console.warn('[AGENCY] Select candidate update failed, trying raw SQL fallback:', updateErr.message || updateErr);
-      
-      await prisma.$executeRawUnsafe(
-        'UPDATE `Candidate` SET `agencySelected` = 1 WHERE `id` = ?',
-        id
-      );
-
-      // Create notification
-      await prisma.notification.create({
-        data: {
-          title: 'Candidate Selected',
-          message: `Candidate ${candidate.givenNames} ${candidate.surname} (${candidate.passportNumber}) has been selected by agency ${agencyLabel}.`,
-          candidateId: candidate.id
-        }
-      });
-
-      // Fetch the updated candidate to return
-      const rawCands: any[] = await prisma.$queryRawUnsafe(
-        'SELECT * FROM `Candidate` WHERE `id` = ? LIMIT 1',
-        id
-      );
-      res.json(rawCands[0]);
-    }
-
+    res.json(updated);
   } catch (err) {
     console.error('[AGENCY] Failed to select candidate', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -539,7 +385,6 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     }
 
     const role = session.user.role;
-    // Allow super_admin, agency, processor, coordinator to update
     if (!['super_admin', 'agency', 'processor', 'coordinator'].includes(role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -559,24 +404,17 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
 
     const agencyName = await resolveAndHealAgency(session.user);
 
-    // Verify candidate belongs to agency if updating as agency
     if (role === 'agency') {
       if (!agencyName) {
         return res.status(400).json({ error: 'User is not assigned to any agency' });
       }
-      const candidate = await prisma.candidate.findFirst({
-        where: {
-          id,
-          generatedCVs: {
-            some: {
-              templateId: {
-                contains: agencyName.toLowerCase()
-              }
-            }
-          }
-        }
+      const hasAccess = await db.query.candidate.findFirst({
+        where: and(
+          eq(candidate.id, id),
+          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyName.toLowerCase()}%`})`
+        )
       });
-      if (!candidate) {
+      if (!hasAccess) {
         return res.status(403).json({ error: 'Forbidden: You do not have access to this candidate' });
       }
     }
@@ -594,88 +432,15 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     }
     if (agencyStatus !== undefined) updateData.agencyStatus = agencyStatus;
 
-    try {
-      const updated = await prisma.candidate.update({
-        where: { id },
-        data: updateData
-      });
-      res.json(updated);
-    } catch (updateErr: any) {
-      console.warn('[AGENCY] prisma.candidate.update failed, trying raw SQL fallback:', updateErr.message || updateErr);
-      
-      const fieldsToUpdate: string[] = [];
-      const values: any[] = [];
-      
-      if (embassyIssue !== undefined) {
-        fieldsToUpdate.push('`embassyIssue` = ?');
-        values.push(embassyIssue);
-      }
-      if (cocStatus !== undefined) {
-        fieldsToUpdate.push('`cocStatus` = ?');
-        values.push(cocStatus);
-      }
-      if (medicalStatus !== undefined) {
-        fieldsToUpdate.push('`medicalStatus` = ?');
-        values.push(medicalStatus);
-      }
-      if (tasheerStatus !== undefined) {
-        fieldsToUpdate.push('`tasheerStatus` = ?');
-        values.push(tasheerStatus);
-      }
-      if (wakalaStatus !== undefined) {
-        fieldsToUpdate.push('`wakalaStatus` = ?');
-        values.push(wakalaStatus);
-      }
-      if (qrCodeStatus !== undefined) {
-        fieldsToUpdate.push('`qrCodeStatus` = ?');
-        values.push(qrCodeStatus);
-      }
-      if (selectedType !== undefined) {
-        fieldsToUpdate.push('`selectedType` = ?');
-        values.push(selectedType);
-      }
-      if (travelDate !== undefined) {
-        fieldsToUpdate.push('`travelDate` = ?');
-        values.push(travelDate ? new Date(travelDate) : null);
-      }
-      if (agencyStatus !== undefined) {
-        fieldsToUpdate.push('`agencyStatus` = ?');
-        values.push(agencyStatus);
-      }
+    await db.update(candidate)
+      .set(updateData)
+      .where(eq(candidate.id, id));
 
-      if (fieldsToUpdate.length > 0) {
-        values.push(id);
-        const query = `UPDATE \`Candidate\` SET ${fieldsToUpdate.join(', ')} WHERE \`id\` = ?`;
-        await prisma.$executeRawUnsafe(query, ...values);
-      }
+    const updated = await db.query.candidate.findFirst({
+      where: eq(candidate.id, id)
+    });
 
-      // Fetch the updated candidate to return
-      const rawCands: any[] = await prisma.$queryRawUnsafe(
-        'SELECT * FROM `Candidate` WHERE `id` = ? LIMIT 1',
-        id
-      );
-      
-      if (rawCands[0]) {
-        const c = rawCands[0];
-        res.json({
-          id: c.id,
-          givenNames: c.givenNames,
-          surname: c.surname,
-          passportNumber: c.passportNumber,
-          embassyIssue: c.embassyIssue,
-          cocStatus: c.cocStatus,
-          medicalStatus: c.medicalStatus,
-          tasheerStatus: c.tasheerStatus,
-          wakalaStatus: c.wakalaStatus,
-          qrCodeStatus: c.qrCodeStatus,
-          selectedType: c.selectedType,
-          travelDate: c.travelDate ? new Date(c.travelDate).toISOString() : null,
-          agencyStatus: c.agencyStatus
-        });
-      } else {
-        res.status(404).json({ error: 'Candidate not found after raw SQL update' });
-      }
-    }
+    res.json(updated);
   } catch (err) {
     console.error('[AGENCY] Failed to patch candidate', err);
     res.status(500).json({ error: 'Internal server error' });

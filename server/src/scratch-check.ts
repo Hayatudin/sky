@@ -1,4 +1,6 @@
-import prisma from './lib/prisma';
+import { db } from './db';
+import { generatedCV, invoice, notification, quickRegistration, candidate } from './db/schema';
+import { eq } from 'drizzle-orm';
 
 async function main() {
   const ids = ['cmp30mufa0003cgmq60q2rozc', 'cmp9jm0uv0002vf74xh9ha86i'];
@@ -7,9 +9,7 @@ async function main() {
     try {
       // 1. Delete all generated CVs
       try {
-        const res = await prisma.generatedCV.deleteMany({
-          where: { candidateId: id }
-        });
+        const res = await db.delete(generatedCV).where(eq(generatedCV.candidateId, id));
         console.log('CVs deleted:', res);
       } catch (e) {
         console.warn(`Failed to delete related GeneratedCVs for candidate ${id}:`, e);
@@ -17,9 +17,7 @@ async function main() {
 
       // 2. Delete all related invoices
       try {
-        const res = await prisma.invoice.deleteMany({
-          where: { candidateId: id }
-        });
+        const res = await db.delete(invoice).where(eq(invoice.candidateId, id));
         console.log('Invoices deleted:', res);
       } catch (e) {
         console.warn(`Failed to delete related Invoices for candidate ${id}:`, e);
@@ -27,9 +25,7 @@ async function main() {
 
       // 3. Delete related notifications
       try {
-        const res = await prisma.notification.deleteMany({
-          where: { candidateId: id }
-        });
+        const res = await db.delete(notification).where(eq(notification.candidateId, id));
         console.log('Notifications deleted:', res);
       } catch (e) {
         console.warn(`Failed to delete related Notifications for candidate ${id}:`, e);
@@ -37,17 +33,16 @@ async function main() {
 
       // 4. Update QuickRegistration entries to null out promotedCandidateId
       try {
-        const res = await prisma.$executeRawUnsafe(
-          `UPDATE \`QuickRegistration\` SET \`promotedCandidateId\` = NULL, \`verificationStatus\` = 'verified' WHERE \`promotedCandidateId\` = ?`,
-          id
-        );
+        const res = await db.update(quickRegistration)
+          .set({ promotedCandidateId: null, verificationStatus: 'verified' })
+          .where(eq(quickRegistration.promotedCandidateId, id));
         console.log('QuickRegistrations updated:', res);
       } catch (e) {
         console.warn(`Failed to null out related QuickRegistration entries for candidate ${id}:`, e);
       }
 
       // 5. Delete candidate
-      const res = await prisma.candidate.delete({ where: { id } });
+      const res = await db.delete(candidate).where(eq(candidate.id, id));
       console.log('Candidate deleted successfully:', res);
     } catch (error) {
       console.error('CRITICAL: Candidate deletion failed!', error);

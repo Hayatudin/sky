@@ -1,81 +1,28 @@
 import { Router, Request, Response } from 'express';
-import prisma from '../lib/prisma';
+import { db } from '../db';
+import { invoice, candidate, generatedCV, templatePrice } from '../db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 
 const router = Router();
 
-
-
 // GET /api/invoices
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // Attempt standard Prisma fetch first
-    try {
-      const invoices = await prisma.invoice.findMany({
-        include: {
-          candidate: {
-            include: {
-              generatedCVs: { select: { templateId: true } },
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-      return res.json(invoices);
-    } catch (prismaErr: any) {
-      console.warn('Prisma invoice fetch failed, falling back to raw SQL query:', prismaErr.message || prismaErr);
-      
-      // Fallback query to load invoices and candidate relationship directly from raw MySQL
-      const invoices = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT i.*, 
-                c.givenNames as candidate_givenNames, 
-                c.surname as candidate_surname, 
-                c.email as candidate_email, 
-                c.passportNumber as candidate_passportNumber,
-                c.registeredAt as candidate_registeredAt,
-                c.visaDate as candidate_visaDate
-         FROM \`Invoice\` i 
-         JOIN \`Candidate\` c ON i.candidateId = c.id
-         ORDER BY i.createdAt DESC`
-      );
-
-      // Fetch all generatedCVs to attach templateIds
-      const allCVs = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT candidateId, templateId FROM \`GeneratedCV\``
-      );
-      const cvMap = new Map<string, string[]>();
-      for (const cv of allCVs) {
-        const existing = cvMap.get(cv.candidateId) || [];
-        existing.push(cv.templateId);
-        cvMap.set(cv.candidateId, existing);
-      }
-
-      // Reformat the rows to match the include object expected by the frontend
-      const mapped = invoices.map(row => ({
-        id: row.id,
-        candidateId: row.candidateId,
-        lmisQrCodeUrl: row.lmisQrCodeUrl,
-        insuranceUrl: row.insuranceUrl,
-        ticketUrl: row.ticketUrl,
-        price: row.price,
-        isDelivered: Boolean(row.isDelivered),
-        deployedDate: row.deployedDate || null,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
+    const invoices = await db.query.invoice.findMany({
+      with: {
         candidate: {
-          givenNames: row.candidate_givenNames,
-          surname: row.candidate_surname,
-          email: row.candidate_email,
-          passportNumber: row.candidate_passportNumber,
-          registeredAt: row.candidate_registeredAt,
-          visaDate: row.candidate_visaDate,
-          generatedCVs: (cvMap.get(row.candidateId) || []).map((tid: string) => ({ templateId: tid })),
+          with: {
+            generatedCVs: {
+              columns: { templateId: true }
+            }
+          }
         }
-      }));
-      return res.json(mapped);
-    }
+      },
+      orderBy: (i, { desc }) => [desc(i.createdAt)]
+    });
+    
+    res.json(invoices);
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
     res.status(500).json({ error: 'Failed to fetch invoices', message: error.message });
@@ -91,31 +38,29 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required invoice fields' });
     }
 
-    const candidate = await prisma.candidate.findUnique({
-      where: { id: candidateId },
+    const cand = await db.query.candidate.findFirst({
+      where: eq(candidate.id, candidateId)
     });
 
-    if (!candidate) {
+    if (!cand) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
-
-
 
     // Determine price based on the most recent generated CV template for this candidate
     let price = "0";
     try {
-      const cvs = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT templateId FROM \`GeneratedCV\` WHERE candidateId = ? ORDER BY createdAt DESC LIMIT 1`,
-        candidateId
-      );
+      const cvs = await db.query.generatedCV.findMany({
+        where: eq(generatedCV.candidateId, candidateId),
+        orderBy: (gc, { desc }) => [desc(gc.createdAt)],
+        limit: 1
+      });
       if (cvs.length > 0) {
         const latestTemplate = cvs[0].templateId;
-        const prices = await prisma.$queryRawUnsafe<any[]>(
-          `SELECT price FROM \`TemplatePrice\` WHERE templateId = ?`,
-          latestTemplate
-        );
-        if (prices.length > 0) {
-          price = prices[0].price;
+        const prices = await db.query.templatePrice.findFirst({
+          where: eq(templatePrice.templateId, latestTemplate)
+        });
+        if (prices) {
+          price = prices.price;
         }
       }
     } catch (_) { /* ignore if no table or no CVs */ }
@@ -127,65 +72,30 @@ router.post('/', async (req: Request, res: Response) => {
       uploadToLocal(ticketUrl, 'invoices/ticket'),
     ]);
 
-    const id = `inv_${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date();
+    const id = `inv_${Math.random().toString(36).substring(2, 11)}`;
     const finalDeployedDate = deployedDate ? new Date(deployedDate) : null;
 
-    try {
-      // Direct raw insertion to bypass Prisma Client model caches
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO \`Invoice\` (\`id\`, \`candidateId\`, \`lmisQrCodeUrl\`, \`insuranceUrl\`, \`ticketUrl\`, \`price\`, \`isDelivered\`, \`deployedDate\`, \`createdAt\`, \`updatedAt\`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        id,
-        candidateId,
-        lmisPath || '',
-        insurancePath || '',
-        ticketPath || '',
-        price,
-        0, // isDelivered = false
-        finalDeployedDate,
-        now,
-        now
-      );
+    await db.insert(invoice).values({
+      id,
+      candidateId,
+      lmisQrCodeUrl: lmisPath || '',
+      insuranceUrl: insurancePath || '',
+      ticketUrl: ticketPath || '',
+      price,
+      isDelivered: false,
+      deployedDate: finalDeployedDate
+    });
 
-      const invoice = {
-        id,
-        candidateId,
-        price,
-        lmisQrCodeUrl: lmisPath || '',
-        insuranceUrl: insurancePath || '',
-        ticketUrl: ticketPath || '',
-        isDelivered: false,
-        deployedDate: finalDeployedDate,
-        createdAt: now,
-        updatedAt: now,
-      };
-      
-      return res.status(201).json(invoice);
-    } catch (dbErr: any) {
-      console.warn('Raw SQL Insert failed, attempting standard Prisma insert:', dbErr.message || dbErr);
-
-      // Fallback standard Prisma insert
-      const invoice = await prisma.invoice.create({
-        data: {
-          id, // Explicitly pass the pre-generated ID to prevent primary key field missing warnings
-          candidateId,
-          price,
-          lmisQrCodeUrl: lmisPath || '',
-          insuranceUrl: insurancePath || '',
-          ticketUrl: ticketPath || '',
-          isDelivered: false,
-          deployedDate: finalDeployedDate,
-        },
-      });
-
-      return res.status(201).json(invoice);
-    }
+    const created = await db.query.invoice.findFirst({
+      where: eq(invoice.id, id)
+    });
+    
+    return res.status(201).json(created);
   } catch (error: any) {
     console.error('Error saving invoice:', error);
     res.status(500).json({ 
       error: 'Failed to save invoice', 
       message: error.message || 'Unknown error',
-      details: error
     });
   }
 });
@@ -200,37 +110,25 @@ router.patch('/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'isDelivered must be a boolean' });
     }
 
-    const existingInvoice = await prisma.invoice.findUnique({
-      where: { id },
-      select: { candidateId: true }
+    const existingInvoice = await db.query.invoice.findFirst({
+      where: eq(invoice.id, id)
     });
 
     if (!existingInvoice) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-
-
     const deployedDate = isDelivered ? new Date() : null;
 
-    try {
-      const invoice = await prisma.invoice.update({
-        where: { id },
-        data: { isDelivered, deployedDate } as any,
-      });
-      return res.json(invoice);
-    } catch (prismaErr: any) {
-      console.warn('Prisma invoice update failed, falling back to raw SQL:', prismaErr.message || prismaErr);
-      
-      await prisma.$executeRawUnsafe(
-        `UPDATE \`Invoice\` SET \`isDelivered\` = ?, \`deployedDate\` = ? WHERE \`id\` = ?`,
-        isDelivered ? 1 : 0,
-        deployedDate,
-        id
-      );
-      
-      return res.json({ id, isDelivered, deployedDate });
-    }
+    await db.update(invoice)
+      .set({ isDelivered, deployedDate })
+      .where(eq(invoice.id, id));
+
+    const updated = await db.query.invoice.findFirst({
+      where: eq(invoice.id, id)
+    });
+
+    return res.json(updated);
   } catch (error: any) {
     console.error('Error updating invoice:', error);
     res.status(500).json({ error: 'Failed to update invoice', message: error.message });
@@ -243,26 +141,17 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { price, lmisQrCodeUrl, insuranceUrl, ticketUrl, deployedDate } = req.body;
 
-    const existingInvoice = await prisma.invoice.findUnique({
-      where: { id },
-      select: { candidateId: true }
+    const existingInvoice = await db.query.invoice.findFirst({
+      where: eq(invoice.id, id)
     });
 
     if (!existingInvoice) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-
-
-    // Price is now optional on PUT because it can just be kept as is if not provided
-    // Wait, the UI doesn't have price field anymore, so we shouldn't fail if price is not passed on PUT.
     let updatedPrice = price;
     if (!updatedPrice) {
-      // Just keep existing price
-      try {
-        const current = await prisma.$queryRawUnsafe<any[]>(`SELECT price FROM \`Invoice\` WHERE id = ?`, id);
-        if (current.length > 0) updatedPrice = current[0].price;
-      } catch (_) {}
+      updatedPrice = existingInvoice.price;
     }
 
     // Process new file uploads if passed as base64
@@ -291,84 +180,31 @@ router.put('/:id', async (req: Request, res: Response) => {
       await Promise.all(uploadPromises);
     }
 
-    const now = new Date();
     const finalDeployedDate = deployedDate !== undefined ? (deployedDate ? new Date(deployedDate) : null) : undefined;
 
-    try {
-      // Standard Prisma Update
-      const updated = await prisma.invoice.update({
-        where: { id },
-        data: {
-          price: updatedPrice || '0',
-          lmisQrCodeUrl: lmisPath || '',
-          insuranceUrl: insurancePath || '',
-          ticketUrl: ticketPath || '',
-          ...(finalDeployedDate !== undefined ? { deployedDate: finalDeployedDate } : {}),
-        },
-        include: {
-          candidate: true
-        }
-      });
-      return res.json(updated);
-    } catch (prismaErr: any) {
-      console.warn('Prisma invoice update failed, falling back to raw SQL update:', prismaErr.message || prismaErr);
-      
-      // Raw SQL Update fallback
-      if (finalDeployedDate !== undefined) {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Invoice\` 
-           SET \`price\` = ?, \`lmisQrCodeUrl\` = ?, \`insuranceUrl\` = ?, \`ticketUrl\` = ?, \`deployedDate\` = ?, \`updatedAt\` = ?
-           WHERE \`id\` = ?`,
-          updatedPrice || '0',
-          lmisPath || '',
-          insurancePath || '',
-          ticketPath || '',
-          finalDeployedDate,
-          now,
-          id
-        );
-      } else {
-        await prisma.$executeRawUnsafe(
-          `UPDATE \`Invoice\` 
-           SET \`price\` = ?, \`lmisQrCodeUrl\` = ?, \`insuranceUrl\` = ?, \`ticketUrl\` = ?, \`updatedAt\` = ?
-           WHERE \`id\` = ?`,
-          updatedPrice || '0',
-          lmisPath || '',
-          insurancePath || '',
-          ticketPath || '',
-          now,
-          id
-        );
-      }
-
-      // Fetch the updated candidate to join in return payload
-      const candidateInfo = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT c.givenNames, c.surname, c.email, c.passportNumber, c.registeredAt, c.visaDate
-         FROM \`Candidate\` c
-         JOIN \`Invoice\` i ON i.candidateId = c.id
-         WHERE i.id = ?`,
-        id
-      );
-
-      const candidate = candidateInfo[0] ? {
-        givenNames: candidateInfo[0].givenNames,
-        surname: candidateInfo[0].surname,
-        email: candidateInfo[0].email,
-        passportNumber: candidateInfo[0].passportNumber,
-        registeredAt: candidateInfo[0].registeredAt,
-        visaDate: candidateInfo[0].visaDate,
-      } : {};
-
-      return res.json({
-        id,
-        price: updatedPrice || '0',
-        lmisQrCodeUrl: lmisPath || '',
-        insuranceUrl: insurancePath || '',
-        ticketUrl: ticketPath || '',
-        deployedDate: finalDeployedDate,
-        candidate
-      });
+    const updateData: any = {
+      price: updatedPrice || '0',
+      lmisQrCodeUrl: lmisPath || '',
+      insuranceUrl: insurancePath || '',
+      ticketUrl: ticketPath || '',
+    };
+    if (finalDeployedDate !== undefined) {
+      updateData.deployedDate = finalDeployedDate;
     }
+
+    await db.update(invoice)
+      .set(updateData)
+      .where(eq(invoice.id, id));
+
+    // Fetch the updated invoice with candidate relation
+    const updated = await db.query.invoice.findFirst({
+      where: eq(invoice.id, id),
+      with: {
+        candidate: true
+      }
+    });
+
+    return res.json(updated);
   } catch (error: any) {
     console.error('Failed to update invoice:', error);
     res.status(500).json({ error: 'Failed to update invoice', message: error.message });
@@ -380,22 +216,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    // Check if exists
-    const existing = await prisma.invoice.findUnique({
-      where: { id },
-      select: { candidateId: true }
+    const existing = await db.query.invoice.findFirst({
+      where: eq(invoice.id, id)
     });
     if (!existing) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-
-
-    try {
-      await prisma.invoice.delete({ where: { id } });
-    } catch (prismaErr) {
-      await prisma.$executeRawUnsafe(`DELETE FROM \`Invoice\` WHERE id = ?`, id);
-    }
+    await db.delete(invoice).where(eq(invoice.id, id));
     
     return res.json({ success: true, id });
   } catch (error: any) {
