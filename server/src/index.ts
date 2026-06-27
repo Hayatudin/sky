@@ -35,6 +35,7 @@ app.use(cookieParser());
 // Better Auth handler — MUST come before body parsers
 import { auth } from './lib/auth';
 import { toNodeHandler } from 'better-auth/node';
+import { ensureDatabaseSchema } from './lib/db-healing';
 
 app.all('/api/auth/*', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
   console.log(`[AUTH] request: ${req.method} ${req.url}`);
@@ -347,7 +348,6 @@ app.listen(PORT, async () => {
   
   // 1. Run database self-healing checks to inject missing tables/columns
   try {
-    const { ensureDatabaseSchema } = await import('./lib/db-healing');
     await ensureDatabaseSchema();
   } catch (dbErr) {
     console.error('❌ Failed to run database self-healing check on startup:', dbErr);
