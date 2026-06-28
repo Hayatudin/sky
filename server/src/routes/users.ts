@@ -1,16 +1,14 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { user, candidate, quickRegistration } from '../db/schema';
 import { eq, desc, isNotNull, sql } from 'drizzle-orm';
 import { auth } from '../lib/auth';
+import { authenticateSession, requireSuperAdmin } from '../middlewares/auth';
 
 const router = Router();
 
-// Middleware to guard super_admin routes
-const requireSuperAdmin = async (req: Request | any, res: Response, next: NextFunction) => {
-  req.user = { role: 'super_admin' };
-  next();
-};
+// Ensure session authentication is applied globally to user management
+router.use(authenticateSession);
 
 // GET /api/users/analytics
 router.get('/analytics', requireSuperAdmin, async (req: Request, res: Response) => {

@@ -8,6 +8,19 @@ import { encryptPath, sanitizeIncomingPath } from '../lib/crypto';
 import { createId } from '@paralleldrive/cuid2';
 import fs from 'fs';
 import path from 'path';
+import { z } from 'zod';
+
+const candidateBodySchema = z.object({
+  passportData: z.object({
+    passportNumber: z.string().optional().nullable(),
+    surname: z.string().optional().nullable(),
+    givenNames: z.string().optional().nullable(),
+  }).partial().passthrough(),
+  personalInfo: z.object({
+    phone: z.string().optional().nullable(),
+    job: z.string().optional().nullable(),
+  }).partial().passthrough(),
+}).partial().passthrough();
 
 const router = Router();
 
@@ -261,7 +274,11 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
 // POST /api/candidates
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const body = req.body;
+    const parseResult = candidateBodySchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'Invalid candidate registration data structure', details: parseResult.error.format() });
+    }
+    const body = parseResult.data as any;
 
     // Resolve logged in user from session to populate registeredById
     let registeredById = body.registeredById || null;
@@ -656,7 +673,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const body = req.body;
+    const parseResult = candidateBodySchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'Invalid candidate update data structure', details: parseResult.error.format() });
+    }
+    const body = parseResult.data as any;
     
     const priceVal = body.price;
     delete body.price;

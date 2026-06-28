@@ -4,31 +4,40 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import helmet from 'helmet';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// 1. ULTIMATE CORS FIX - Allow everything correctly with credentials
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    // Fallback for requests without Origin header (like same-origin or direct)
-    // We don't use '*' because it breaks with Credentials: true
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).send();
-  }
-  next();
-});
+// Mount Helmet for basic HTTP security headers
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin asset loading (e.g. photos/videos)
+    contentSecurityPolicy: false, // Turn off CSP if frontend/SPA is hosted elsewhere or using inline assets
+  })
+);
+
+// CORS Whitelist configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3000', 'http://localhost:4000'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cookie'],
+}));
 
 app.use(cookieParser());
 
@@ -81,6 +90,7 @@ app.use(express.json({ limit: '80mb' }));
 app.use(express.urlencoded({ extended: true, limit: '80mb' }));
 
 import { decryptPath } from './lib/crypto';
+import { authenticateSession, requireSuperAdmin } from './middlewares/auth';
 
 // Static files
 app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
@@ -128,30 +138,30 @@ import videoUploadsRoutes from './routes/video-uploads';
 import agencyRoutes from './routes/agency';
 import passportRoutes from './routes/passports';
 
-app.use('/api/candidates', candidateRoutes);
-app.use('/api/brokers', brokerRoutes);
-app.use('/api/leaders', leaderRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/cv', cvRoutes);
-app.use('/api/generated-cvs', generatedCvRoutes);
-app.use('/api/ocr', ocrRoutes);
-app.use('/api/extract', extractRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/account', accountRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/cron', cronRoutes);
-app.use('/api/quick-registrations', quickRegistrationRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/video-uploads', videoUploadsRoutes);
-app.use('/api/files', fileRoutes);
-app.use('/api/deployments', deploymentRoutes);
-app.use('/api/agency', agencyRoutes);
-app.use('/api/passports', passportRoutes);
+app.use('/api/candidates', authenticateSession, candidateRoutes);
+app.use('/api/brokers', authenticateSession, brokerRoutes);
+app.use('/api/leaders', authenticateSession, leaderRoutes);
+app.use('/api/users', userRoutes); // users route mounts authenticateSession internally
+app.use('/api/cv', authenticateSession, cvRoutes);
+app.use('/api/generated-cvs', authenticateSession, generatedCvRoutes);
+app.use('/api/ocr', authenticateSession, ocrRoutes);
+app.use('/api/extract', authenticateSession, extractRoutes);
+app.use('/api/notifications', authenticateSession, notificationRoutes);
+app.use('/api/account', authenticateSession, accountRoutes);
+app.use('/api/search', authenticateSession, searchRoutes);
+app.use('/api/cron', cronRoutes); // cron left unauthenticated for external cron-job triggers (or secure via secret key)
+app.use('/api/quick-registrations', authenticateSession, quickRegistrationRoutes);
+app.use('/api/invoices', authenticateSession, invoiceRoutes);
+app.use('/api/settings', authenticateSession, settingsRoutes);
+app.use('/api/video-uploads', authenticateSession, videoUploadsRoutes);
+app.use('/api/files', authenticateSession, fileRoutes);
+app.use('/api/deployments', authenticateSession, deploymentRoutes);
+app.use('/api/agency', authenticateSession, agencyRoutes);
+app.use('/api/passports', authenticateSession, passportRoutes);
 
 
 // Database Debug Endpoint (Direct Browser Diagnostics)
-app.get('/api/debug-db', async (req: Request, res: Response) => {
+app.get('/api/debug-db', authenticateSession, requireSuperAdmin, async (req: Request, res: Response) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
   
