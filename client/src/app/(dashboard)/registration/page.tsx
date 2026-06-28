@@ -12,6 +12,7 @@ import PersonalInfoForm from '@/components/registration/PersonalInfoForm';
 import Button from '@/components/ui/Button';
 import { ArrowRight, ArrowLeft, CheckCircle2, UserPlus, ScanLine, Upload, FileText, UploadCloud, Loader2 } from 'lucide-react';
 import { useCandidates } from '@/hooks/useCandidates';
+import { useBrokers } from '@/hooks/useBrokers';
 import { authClient } from '@/lib/auth-client';
 
 const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
@@ -85,7 +86,7 @@ function RegistrationContent() {
   const [personalInfo, setPersonalInfo] = useState<CandidatePersonalInfo>(emptyPersonalInfo);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [brokers, setBrokers] = useState<Broker[]>([]);
+  const { brokers, mutate: mutateBrokers } = useBrokers();
   const [importMethod, setImportMethod] = useState<'musaned' | 'passport'>('musaned');
   const [registeredCandidateId, setRegisteredCandidateId] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState('');
@@ -102,16 +103,7 @@ function RegistrationContent() {
   const { data: session } = authClient.useSession();
   const { candidates } = useCandidates();
 
-  useEffect(() => {
-    async function fetchBrokers() {
-      try {
-        const res = await api('/api/brokers');
-        const data = await res.json();
-        setBrokers(Array.isArray(data) ? data : []);
-      } catch { /* ignore */ }
-    }
-    fetchBrokers();
-  }, []);
+
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -236,7 +228,7 @@ function RegistrationContent() {
       });
       if (res.ok) {
         const newBroker = await res.json();
-        setBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
+        mutateBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
         setPersonalInfo(prev => ({ ...prev, brokerId: newBroker.id }));
       } else {
         alert('Failed to create broker');

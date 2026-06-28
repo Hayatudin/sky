@@ -15,6 +15,7 @@ import { useSession } from '@/lib/auth-client';
 import { ROUTE_ACCESS, type Role } from '@/lib/role-config';
 
 import { useCandidates } from '@/hooks/useCandidates';
+import { useQuickRegistrations } from '@/hooks/useQuickRegistrations';
 
 const MUSANED_URL = 'https://accounts.wahid.sa/auth/realms/wahid/protocol/openid-connect/auth?client_id=etawtheeq-fe&redirect_uri=https%3A%2F%2Ftawtheeq.musaned.com.sa%2Flogin&state=1afbc6a5-ab04-454a-864e-2139d00d05a5&response_mode=fragment&response_type=code&scope=openid&nonce=c08d47d0-27af-41b3-8812-5ea7548fd14e&code_challenge=mlx9pnpSqR2PmNC1onUouVnZeV3FM3T2f8ELMWSHvds&code_challenge_method=S256';
 
@@ -41,21 +42,7 @@ export default function DashboardPage() {
     }
   }, [userRole, router]);
 
-  const [quickRegistrations, setQuickRegistrations] = React.useState<any[]>([]);
-  const [quickLoading, setQuickLoading] = React.useState(false);
-
-  React.useEffect(() => {
-    if (userRole === 'registrar' || userRole === 'super_admin' || userRole === 'processor' || userRole === 'coordinator' || userRole === 'accountant') {
-      setQuickLoading(true);
-      api('/api/quick-registrations')
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) setQuickRegistrations(data);
-        })
-        .catch(err => console.error('Failed to fetch quick registrations on dashboard', err))
-        .finally(() => setQuickLoading(false));
-    }
-  }, [userRole]);
+  const { registrations: quickRegistrations, isLoading: quickLoading } = useQuickRegistrations();
 
   // Role-based access helpers
   const canSee = (route: string) => {

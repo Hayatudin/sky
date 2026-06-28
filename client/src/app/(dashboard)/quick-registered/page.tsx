@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
+import { useQuickRegistrations } from '@/hooks/useQuickRegistrations';
+import { useBrokers } from '@/hooks/useBrokers';
 import { getFileUrl } from '@/lib/utils';
 import { Loader2, ClipboardList, Search, Eye, Calendar, User, ShieldCheck, X, Upload, CheckCircle2, XCircle, ArrowRight, FileText, Trash2, MoreVertical, Edit2, Plus, Phone, Briefcase, GraduationCap, Heart, Baby, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -64,8 +66,9 @@ function parseExperience(raw: string | null): string {
 
 export default function QuickRegisteredPage() {
   const router = useRouter();
-  const [registrations, setRegistrations] = useState<QuickReg[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { registrations, isLoading: loadingRegistrations, mutate: mutateRegistrations } = useQuickRegistrations();
+  const { brokers, isLoading: loadingBrokers } = useBrokers();
+  const loading = loadingRegistrations || loadingBrokers;
   const [search, setSearch] = useState('');
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role ?? 'user';
@@ -84,7 +87,6 @@ export default function QuickRegisteredPage() {
   const [isDragActive, setIsDragActive] = useState(false);
 
   // Edit and dropdown state
-  const [brokers, setBrokers] = useState<{ id: string; name: string }[]>([]);
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<QuickReg | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -149,25 +151,7 @@ export default function QuickRegisteredPage() {
     reader.readAsDataURL(file);
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [regRes, brokerRes] = await Promise.all([
-          api('/api/quick-registrations'),
-          api('/api/brokers')
-        ]);
-        const regData = await regRes.json();
-        const brokerData = await brokerRes.json();
-        if (Array.isArray(regData)) setRegistrations(regData);
-        if (Array.isArray(brokerData)) setBrokers(brokerData);
-      } catch (err) {
-        console.error('Failed to fetch quick registrations or brokers', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+
 
   const filtered = registrations.filter(r => {
     if (!search) return true;
@@ -262,7 +246,7 @@ export default function QuickRegisteredPage() {
 
       setPromoteSuccess(data.candidateId);
       // Update local list to reflect promoted status
-      setRegistrations(prev => prev.map(r =>
+      mutateRegistrations(prev => prev.map(r =>
         r.id === verifyTarget.id
           ? { ...r, verificationStatus: 'promoted', promotedCandidateId: data.candidateId }
           : r
@@ -282,7 +266,7 @@ export default function QuickRegisteredPage() {
         const errData = await res.json();
         throw new Error(errData.error || 'Failed to delete');
       }
-      setRegistrations(prev => prev.filter(r => r.id !== id));
+      mutateRegistrations(prev => prev.filter(r => r.id !== id));
     } catch (err: any) {
       alert(err.message || 'Something went wrong while deleting');
     }
@@ -418,7 +402,7 @@ export default function QuickRegisteredPage() {
       if (!res.ok) throw new Error(updated.error || 'Failed to update quick registration');
 
       // Update local state to reflect edited changes
-      setRegistrations(prev => prev.map(r => r.id === editTarget.id ? updated : r));
+      mutateRegistrations(prev => prev.map(r => r.id === editTarget.id ? updated : r));
       setEditTarget(null);
     } catch (err: any) {
       alert(err.message || 'An error occurred while saving.');

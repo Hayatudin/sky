@@ -14,6 +14,8 @@ import Input from '@/components/ui/Input';
 import { Broker, Leader } from '@/types';
 import { useSession } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
+import { useBrokers } from '@/hooks/useBrokers';
+import { useLeaders } from '@/hooks/useLeaders';
 
 export default function BrokersPage() {
   const router = useRouter();
@@ -24,7 +26,7 @@ export default function BrokersPage() {
   const canChangeTemplate = role === 'super_admin' || role === 'processor' || role === 'coordinator' || role === 'genaral';
   const canManageBrokers = role === 'super_admin' || role === 'accountant' || role === 'genaral';
 
-  const [brokers, setBrokers] = useState<Broker[]>([]);
+  const { brokers, isLoading: isBrokersLoading, mutate: mutateBrokers } = useBrokers();
   const [selectedBrokerForTemplate, setSelectedBrokerForTemplate] = useState<Broker | null>(null);
   const [isChangingTemplate, setIsChangingTemplate] = useState(false);
 
@@ -71,9 +73,8 @@ export default function BrokersPage() {
       setIsChangingTemplate(false);
     }
   };
-  const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLeadersLoading, setIsLeadersLoading] = useState(true);
+  const { leaders, isLoading: isLeadersLoading, mutate: mutateLeaders } = useLeaders();
+  const isLoading = isBrokersLoading || isLeadersLoading;
   
   // Create forms visibility states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -155,49 +156,10 @@ export default function BrokersPage() {
     };
   }, []);
 
-  const fetchBrokers = async () => {
-    try {
-      setIsLoading(true);
-      const res = await api('/api/brokers', { cache: 'no-store' });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setBrokers(data);
-      } else {
-        console.error('API did not return an array for brokers:', data);
-        setBrokers([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch brokers:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchLeaders = async () => {
-    try {
-      setIsLeadersLoading(true);
-      const res = await api('/api/leaders', { cache: 'no-store' });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setLeaders(data);
-      } else {
-        console.error('API did not return an array for leaders:', data);
-        setLeaders([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch leaders:', err);
-    } finally {
-      setIsLeadersLoading(false);
-    }
-  };
-
   const fetchData = async () => {
-    await Promise.all([fetchBrokers(), fetchLeaders()]);
+    mutateBrokers();
+    mutateLeaders();
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   // Keyboard navigation spelling search
   useEffect(() => {
@@ -394,7 +356,7 @@ export default function BrokersPage() {
         method: 'PATCH',
       });
       const updated = await res.json();
-      setBrokers(prev => prev.map(b => b.id === broker.id ? { ...b, isLocked: updated.isLocked } : b));
+      mutateBrokers(prev => prev.map(b => b.id === broker.id ? { ...b, isLocked: updated.isLocked } : b));
     } catch (err: any) {
       console.error('Failed to toggle lock:', err);
       alert(err.message || 'Failed to toggle lock');

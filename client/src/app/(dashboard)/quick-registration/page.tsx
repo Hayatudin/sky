@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
+import { useBrokers } from '@/hooks/useBrokers';
 import PassportUploader from '@/components/registration/PassportUploader';
 import PassportDataFields from '@/components/registration/PassportDataFields';
 import { PassportData, WorkExperienceEntry, Broker } from '@/types';
@@ -104,8 +105,7 @@ export default function QuickRegistrationPage() {
   const [passportType, setPassportType] = useState('original');
 
   // Broker list
-  const [brokers, setBrokers] = useState<Broker[]>([]);
-  const [brokersLoading, setBrokersLoading] = useState(true);
+  const { brokers, isLoading: brokersLoading, mutate: mutateBrokers } = useBrokers();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -172,22 +172,6 @@ export default function QuickRegistrationPage() {
     }
   }, [passportData.givenNames, passportData.surname]);
 
-  // Fetch brokers on mount
-  useEffect(() => {
-    const fetchBrokers = async () => {
-      try {
-        const res = await api('/api/brokers');
-        const data = await res.json();
-        if (Array.isArray(data)) setBrokers(data);
-      } catch (err) {
-        console.error('Failed to fetch brokers', err);
-      } finally {
-        setBrokersLoading(false);
-      }
-    };
-    fetchBrokers();
-  }, []);
-
   const handleCreateBroker = async (name: string) => {
     try {
       const res = await api('/api/brokers', {
@@ -197,7 +181,7 @@ export default function QuickRegistrationPage() {
       });
       if (res.ok) {
         const newBroker = await res.json();
-        setBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
+        mutateBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
         setSelectedBrokerId(newBroker.id);
       } else {
         alert('Failed to create broker');

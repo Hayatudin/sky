@@ -6,6 +6,7 @@ import { FileText, Loader2, CheckCircle2, Eye, Download, AlertCircle, FileCheck,
 import Input from '@/components/ui/Input';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { generateInvoicePdf } from '@/lib/invoicePdfGenerator';
+import { useInvoices } from '@/hooks/useInvoices';
 
 const TEMPLATES: Record<string, { name: string; fullName: string }> = {
   'all': { name: 'ALL', fullName: '' },
@@ -20,8 +21,9 @@ const TEMPLATES: Record<string, { name: string; fullName: string }> = {
 };
 
 export default function InvoicePage() {
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { invoices, isLoading: isQueryLoading, mutate: mutateInvoices } = useInvoices();
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const isLoading = isQueryLoading || isBulkUpdating;
   const [searchQuery, setSearchQuery] = useState('');
   const [viewDoc, setViewDoc] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -69,23 +71,7 @@ export default function InvoicePage() {
     reader.readAsDataURL(file);
   };
 
-  const fetchInvoices = async () => {
-    try {
-      setIsLoading(true);
-      const res = await api('/api/invoices', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed to fetch invoices');
-      const data = await res.json();
-      setInvoices(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchInvoices();
-  }, []);
 
   const toggleDelivered = async (invoiceId: string, currentStatus: boolean) => {
     setActionLoading(invoiceId);
@@ -99,7 +85,7 @@ export default function InvoicePage() {
 
       const updated = await res.json();
 
-      setInvoices(prev => prev.map(inv =>
+      mutateInvoices(prev => prev.map(inv =>
         inv.id === invoiceId
           ? { ...inv, isDelivered: updated.isDelivered, deployedDate: updated.deployedDate }
           : inv
@@ -120,7 +106,7 @@ export default function InvoicePage() {
         const err = await res.json();
         throw new Error(err.error || 'Failed to delete invoice');
       }
-      setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+      mutateInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
     } catch (err: any) {
       alert(err.message || 'Something went wrong while deleting');
     } finally {
@@ -223,7 +209,7 @@ export default function InvoicePage() {
     const toUpdate = filtered.filter(inv => inv.isDelivered !== targetStatus);
     if (toUpdate.length === 0) return;
 
-    setIsLoading(true);
+    setIsBulkUpdating(true);
     try {
       await Promise.all(
         toUpdate.map(async (inv) => {
@@ -235,12 +221,12 @@ export default function InvoicePage() {
           if (!res.ok) throw new Error();
         })
       );
-      await fetchInvoices();
+      await mutateInvoices();
     } catch (err) {
       alert('Failed to update some invoices. Make sure their candidate brokers are not locked.');
-      await fetchInvoices();
+      await mutateInvoices();
     } finally {
-      setIsLoading(false);
+      setIsBulkUpdating(false);
     }
   };
 
@@ -638,7 +624,7 @@ export default function InvoicePage() {
                   const updatedInvoice = await res.json();
 
                   // Update the local list
-                  setInvoices(prev => prev.map(inv => inv.id === editingInvoice.id ? {
+                  mutateInvoices(prev => prev.map(inv => inv.id === editingInvoice.id ? {
                     ...inv,
                     lmisQrCodeUrl: updatedInvoice.lmisQrCodeUrl,
                     insuranceUrl: updatedInvoice.insuranceUrl,

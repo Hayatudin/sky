@@ -16,24 +16,10 @@ import {
   Undo2,
 } from 'lucide-react';
 import { cn, getFileUrl } from '@/lib/utils';
-
-interface Passport {
-  id: string;
-  shelfNo: string;
-  fullName: string;
-  passportNumber: string;
-  passportImageUrl: string | null;
-  status: string;
-  takenReason?: string | null;
-  takenByName?: string | null;
-  takenByPhone?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { usePassports, Passport } from '@/hooks/usePassports';
 
 export default function AvailablePassportPage() {
-  const [passports, setPassports] = useState<Passport[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { passports, isLoading: loading, mutate: mutatePassports } = usePassports();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'available' | 'taken'>('available');
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -49,25 +35,6 @@ export default function AvailablePassportPage() {
   // Return Confirmation Modal State
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returnPassport, setReturnPassport] = useState<Passport | null>(null);
-
-  // Fetch all passports from backend
-  const fetchPassports = async () => {
-    try {
-      const res = await api('/api/passports');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setPassports(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch passports:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPassports();
-  }, []);
 
   // Handlers
   const handleOpenTakenModal = (passport: Passport) => {
@@ -97,7 +64,7 @@ export default function AvailablePassportPage() {
       });
       if (res.ok) {
         // Update local state instantly for snappiness
-        setPassports(prev =>
+        mutatePassports(prev =>
           prev.map(p =>
             p.id === selectedPassport.id
               ? {
@@ -141,7 +108,7 @@ export default function AvailablePassportPage() {
       });
       if (res.ok) {
         // Update local state — restore to Available, keep shelfNo
-        setPassports(prev =>
+        mutatePassports(prev =>
           prev.map(p =>
             p.id === returnPassport.id
               ? {

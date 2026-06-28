@@ -9,10 +9,10 @@ import Input from '@/components/ui/Input';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { generateDeploymentsPdf } from '@/lib/deploymentsPdfGenerator';
 import { cn } from '@/lib/utils';
+import { useDeployments } from '@/hooks/useDeployments';
 
 export default function DeploymentsPage() {
-  const [candidates, setCandidates] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { deployments: candidates, isLoading } = useDeployments();
   const [isExporting, setIsExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -58,24 +58,7 @@ export default function DeploymentsPage() {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const fetchDeployments = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await api('/api/deployments', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed to fetch deployments');
-      const data = await res.json();
-      setCandidates(data);
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong while fetching deployments');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchDeployments();
-  }, []);
 
   const handleExportPdf = () => {
     setIsExporting(true);

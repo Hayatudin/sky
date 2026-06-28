@@ -1,105 +1,39 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Candidate } from '@/types';
 import { api } from '@/lib/api';
 
-// Global cache variables outside the component
-let cachedCandidates: Candidate[] | null = null;
-let fetchPromise: Promise<Candidate[]> | null = null;
-let lastFetchTime = 0;
-const CACHE_TTL = 30000; // 30 seconds
-
 export function clearCandidatesCache() {
-  cachedCandidates = null;
-  fetchPromise = null;
-  lastFetchTime = 0;
+  // Deprecated/No-op when using TanStack Query, kept to prevent compilation errors if called
 }
 
-export function useCandidates(initialForceRefresh = false) {
-  const [candidates, setCandidates] = useState<Candidate[]>(cachedCandidates || []);
-  const [isLoading, setIsLoading] = useState(!cachedCandidates);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshToggle, setRefreshToggle] = useState(0);
+export function useCandidates() {
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    function handleGlobalRefresh() {
-      clearCandidatesCache();
-      setRefreshToggle(prev => prev + 1);
-    }
-    window.addEventListener('app-refresh', handleGlobalRefresh);
-    return () => {
-      window.removeEventListener('app-refresh', handleGlobalRefresh);
-    };
-  }, []);
+  const { data: candidates = [], isLoading, error, refetch } = useQuery<Candidate[]>({
+    queryKey: ['candidates'],
+    queryFn: () => api('/api/candidates').then(async (res) => {
+      if (!res.ok) throw new Error('Failed to fetch candidates');
+      return res.json();
+    }),
+  });
 
-  useEffect(() => {
-    let mounted = true;
-    const forceRefresh = initialForceRefresh || refreshToggle > 0;
-
-    async function loadCandidates() {
-      // Use cache if valid and not forcing a refresh
-      if (!forceRefresh && cachedCandidates && (Date.now() - lastFetchTime < CACHE_TTL)) {
-        if (mounted) {
-          setCandidates(cachedCandidates);
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      // Start a new fetch if one isn't already in progress, or if forcing refresh
-      if (!fetchPromise || forceRefresh) {
-        setIsLoading(true);
-        fetchPromise = api('/api/candidates').then(async (res) => {
-          if (!res.ok) throw new Error('Failed to fetch candidates');
-          return res.json();
-        }).catch(err => {
-          fetchPromise = null;
-          throw err;
-        });
-      }
-
-      try {
-        const data = await fetchPromise;
-        cachedCandidates = Array.isArray(data) ? data : [];
-        lastFetchTime = Date.now();
-        if (mounted) {
-          setCandidates(Array.isArray(data) ? data : []);
-          setError(null);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Something went wrong');
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadCandidates();
-
-    return () => { mounted = false; };
-  }, [initialForceRefresh, refreshToggle]);
-
-  // Method to update cache and local state optimistically
   const mutate = (updater?: Candidate[] | ((prev: Candidate[]) => Candidate[])) => {
     if (updater === undefined) {
-      // No argument: trigger a re-fetch
-      setRefreshToggle(prev => prev + 1);
+      refetch();
       return;
     }
 
     if (typeof updater === 'function') {
-      setCandidates(prev => {
-        const newData = updater(prev);
-        cachedCandidates = newData;
-        return newData;
-      });
+      queryClient.setQueryData<Candidate[]>(['candidates'], (prev = []) => updater(prev));
     } else {
-      cachedCandidates = updater;
-      setCandidates(updater);
+      queryClient.setQueryData<Candidate[]>(['candidates'], updater);
     }
   };
 
-  return { candidates, isLoading, error, mutate };
+  return {
+    candidates,
+    isLoading,
+    error: error ? error.message : null,
+    mutate,
+  };
 }

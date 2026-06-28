@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Copy, Check, ArrowLeft, Loader2, User, Calendar, Globe, Briefcase, GraduationCap, Heart, Baby, Phone, BookOpen, Users, Upload, Image as ImageIcon, FileText, Save, RefreshCw, AlertCircle, Trash2, Video, Edit2, Plus, X, CheckCircle2 } from 'lucide-react';
 import { getFileUrl } from '@/lib/utils';
+import { useBrokers } from '@/hooks/useBrokers';
 
 interface QuickRegistration {
   id: string;
@@ -85,7 +86,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Edit target and form states
-  const [brokers, setBrokers] = useState<{ id: string; name: string }[]>([]);
+  const { brokers } = useBrokers();
   const [editTarget, setEditTarget] = useState<QuickRegistration | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -154,20 +155,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       }
     };
 
-    const fetchBrokers = async () => {
-      try {
-        const res = await api('/api/brokers');
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json)) setBrokers(json);
-        }
-      } catch (err) {
-        console.error('Failed to fetch brokers', err);
-      }
-    };
-
     fetchData();
-    fetchBrokers();
   }, [id]);
 
   const handleEditFileChange = (field: string, file: File | null) => {
