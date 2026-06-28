@@ -7,7 +7,7 @@ import { getSession } from '../lib/auth-helper';
 import { createId } from '@paralleldrive/cuid2';
 import { getNextShelfNo } from './passports';
 
-async function syncPassportFromQuickReg(qr: {
+async function syncPassportFromQuickReg(tx: any, qr: {
   passportNumber: string;
   givenNames: string;
   surname: string;
@@ -20,9 +20,9 @@ async function syncPassportFromQuickReg(qr: {
     const cleanPassportNumber = qr.passportNumber.trim().toUpperCase();
     const cleanFullName = `${qr.givenNames || ''} ${qr.surname || ''}`.trim().toUpperCase();
 
-    // Check if passport already exists in the Passport table
-    const existingPassport = await db.query.passport.findFirst({
-      where: (p, { eq }) => eq(p.passportNumber, cleanPassportNumber)
+    // Check if passport already exists in the Passport table within the transaction context
+    const existingPassport = await tx.query.passport.findFirst({
+      where: (p: any, { eq }: any) => eq(p.passportNumber, cleanPassportNumber)
     });
 
     if (qr.passportType === 'original') {
@@ -30,7 +30,7 @@ async function syncPassportFromQuickReg(qr: {
         // Automatically generate shelf location and register
         const shelfNo = await getNextShelfNo();
         const id = 'pp' + createId();
-        await db.insert(passport).values({
+        await tx.insert(passport).values({
           id,
           shelfNo,
           fullName: cleanFullName,
@@ -41,7 +41,7 @@ async function syncPassportFromQuickReg(qr: {
         console.log(`[PASSPORT-SYNC] Automatically registered original passport under shelf ${shelfNo}`);
       } else {
         // Update details if it exists
-        await db.update(passport)
+        await tx.update(passport)
           .set({
             fullName: cleanFullName,
             passportImageUrl: qr.passportImageUrl || null,
@@ -51,12 +51,13 @@ async function syncPassportFromQuickReg(qr: {
     } else {
       // If it is NOT original, remove from Available list if exists
       if (existingPassport) {
-        await db.delete(passport).where(eq(passport.id, existingPassport.id));
+        await tx.delete(passport).where(eq(passport.id, existingPassport.id));
         console.log(`[PASSPORT-SYNC] Removed passport ${cleanPassportNumber} from Available list because passportType is ${qr.passportType}`);
       }
     }
   } catch (err) {
     console.error('[PASSPORT-SYNC] Error during passport synchronization:', err);
+    throw err; // Re-throw to allow transaction rollback
   }
 }
 
@@ -166,72 +167,65 @@ router.post('/', async (req: Request, res: Response) => {
     ]);
 
     const generatedId = createId();
+    let registration: any = null;
 
-    await db.insert(quickRegistration).values({
-      id: generatedId,
-      passportNumber: body.passportNumber || '',
-      surname: body.surname || '',
-      givenNames: body.givenNames || '',
-      dateOfBirth: body.dateOfBirth || null,
-      gender: body.gender || null,
-      nationality: body.nationality || null,
-      dateOfExpiry: body.dateOfExpiry || null,
-      issuingCountry: body.issuingCountry || null,
-      placeOfBirth: body.placeOfBirth || null,
-      educationLevel: body.educationLevel || null,
-      jobExperience: body.jobExperience || null,
-      maritalStatus: body.maritalStatus || null,
-      numberOfChildren: parseInt(body.numberOfChildren) || 0,
-      passportImageUrl,
-      religion: body.religion || null,
-      brokerId: body.brokerId || null,
-      cocDocumentUrl: cocDocumentUrl || null,
-      labourIdUrl: labourIdUrl || null,
-      candidateIdImageUrl: candidateIdImageUrl || null,
-      relativeIdImageUrl: relativeIdImageUrl || null,
-      relativePhones: body.relativePhones || null,
-      videoUrl: videoUrl || null,
-      agency: body.agency || 'daera',
-      passportType: body.passportType || 'original',
-      languages: body.languages || null,
-      allowVideo: body.allowVideo ? true : false,
-      registeredById
-    });
+    await db.transaction(async (tx) => {
+      await tx.insert(quickRegistration).values({
+        id: generatedId,
+        passportNumber: body.passportNumber || '',
+        surname: body.surname || '',
+        givenNames: body.givenNames || '',
+        dateOfBirth: body.dateOfBirth || null,
+        gender: body.gender || null,
+        nationality: body.nationality || null,
+        dateOfExpiry: body.dateOfExpiry || null,
+        issuingCountry: body.issuingCountry || null,
+        placeOfBirth: body.placeOfBirth || null,
+        educationLevel: body.educationLevel || null,
+        jobExperience: body.jobExperience || null,
+        maritalStatus: body.maritalStatus || null,
+        numberOfChildren: parseInt(body.numberOfChildren) || 0,
+        passportImageUrl,
+        religion: body.religion || null,
+        brokerId: body.brokerId || null,
+        cocDocumentUrl: cocDocumentUrl || null,
+        labourIdUrl: labourIdUrl || null,
+        candidateIdImageUrl: candidateIdImageUrl || null,
+        relativeIdImageUrl: relativeIdImageUrl || null,
+        relativePhones: body.relativePhones || null,
+        videoUrl: videoUrl || null,
+        agency: body.agency || 'daera',
+        passportType: body.passportType || 'original',
+        languages: body.languages || null,
+        allowVideo: body.allowVideo ? true : false,
+        registeredById
+      });
 
-    const registration = await db.query.quickRegistration.findFirst({
-      where: eq(quickRegistration.id, generatedId),
-      with: {
-        broker: { columns: { id: true, name: true } },
-        registeredBy: { columns: { name: true } },
-      }
-    });
-
-    if (!registration) {
-      return res.status(500).json({ error: 'Failed to retrieve quick registration after insert' });
-    }
-
-    // Resolve operator name robustly
-    let registrarName = registration.registeredBy?.name || 'Walk-in';
-    if (registeredById && registrarName === 'Walk-in') {
-      try {
-        const userRow = await db.query.user.findFirst({
-          where: eq(user.id, registeredById),
-          columns: { name: true }
-        });
-        if (userRow && userRow.name) {
-          registrarName = userRow.name;
+      const txReg = await tx.query.quickRegistration.findFirst({
+        where: eq(quickRegistration.id, generatedId),
+        with: {
+          broker: { columns: { id: true, name: true } },
+          registeredBy: { columns: { name: true } },
         }
-      } catch (_) {}
-    }
+      });
 
-    // Sync to Available Passport table
-    await syncPassportFromQuickReg({
-      passportNumber: registration.passportNumber,
-      givenNames: registration.givenNames,
-      surname: registration.surname,
-      passportImageUrl: registration.passportImageUrl,
-      passportType: registration.passportType,
+      if (!txReg) {
+        throw new Error('Failed to retrieve quick registration after insert inside transaction');
+      }
+
+      registration = txReg;
+
+      // Sync to Available Passport table
+      await syncPassportFromQuickReg(tx, {
+        passportNumber: registration.passportNumber,
+        givenNames: registration.givenNames,
+        surname: registration.surname,
+        passportImageUrl: registration.passportImageUrl,
+        passportType: registration.passportType,
+      });
     });
+
+    const registrarName = registration?.registeredBy?.name || 'Walk-in';
 
     res.status(201).json({
       ...registration,
@@ -301,26 +295,31 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (body.languages !== undefined) updateData.languages = body.languages || null;
     if (body.allowVideo !== undefined) updateData.allowVideo = body.allowVideo ? true : false;
 
-    await db.update(quickRegistration)
-      .set(updateData)
-      .where(eq(quickRegistration.id, id));
+    let updated: any = null;
 
-    const updated = await db.query.quickRegistration.findFirst({
-      where: eq(quickRegistration.id, id),
-      with: {
-        broker: { columns: { id: true, name: true } },
-      },
-    });
+    await db.transaction(async (tx) => {
+      await tx.update(quickRegistration)
+        .set(updateData)
+        .where(eq(quickRegistration.id, id));
 
-    if (updated) {
-      await syncPassportFromQuickReg({
-        passportNumber: updated.passportNumber,
-        givenNames: updated.givenNames,
-        surname: updated.surname,
-        passportImageUrl: updated.passportImageUrl,
-        passportType: updated.passportType,
+      const txUpdated = await tx.query.quickRegistration.findFirst({
+        where: eq(quickRegistration.id, id),
+        with: {
+          broker: { columns: { id: true, name: true } },
+        },
       });
-    }
+
+      if (txUpdated) {
+        await syncPassportFromQuickReg(tx, {
+          passportNumber: txUpdated.passportNumber,
+          givenNames: txUpdated.givenNames,
+          surname: txUpdated.surname,
+          passportImageUrl: txUpdated.passportImageUrl,
+          passportType: txUpdated.passportType,
+        });
+        updated = txUpdated;
+      }
+    });
 
     res.json(updated);
   } catch (error: any) {
@@ -392,13 +391,15 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Registration not found' });
     }
 
-    if (existing.passportNumber) {
-      const cleanPassport = existing.passportNumber.trim().toUpperCase();
-      await db.delete(passport).where(eq(passport.passportNumber, cleanPassport));
-      console.log(`[PASSPORT-SYNC] Automatically deleted passport ${cleanPassport} because quick registration was deleted`);
-    }
+    await db.transaction(async (tx) => {
+      if (existing.passportNumber) {
+        const cleanPassport = existing.passportNumber.trim().toUpperCase();
+        await tx.delete(passport).where(eq(passport.passportNumber, cleanPassport));
+        console.log(`[PASSPORT-SYNC] Automatically deleted passport ${cleanPassport} because quick registration was deleted`);
+      }
 
-    await db.delete(quickRegistration).where(eq(quickRegistration.id, id));
+      await tx.delete(quickRegistration).where(eq(quickRegistration.id, id));
+    });
     
     res.json({ success: true, message: 'Deleted successfully' });
   } catch (error: any) {
