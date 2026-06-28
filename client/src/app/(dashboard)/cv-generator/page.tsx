@@ -18,6 +18,7 @@ import UssusTemplate from '@/components/cv/templates/UssusTemplate';
 import VisionTemplate from '@/components/cv/templates/VisionTemplate';
 import { generateAlShablanNativeDocx, generateUssusNativeDocx } from '@/lib/docxGenerators';
 import Button from '@/components/ui/Button';
+import { useQueryClient } from '@tanstack/react-query';
 
 const TEMPLATES: any[] = [
   { id: 'ussus', name: 'USSUS', category: 'minimal', description: 'USSUS template layout', thumbnail: '/Ussus.png' },
@@ -38,6 +39,7 @@ function CVGeneratorContent() {
   const urlCandidateId = searchParams.get('candidateId');
 
   const { candidates, isLoading, mutate: setCandidates } = useCandidates();
+  const queryClient = useQueryClient();
   const nonCallingCandidates = React.useMemo(() => candidates.filter((c: Candidate) => c.broker?.name !== 'Calling'), [candidates]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(urlCandidateId);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('alm');
@@ -175,6 +177,7 @@ function CVGeneratorContent() {
       } else {
         const data = await response.json();
         setToast(`CV Saved in ${TEMPLATES.find(t => t.id === selectedTemplateId)?.name} template!`);
+        queryClient.invalidateQueries({ queryKey: ['candidates'] });
         // Refresh generated list
         const refreshed = await api('/api/generated-cvs').then(r => r.json());
         if (Array.isArray(refreshed)) setGeneratedCvs(refreshed);

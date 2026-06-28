@@ -448,6 +448,7 @@ function GeneratedCVsContent() {
         }
         setCvs(prev => prev.filter(c => !selectedCVIds.has(c.id)));
         setSelectedCVIds(new Set());
+        clearCandidatesCache();
         showToast(`Deleted ${ids.length} CVs successfully`);
       } catch (err) {
         showToast('Failed to delete some CVs', 'error');
@@ -460,6 +461,7 @@ function GeneratedCVsContent() {
         const res = await api(`/api/generated-cvs/${deleteTarget.id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed');
         setCvs(prev => prev.filter(c => c.id !== deleteTarget.id));
+        clearCandidatesCache();
         showToast('CV record deleted successfully');
       } catch {
         showToast('Failed to delete CV record', 'error');

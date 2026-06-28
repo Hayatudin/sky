@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Candidate } from '@/types';
 import { api } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 
 export function clearCandidatesCache() {
-  // Deprecated/No-op when using TanStack Query, kept to prevent compilation errors if called
+  queryClient.invalidateQueries({ queryKey: ['candidates'] });
 }
 
 export function useCandidates() {
