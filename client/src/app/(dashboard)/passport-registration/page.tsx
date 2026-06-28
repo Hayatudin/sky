@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import FileUpload from '@/components/ui/FileUpload';
 import { Save, Loader2 } from 'lucide-react';
 import Input from '@/components/ui/Input';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface PassportForm {
   passportNumber: string;
@@ -21,6 +22,7 @@ const emptyForm: PassportForm = {
 
 export default function PassportRegistrationPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<PassportForm>(emptyForm);
   const [passportImage, setPassportImage] = useState<string | null>(null);
   
@@ -107,6 +109,7 @@ export default function PassportRegistrationPage() {
       }
 
       setSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ['passports'] });
       setForm(emptyForm);
       setPassportImage(null);
       

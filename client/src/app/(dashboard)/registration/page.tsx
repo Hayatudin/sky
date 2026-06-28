@@ -14,6 +14,7 @@ import { ArrowRight, ArrowLeft, CheckCircle2, UserPlus, ScanLine, Upload, FileTe
 import { useCandidates } from '@/hooks/useCandidates';
 import { useBrokers } from '@/hooks/useBrokers';
 import { authClient } from '@/lib/auth-client';
+import { useQueryClient } from '@tanstack/react-query';
 
 const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
   return new Promise((resolve) => {
@@ -102,6 +103,7 @@ function RegistrationContent() {
 
   const { data: session } = authClient.useSession();
   const { candidates } = useCandidates();
+  const queryClient = useQueryClient();
 
 
 
@@ -600,6 +602,7 @@ function RegistrationContent() {
       }
 
       const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
       setRegisteredCandidateId(data.id);
       setSubmitted(true);
     } catch (err) {

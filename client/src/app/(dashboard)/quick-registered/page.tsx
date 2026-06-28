@@ -8,6 +8,7 @@ import { useQuickRegistrations } from '@/hooks/useQuickRegistrations';
 import { useBrokers } from '@/hooks/useBrokers';
 import { getFileUrl } from '@/lib/utils';
 import { Loader2, ClipboardList, Search, Eye, Calendar, User, ShieldCheck, X, Upload, CheckCircle2, XCircle, ArrowRight, FileText, Trash2, MoreVertical, Edit2, Plus, Phone, Briefcase, GraduationCap, Heart, Baby, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 const getVisiblePages = (current: number, total: number) => {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
@@ -66,6 +67,7 @@ function parseExperience(raw: string | null): string {
 
 export default function QuickRegisteredPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { registrations, isLoading: loadingRegistrations, mutate: mutateRegistrations } = useQuickRegistrations();
   const { brokers, isLoading: loadingBrokers } = useBrokers();
   const loading = loadingRegistrations || loadingBrokers;
@@ -245,6 +247,7 @@ export default function QuickRegisteredPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to promote');
 
       setPromoteSuccess(data.candidateId);
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
       // Update local list to reflect promoted status
       mutateRegistrations(prev => prev.map(r =>
         r.id === verifyTarget.id

@@ -8,6 +8,7 @@ import { useBrokers } from '@/hooks/useBrokers';
 import PassportUploader from '@/components/registration/PassportUploader';
 import PassportDataFields from '@/components/registration/PassportDataFields';
 import { PassportData, WorkExperienceEntry, Broker } from '@/types';
+import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader2, Trash2, Plus, Phone, Video } from 'lucide-react';
 import { allCountries } from '@/data/countries';
 import Select from '@/components/ui/Select';
@@ -73,6 +74,7 @@ const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
 
 export default function QuickRegistrationPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: session } = useSession();
   const isCalling = (session?.user as any)?.role === 'calling';
 
@@ -480,8 +482,10 @@ export default function QuickRegistrationPage() {
 
       const data = await response.json();
       if (isCalling) {
+        queryClient.invalidateQueries({ queryKey: ['candidates'] });
         router.push(`/candidates/${data.id}`);
       } else {
+        queryClient.invalidateQueries({ queryKey: ['quick-registrations'] });
         router.push(`/quick-registration/preview/${data.id}`);
       }
     } catch (err: any) {

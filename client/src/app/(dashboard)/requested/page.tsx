@@ -12,6 +12,7 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { cn } from '@/lib/utils';
 
 import { useCandidates } from '@/hooks/useCandidates';
+import { useQueryClient } from '@tanstack/react-query';
 
 const TEMPLATES = [
   { id: 'ussus', name: 'USSUS' },
@@ -27,6 +28,7 @@ const TEMPLATES = [
 export default function RequestedPage() {
   const router = useRouter();
   const { candidates: allCandidates, isLoading, mutate } = useCandidates();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -366,6 +368,7 @@ export default function RequestedPage() {
       });
       if (!res.ok) throw new Error();
       mutate(prev => prev.map(cand => cand.id === deployDateModal.candidateId ? { ...cand, deployedDate: deployDateValue || null } : cand));
+      queryClient.invalidateQueries({ queryKey: ['deployments'] });
       setDeployDateModal(null);
     } catch {
       alert('Failed to save deployment date');

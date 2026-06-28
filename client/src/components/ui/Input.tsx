@@ -43,6 +43,7 @@ export default function Input({
           className
         )}
         {...props}
+        {...('value' in props ? { value: props.value ?? '' } : {})}
       />
       {error && <p className="text-xs text-danger mt-0.5">{error}</p>}
       {helperText && !error && <p className="text-xs text-text-tertiary mt-0.5">{helperText}</p>}

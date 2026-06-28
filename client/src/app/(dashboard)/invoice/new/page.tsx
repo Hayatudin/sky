@@ -6,9 +6,11 @@ import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { FileText, Loader2, ArrowLeft, CheckCircle, UploadCloud, X, AlertCircle } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 function NewInvoiceContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const candidateId = searchParams.get('candidateId');
 
@@ -99,6 +101,7 @@ function NewInvoiceContent() {
         throw new Error(data.error || 'Failed to create invoice');
       }
 
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       router.push('/invoice');
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
