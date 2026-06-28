@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { Copy, Check, ArrowLeft, Loader2, User, Calendar, Globe, Briefcase, GraduationCap, Heart, Baby, Phone, BookOpen, Users, Upload, Image as ImageIcon, FileText, Save, RefreshCw, AlertCircle, Trash2, Video, Edit2, Plus, X, CheckCircle2 } from 'lucide-react';
 import { getFileUrl } from '@/lib/utils';
 import { useBrokers } from '@/hooks/useBrokers';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface QuickRegistration {
   id: string;
@@ -72,6 +73,7 @@ function CopyField({ label, value, icon }: { label: string; value: string; icon?
 export default function QuickRegistrationPreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [data, setData] = useState<QuickRegistration | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -284,6 +286,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       if (!res.ok) throw new Error(updated.error || 'Failed to update quick registration');
 
       setData(updated);
+      queryClient.invalidateQueries({ queryKey: ['passports'] });
       setCocDoc(updated.cocDocumentUrl);
       setLabourId(updated.labourIdUrl);
       setCandidateIdImg(updated.candidateIdImageUrl);

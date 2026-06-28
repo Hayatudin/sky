@@ -269,6 +269,7 @@ export default function QuickRegisteredPage() {
         const errData = await res.json();
         throw new Error(errData.error || 'Failed to delete');
       }
+      queryClient.invalidateQueries({ queryKey: ['passports'] });
       mutateRegistrations(prev => prev.filter(r => r.id !== id));
     } catch (err: any) {
       alert(err.message || 'Something went wrong while deleting');
@@ -403,6 +404,9 @@ export default function QuickRegisteredPage() {
 
       const updated = await res.json();
       if (!res.ok) throw new Error(updated.error || 'Failed to update quick registration');
+
+      // Invalidate passport queries so Available Passport updates immediately
+      queryClient.invalidateQueries({ queryKey: ['passports'] });
 
       // Update local state to reflect edited changes
       mutateRegistrations(prev => prev.map(r => r.id === editTarget.id ? updated : r));

@@ -38,7 +38,6 @@ export const ROUTE_ACCESS: Record<string, Role[]> = {
   '/uploaded-videos': ['super_admin', 'video_uploader', 'processor', 'coordinator', 'registrar', 'accountant'],
   '/agency/available-candidates': ['super_admin', 'agency'],
   '/agency/contracts': ['super_admin', 'agency'],
-  '/passport-registration': ['super_admin', 'genaral'],
   '/available-passport': ['super_admin', 'genaral'],
 };
 

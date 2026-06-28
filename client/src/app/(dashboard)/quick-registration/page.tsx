@@ -481,6 +481,7 @@ export default function QuickRegistrationPage() {
       }
 
       const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ['passports'] });
       if (isCalling) {
         queryClient.invalidateQueries({ queryKey: ['candidates'] });
         router.push(`/candidates/${data.id}`);

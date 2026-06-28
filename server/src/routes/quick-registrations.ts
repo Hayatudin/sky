@@ -1,10 +1,64 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { quickRegistration, candidate, user } from '../db/schema';
+import { quickRegistration, candidate, user, passport } from '../db/schema';
 import { eq, or, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
 import { createId } from '@paralleldrive/cuid2';
+import { getNextShelfNo } from './passports';
+
+async function syncPassportFromQuickReg(qr: {
+  passportNumber: string;
+  givenNames: string;
+  surname: string;
+  passportImageUrl?: string | null;
+  passportType?: string | null;
+}) {
+  try {
+    if (!qr.passportNumber) return;
+
+    const cleanPassportNumber = qr.passportNumber.trim().toUpperCase();
+    const cleanFullName = `${qr.givenNames || ''} ${qr.surname || ''}`.trim().toUpperCase();
+
+    // Check if passport already exists in the Passport table
+    const existingPassport = await db.query.passport.findFirst({
+      where: (p, { eq }) => eq(p.passportNumber, cleanPassportNumber)
+    });
+
+    if (qr.passportType === 'original') {
+      if (!existingPassport) {
+        // Automatically generate shelf location and register
+        const shelfNo = await getNextShelfNo();
+        const id = 'pp' + createId();
+        await db.insert(passport).values({
+          id,
+          shelfNo,
+          fullName: cleanFullName,
+          passportNumber: cleanPassportNumber,
+          passportImageUrl: qr.passportImageUrl || null,
+          status: 'Available',
+        });
+        console.log(`[PASSPORT-SYNC] Automatically registered original passport under shelf ${shelfNo}`);
+      } else {
+        // Update details if it exists
+        await db.update(passport)
+          .set({
+            fullName: cleanFullName,
+            passportImageUrl: qr.passportImageUrl || null,
+          })
+          .where(eq(passport.id, existingPassport.id));
+      }
+    } else {
+      // If it is NOT original, remove from Available list if exists
+      if (existingPassport) {
+        await db.delete(passport).where(eq(passport.id, existingPassport.id));
+        console.log(`[PASSPORT-SYNC] Removed passport ${cleanPassportNumber} from Available list because passportType is ${qr.passportType}`);
+      }
+    }
+  } catch (err) {
+    console.error('[PASSPORT-SYNC] Error during passport synchronization:', err);
+  }
+}
 
 const router = Router();
 
@@ -170,6 +224,15 @@ router.post('/', async (req: Request, res: Response) => {
       } catch (_) {}
     }
 
+    // Sync to Available Passport table
+    await syncPassportFromQuickReg({
+      passportNumber: registration.passportNumber,
+      givenNames: registration.givenNames,
+      surname: registration.surname,
+      passportImageUrl: registration.passportImageUrl,
+      passportType: registration.passportType,
+    });
+
     res.status(201).json({
       ...registration,
       registeredBy: registrarName
@@ -249,6 +312,16 @@ router.put('/:id', async (req: Request, res: Response) => {
       },
     });
 
+    if (updated) {
+      await syncPassportFromQuickReg({
+        passportNumber: updated.passportNumber,
+        givenNames: updated.givenNames,
+        surname: updated.surname,
+        passportImageUrl: updated.passportImageUrl,
+        passportType: updated.passportType,
+      });
+    }
+
     res.json(updated);
   } catch (error: any) {
     console.error('Error updating quick registration:', error);
@@ -317,6 +390,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     if (!existing) {
       return res.status(404).json({ error: 'Registration not found' });
+    }
+
+    if (existing.passportNumber) {
+      const cleanPassport = existing.passportNumber.trim().toUpperCase();
+      await db.delete(passport).where(eq(passport.passportNumber, cleanPassport));
+      console.log(`[PASSPORT-SYNC] Automatically deleted passport ${cleanPassport} because quick registration was deleted`);
     }
 
     await db.delete(quickRegistration).where(eq(quickRegistration.id, id));

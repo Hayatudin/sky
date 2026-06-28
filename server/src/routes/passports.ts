@@ -19,7 +19,7 @@ const generateCuid = (prefix = 'pp') => {
 };
 
 // Safe shelfNo generator
-const getNextShelfNo = async (): Promise<string> => {
+export const getNextShelfNo = async (): Promise<string> => {
   const counterFilePath = path.join(process.cwd(), 'passport_shelf_counter.json');
   let currentCounter = 0;
 
