@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { candidate, broker, generatedCV, invoice, notification, quickRegistration, user, preRegisteredVideo } from '../db/schema';
+import { candidate, broker, generatedCV, invoice, notification, quickRegistration, user } from '../db/schema';
 import { eq, inArray, and, or, like, sql, not, isNotNull } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
@@ -226,23 +226,6 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
       }
     }
 
-    // Auto-match pre-registered YouTube video if no YouTube link is yet assigned
-    if (!hasRemoteVideo) {
-      try {
-        const pNum = (qr.passportNumber || '').trim().toUpperCase();
-        if (pNum) {
-          const matchingVideo = await db.query.preRegisteredVideo.findFirst({
-            where: eq(preRegisteredVideo.passportNumber, pNum)
-          });
-          if (matchingVideo) {
-            updateData.videoUrl = matchingVideo.videoUrl;
-            console.log(`[AUTO-MATCH-PROMOTE] Linked pre-registered YouTube video: ${matchingVideo.videoUrl}`);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to auto-match pre-registered video during promotion:', err);
-      }
-    }
     if (qr.agency) {
       updateData.agency = qr.agency;
     }
@@ -356,22 +339,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     const nextShelfId = body.shelfId || String(nextNum).padStart(3, '0');
 
-    // Check if there is a pre-registered video matching this candidate's passport number
-    let matchedPreRegisteredVideoUrl: string | null = null;
-    try {
-      const pNum = (body.passportData.passportNumber || '').trim().toUpperCase();
-      if (pNum) {
-        const matchingVideo = await db.query.preRegisteredVideo.findFirst({
-          where: eq(preRegisteredVideo.passportNumber, pNum)
-        });
-        if (matchingVideo) {
-          matchedPreRegisteredVideoUrl = matchingVideo.videoUrl;
-          console.log(`[AUTO-MATCH] Linked pre-registered video to Candidate: ${matchedPreRegisteredVideoUrl}`);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to auto-match pre-registered video:', err);
-    }
+
 
     let finalBrokerId = body.personalInfo?.brokerId;
     if (userRole === 'calling' || body.personalInfo?.brokerId === 'calling-broker' || body.isCalling) {
@@ -447,7 +415,7 @@ router.post('/', async (req: Request, res: Response) => {
       candidateIdImageUrl,
       relativeIdImageUrl,
       labourIdUrl,
-      videoUrl: matchedPreRegisteredVideoUrl || (videoUrl && videoUrl.startsWith('http') ? videoUrl : null),
+      videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
       status: body.status || 'pending',
       agency: body.agency || 'daera',

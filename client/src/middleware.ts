@@ -48,11 +48,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // Redirect video uploader to video uploads page
-    if (role === 'video_uploader' && pathname.startsWith('/dashboard')) {
-      return NextResponse.redirect(new URL('/video-uploads', request.url));
-    }
-
     // Redirect agency to contracts page if accessing other dashboard pages
     if (role === 'agency' && !pathname.startsWith('/agency') && !pathname.startsWith('/settings')) {
       return NextResponse.redirect(new URL('/agency/contracts', request.url));
@@ -95,7 +90,6 @@ export const config = {
     '/quick-registration/:path*',
     '/quick-registered/:path*',
     '/invoice/:path*',
-    '/uploaded-videos/:path*',
     '/agency/:path*',
   ],
 };

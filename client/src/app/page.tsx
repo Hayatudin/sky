@@ -66,8 +66,6 @@ export default function HomePage() {
     if (!isPending && session) {
       if (role === 'agency') {
         router.push('/agency/contracts');
-      } else if (role === 'video_uploader') {
-        router.push('/video-uploads');
       } else if (canAccessDashboard) {
         router.push('/dashboard');
       }

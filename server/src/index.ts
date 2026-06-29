@@ -134,7 +134,6 @@ import cronRoutes from './routes/cron';
 import quickRegistrationRoutes from './routes/quick-registrations';
 import invoiceRoutes from './routes/invoices';
 import settingsRoutes from './routes/settings';
-import videoUploadsRoutes from './routes/video-uploads';
 import agencyRoutes from './routes/agency';
 import passportRoutes from './routes/passports';
 
@@ -153,7 +152,6 @@ app.use('/api/cron', cronRoutes); // cron left unauthenticated for external cron
 app.use('/api/quick-registrations', authenticateSession, quickRegistrationRoutes);
 app.use('/api/invoices', authenticateSession, invoiceRoutes);
 app.use('/api/settings', authenticateSession, settingsRoutes);
-app.use('/api/video-uploads', authenticateSession, videoUploadsRoutes);
 app.use('/api/files', authenticateSession, fileRoutes);
 app.use('/api/deployments', authenticateSession, deploymentRoutes);
 app.use('/api/agency', authenticateSession, agencyRoutes);

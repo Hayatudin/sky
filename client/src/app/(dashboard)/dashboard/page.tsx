@@ -37,8 +37,6 @@ export default function DashboardPage() {
   React.useEffect(() => {
     if (userRole === 'agency') {
       router.replace('/agency/contracts');
-    } else if (userRole === 'video_uploader') {
-      router.replace('/video-uploads');
     }
   }, [userRole, router]);
 
