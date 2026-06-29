@@ -549,6 +549,19 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     if (!c) return res.status(404).json({ error: 'Not found' });
 
+    // Look up the linked QuickRegistration by passport number to use as a
+    // fallback video source when the Candidate's own quickVideoUrl is null.
+    const passportUpper = (c.passportNumber || '').trim().toUpperCase();
+    const linkedQr = await db.query.quickRegistration.findFirst({
+      where: (qr, { and, isNotNull }) =>
+        and(
+          isNotNull(qr.videoUrl),
+          eq(sql`upper(${qr.passportNumber})`, passportUpper)
+        ),
+      columns: { videoUrl: true }
+    });
+    const entryVideoUrl = linkedQr?.videoUrl ?? null;
+
     const formatted = {
       id: c.id,
       shelfId: c.shelfId,
@@ -615,7 +628,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       visaOrContractNumber: c.visaOrContractNumber || null,
       videoUrl: encryptPath(c.videoUrl),
       Youtube_URL: c.videoUrl,
-      quickVideoUrl: encryptPath(c.quickVideoUrl),
+      // Fall back to the Entry video if the candidate's own quickVideoUrl is absent
+      quickVideoUrl: encryptPath(c.quickVideoUrl ?? entryVideoUrl),
       deployedDate: c.deployedDate ? c.deployedDate.toISOString() : null,
       registeredAt: c.registeredAt.toISOString(),
       broker: c.broker,
