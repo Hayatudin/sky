@@ -24,7 +24,7 @@ export const ROUTE_ACCESS: Record<string, Role[]> = {
   '/quick-registration': ['super_admin', 'registrar', 'genaral', 'calling'],
   '/quick-registered': ['super_admin', 'registrar', 'processor', 'genaral'],
   '/requested': ['super_admin', 'coordinator', 'accountant', 'genaral'],
-  '/fit-candidates': ['super_admin', 'coordinator', 'genaral'],
+  '/fit-candidates': [], // temporarily hidden — re-enable by restoring: ['super_admin', 'coordinator', 'genaral']
   '/registration': ['super_admin', 'processor', 'genaral'],
   '/cv-generator': ['super_admin', 'processor', 'coordinator', 'genaral'],
   '/generated-cvs': ['super_admin', 'processor', 'genaral'],
@@ -35,7 +35,7 @@ export const ROUTE_ACCESS: Record<string, Role[]> = {
   '/settings': ['super_admin', 'registrar', 'processor', 'coordinator', 'accountant', 'video_uploader', 'agency', 'genaral', 'calling'],
   '/users': ['super_admin'],
   '/agency/available-candidates': ['agency'],
-  '/agency/contracts': ['super_admin', 'agency'],
+  '/agency/contracts': [], // temporarily hidden — re-enable by restoring: ['super_admin', 'agency']
   '/available-passport': ['super_admin', 'genaral'],
 };
 
