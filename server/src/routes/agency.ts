@@ -225,7 +225,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
     }
 
     const role = session.user.role;
-    if (role !== 'agency' && role !== 'super_admin') {
+    if (role !== 'agency') {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
