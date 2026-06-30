@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { ROLE_CONFIG, type Role } from '@/lib/role-config';
+import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
   
 interface UserRow {
   id: string;
@@ -20,16 +21,7 @@ interface UserRow {
   createdAt: string;
 }
    
-const AGENCIES = [
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
-];
+const AGENCIES = CV_TEMPLATE_OPTIONS;
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'user', label: 'User' },
@@ -105,25 +97,25 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Full Name</label>
             <input value={name} onChange={e => setName(e.target.value)} required placeholder="John Doe"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="user@example.com"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Password</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Min. 6 characters"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all" />
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Role</label>
             <select value={role} onChange={e => setRole(e.target.value as Role)}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all bg-white cursor-pointer">
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white cursor-pointer">
               {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
@@ -132,7 +124,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Agency Template</label>
               <select value={agency} onChange={e => setAgency(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all bg-white cursor-pointer">
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white cursor-pointer">
                 {AGENCIES.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
@@ -144,7 +136,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
               {loading ? <><Loader2 size={15} className="animate-spin" />Creating…</> : <><Check size={15} />Create User</>}
             </button>
           </div>
@@ -181,7 +173,7 @@ function AgencySelectModal({
             <select
               value={selected}
               onChange={e => setSelected(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all bg-white cursor-pointer"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white cursor-pointer"
             >
               {AGENCIES.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
@@ -197,7 +189,7 @@ function AgencySelectModal({
             </button>
             <button
               onClick={() => onSave(selected)}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors"
             >
               Save Agency
             </button>
@@ -320,7 +312,7 @@ export default function UsersPage() {
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark transition-colors shadow-md shadow-primary/20"
           >
             <UserPlus size={16} /> Create User
           </button>
@@ -372,8 +364,8 @@ export default function UsersPage() {
                   {/* Avatar + Name */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                        <span className="text-indigo-600 font-bold text-sm">{user.name.charAt(0).toUpperCase()}</span>
+                      <div className="w-10 h-10 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0">
+                        <span className="text-primary font-bold text-sm">{user.name.charAt(0).toUpperCase()}</span>
                       </div>
                       <span className="font-semibold text-text-primary text-sm">{user.name}</span>
                     </div>

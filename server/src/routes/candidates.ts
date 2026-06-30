@@ -438,7 +438,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Automatically create a GeneratedCV record for Calling candidates with the selected Office
     if (userRole === 'calling' || body.personalInfo?.brokerId === 'calling-broker' || body.isCalling) {
       const templateId = body.office || body.templateId || body.agency || '';
-      const validTemplates = ['ussus', 'al-shablan', 'alm', 'ka7', 'ku2', 'ma', 'ra', 'vision'];
+      const validTemplates = ['rawasi', 'azm', 'mazaya'];
       if (validTemplates.includes(templateId.toLowerCase())) {
         try {
           const existingCV = await db.query.generatedCV.findFirst({
@@ -830,7 +830,7 @@ router.patch('/bulk-cv-downloaded', async (req: Request, res: Response) => {
             if (cand) {
               await db.insert(generatedCV).values({
                 candidateId: id,
-                templateId: 'alm',
+                templateId: 'rawasi',
                 facePhotoUrl: cand.facePhotoUrl || '',
                 fullBodyPhotoUrl: cand.fullBodyPhotoUrl || ''
               });
@@ -973,7 +973,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       if (!existing) {
         await db.insert(generatedCV).values({
           candidateId: id,
-          templateId: 'alm',
+          templateId: 'rawasi',
           facePhotoUrl: updated.facePhotoUrl || '',
           fullBodyPhotoUrl: updated.fullBodyPhotoUrl || ''
         });

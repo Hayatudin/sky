@@ -148,12 +148,12 @@ export default function DashboardPage() {
           )}
           {canSee('/quick-registration') && (
             <Link href="/quick-registration" className="sm:hidden w-full">
-              <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-orange-500/30 transition-all active:scale-[0.98]">
+              <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all active:scale-[0.98]">
                 <ClipboardList size={18} /> QUICK REGISTER
               </button>
             </Link>
           )}
-          <a href={MUSANED_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-[#2a9d8f] to-[#238b80] hover:from-[#238b80] hover:to-[#1d7a71] text-white rounded-xl font-semibold text-xs sm:text-sm shadow-lg shadow-[#2a9d8f]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#2a9d8f]/30 hover:-translate-y-0.5 flex-1 sm:flex-none">
+          <a href={MUSANED_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold text-xs sm:text-sm shadow-lg shadow-primary/25 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 flex-1 sm:flex-none">
             <ExternalLink size={16} /> <span className="hidden sm:inline">Go to</span> Musaned
           </a>
         </div>
@@ -164,21 +164,21 @@ export default function DashboardPage() {
         {userRole === 'registrar' && (
           <>
             <div className="bg-surface rounded-[2rem] border border-border/30 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all p-6 flex items-center gap-5">
-              <div className="p-4 rounded-2xl bg-amber-500/10 text-amber-500"><ClipboardList size={24} /></div>
+              <div className="p-4 rounded-2xl bg-primary-50 text-primary"><ClipboardList size={24} /></div>
               <div>
                 <p className="text-2xl font-bold text-text-primary">{quickRegistrations.length}</p>
                 <p className="text-sm text-text-tertiary">Quick Registered Candidates</p>
               </div>
             </div>
             <div className="bg-surface rounded-[2rem] border border-border/30 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all p-6 flex items-center gap-5">
-              <div className="p-4 rounded-2xl bg-green-500/10 text-green-500"><CheckCircle size={24} /></div>
+              <div className="p-4 rounded-2xl bg-primary-50 text-primary"><CheckCircle size={24} /></div>
               <div>
                 <p className="text-2xl font-bold text-text-primary">{quickRegistrations.filter(r => r.verificationStatus === 'promoted').length}</p>
                 <p className="text-sm text-text-tertiary">Promoted to Musaned</p>
               </div>
             </div>
             <div className="bg-surface rounded-[2rem] border border-border/30 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all p-6 flex items-center gap-5">
-              <div className="p-4 rounded-2xl bg-blue-500/10 text-blue-500"><Users size={24} /></div>
+              <div className="p-4 rounded-2xl bg-primary-50 text-primary"><Users size={24} /></div>
               <div>
                 <p className="text-2xl font-bold text-text-primary">{quickRegistrations.filter(r => r.verificationStatus !== 'promoted').length}</p>
                 <p className="text-sm text-text-tertiary">Pending Verification</p>
@@ -197,7 +197,7 @@ export default function DashboardPage() {
         )}
         {canSee('/requested') && (
           <div className="bg-surface rounded-[2rem] border border-border/30 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all p-6 flex items-center gap-5">
-            <div className="p-4 rounded-2xl bg-success/10"><ClipboardList size={24} className="text-success" /></div>
+            <div className="p-4 rounded-2xl bg-primary-50"><ClipboardList size={24} className="text-primary" /></div>
             <div>
               <p className="text-2xl font-bold text-text-primary">{requestedCount}</p>
               <p className="text-sm text-text-tertiary">Visa Selected</p>
@@ -206,7 +206,7 @@ export default function DashboardPage() {
         )}
         {canSee('/candidates') && (
           <div className="bg-surface rounded-[2rem] border border-border/30 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all p-6 flex items-center gap-5">
-            <div className="p-4 rounded-2xl bg-warning/10 text-warning"><ClipboardList size={24} /></div>
+            <div className="p-4 rounded-2xl bg-primary-50 text-primary"><ClipboardList size={24} /></div>
             <div>
               <p className="text-2xl font-bold text-text-primary">{quickRegistrations.length}</p>
               <p className="text-sm text-text-tertiary">Total Records</p>
@@ -288,7 +288,7 @@ export default function DashboardPage() {
                               const templateId = typeof tmpl === 'string' ? tmpl : tmpl?.templateId;
                               if (!templateId) return null;
                               return (
-                                <span key={idx} className="px-2 py-0.5 text-[10px] uppercase font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                                <span key={idx} className="px-2 py-0.5 text-[10px] uppercase font-bold bg-primary-50 text-primary border border-primary-100 rounded-md">
                                   {templateId.replace('tmpl-', '').toUpperCase()}
                                 </span>
                               );
@@ -365,7 +365,7 @@ export default function DashboardPage() {
       {canSee('/requested') && (
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-text-primary flex items-center gap-2"><ClipboardList className="text-green-600" size={20} /> Recent Visa Selected</h2>
+          <h2 className="text-xl font-bold text-text-primary flex items-center gap-2"><ClipboardList className="text-primary" size={20} /> Recent Visa Selected</h2>
           <Link href="/requested" className="text-sm text-primary hover:underline font-medium">View All →</Link>
         </div>
 
@@ -394,8 +394,8 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center shrink-0 border border-green-100">
-                            <span className="text-green-600 font-bold text-sm">{candidate.passportData.givenNames.charAt(0)}{candidate.passportData.surname.charAt(0)}</span>
+                          <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 border border-primary-100">
+                            <span className="text-primary font-bold text-sm">{candidate.passportData.givenNames.charAt(0)}{candidate.passportData.surname.charAt(0)}</span>
                           </div>
                           <div>
                             <p className="font-semibold text-text-primary flex items-center gap-2 text-sm">
@@ -427,7 +427,7 @@ export default function DashboardPage() {
                               const templateId = typeof tmpl === 'string' ? tmpl : tmpl?.templateId;
                               if (!templateId) return null;
                               return (
-                                <span key={idx} className="px-2 py-0.5 text-[10px] uppercase font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                                <span key={idx} className="px-2 py-0.5 text-[10px] uppercase font-bold bg-primary-50 text-primary border border-primary-100 rounded-md">
                                   {templateId.replace('tmpl-', '').toUpperCase()}
                                 </span>
                               );
@@ -497,7 +497,7 @@ export default function DashboardPage() {
         <section className="space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
-              <ClipboardList className="text-amber-500" size={20} /> Featured Quick Registered
+              <ClipboardList className="text-primary" size={20} /> Featured Quick Registered
             </h2>
             <Link href="/quick-registered" className="text-sm text-primary hover:underline font-medium">
               View All →
@@ -535,8 +535,8 @@ export default function DashboardPage() {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100">
-                              <span className="text-amber-600 font-bold text-sm">
+                            <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 border border-primary-100">
+                              <span className="text-primary font-bold text-sm">
                                 {r.givenNames?.charAt(0)}{r.surname?.charAt(0)}
                               </span>
                             </div>
@@ -616,8 +616,8 @@ export default function DashboardPage() {
                   <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">A complete registration requires all five essential files: COC, Labour ID, Candidate ID, Relative ID, and applicant introduction video.</p>
                 </div>
               </div>
-              <div className="flex gap-4 items-start p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
-                <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 font-bold shrink-0">3</div>
+              <div className="flex gap-4 items-start p-4 rounded-2xl bg-primary-50 border border-primary-100">
+                <div className="p-2 rounded-xl bg-primary/15 text-primary font-bold shrink-0">3</div>
                 <div>
                   <h4 className="font-bold text-sm text-text-primary">Musaned Verification Notice</h4>
                   <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">Once registered, wait-in candidates are verified by the Processing team using Musaned integration. Registrars can view preview cards but are not authorized to verify or publish records.</p>
@@ -630,7 +630,7 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
               <Flag className="text-warning" size={20} /> Quick Reminders
             </h2>
-            <div className="bg-gradient-to-br from-primary to-accent rounded-[2rem] p-6 text-white space-y-4 shadow-xl shadow-primary/20">
+            <div className="bg-primary rounded-[2rem] p-6 text-white space-y-4 shadow-xl shadow-primary/20">
               <div>
                 <h3 className="font-bold text-lg">Registrar Hub</h3>
                 <p className="text-xs text-white/80 mt-1 leading-relaxed">Welcome back! You are logged in with the Registrar administrative role. Your daily tasks include quick candidate registration, managing broker listings, and candidate previews.</p>
@@ -688,7 +688,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-[1.5rem] shadow-2xl max-w-md w-full overflow-hidden scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-border bg-gray-50">
               <h3 className="font-bold text-text-primary text-lg flex items-center gap-2">
-                <CheckCircle className="text-green-600" size={20} /> Insert Visa / Contract Details
+                <CheckCircle className="text-primary" size={20} /> Insert Visa / Contract Details
               </h3>
               <button onClick={() => setVisaModalId(null)} className="text-text-tertiary hover:text-text-primary p-1 rounded-lg hover:bg-gray-200 transition-colors">✕</button>
             </div>
@@ -709,7 +709,7 @@ export default function DashboardPage() {
               <button 
                 disabled={!visaNumberInput.trim()}
                 onClick={() => toggleRequested(visaModalId, false, visaNumberInput.trim())}
-                className="px-6 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md hover:shadow-lg"
+                className="px-6 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md hover:shadow-lg"
               >
                 Confirm
               </button>

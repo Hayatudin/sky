@@ -179,7 +179,7 @@ export default function AvailablePassportPage() {
         </div>
 
         {/* Taken Passports Stats Box */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/60 p-6 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-primary-50 border border-primary-100 p-6 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.08] text-blue-800 pointer-events-none transition-transform duration-300 group-hover:scale-110">
             <XCircle size={120} />
           </div>
@@ -358,7 +358,7 @@ export default function AvailablePassportPage() {
                                 onClick={() => handleOpenTakenModal(passport)}
                                 disabled={isUpdating !== null}
                                 title="Mark as Taken"
-                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 text-xs font-semibold shadow-sm"
+                                className="px-3 py-1.5 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 text-xs font-semibold shadow-sm"
                               >
                                 <CheckCircle2 size={13} />
                                 <span>Taken</span>
@@ -499,7 +499,7 @@ export default function AvailablePassportPage() {
                   className={cn(
                     "px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5",
                     takenReason === 'Medical'
-                      ? "bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:bg-emerald-300"
+                      ? "bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:bg-primary/50"
                       : "bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:bg-rose-300"
                   )}
                 >

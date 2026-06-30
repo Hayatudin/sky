@@ -8,28 +8,18 @@ import CandidateSelector from '@/components/cv-generator/CandidateSelector';
 import { cn, getFileUrl } from '@/lib/utils';
 import { FileText, CheckCircle2, User, Download, ChevronDown, FileDown, Image as ImageIcon, Camera, ArrowLeft } from 'lucide-react';
 import TemplateGrid from '@/components/cv-generator/TemplateGrid';
-import ALMTemplate from '@/components/cv/templates/ALMTemplate';
-import KA7Template from '@/components/cv/templates/KA7Template';
-import KU2Template from '@/components/cv/templates/KU2Template';
-import MATemplate from '@/components/cv/templates/MATemplate';
-import RATemplate from '@/components/cv/templates/RATemplate';
-import AlShablanTemplate from '@/components/cv/templates/AlShablanTemplate';
-import UssusTemplate from '@/components/cv/templates/UssusTemplate';
-import VisionTemplate from '@/components/cv/templates/VisionTemplate';
-import { generateAlShablanNativeDocx, generateUssusNativeDocx } from '@/lib/docxGenerators';
+import CVTemplateRenderer from '@/components/cv/CVTemplateRenderer';
+import { CV_TEMPLATES, DEFAULT_CV_TEMPLATE_ID } from '@/lib/cv-templates';
 import Button from '@/components/ui/Button';
 import { useQueryClient } from '@tanstack/react-query';
 
-const TEMPLATES: any[] = [
-  { id: 'ussus', name: 'USSUS', category: 'minimal', description: 'USSUS template layout', thumbnail: '/Ussus.png' },
-  { id: 'al-shablan', name: 'AL-Shablan', category: 'elegant', description: 'AL-Shablan template layout', thumbnail: '/Al-shablan.png' },
-  { id: 'alm', name: 'ALM Agency', category: 'classic', description: 'Standard ALM CV layout', thumbnail: '/header.png' },
-  { id: 'ka7', name: 'KA-7 Layout', category: 'professional', description: 'KA-7 template format', thumbnail: '/KA-7.png' },
-  { id: 'ku2', name: 'KU-2 Format', category: 'minimal', description: 'Clean KU-2 design', thumbnail: '/KU2.png' },
-  { id: 'ma', name: 'MA Standard', category: 'modern', description: 'Modern MA CV style', thumbnail: '/MA.png' },
-  { id: 'ra', name: 'RA Custom', category: 'elegant', description: 'Elegant RA layout', thumbnail: '/RA-1.png' },
-  { id: 'vision', name: 'Vision Layout', category: 'elegant', description: 'Premium dual-page layout', thumbnail: '/vision-header.png' },
-];
+const TEMPLATES = CV_TEMPLATES.map((t) => ({
+  id: t.id,
+  name: t.name,
+  category: t.category.toLowerCase() as 'classic' | 'modern' | 'professional' | 'minimal' | 'elegant',
+  description: t.description,
+  thumbnail: '',
+}));
 
 import { useCandidates } from '@/hooks/useCandidates';
 
@@ -42,7 +32,7 @@ function CVGeneratorContent() {
   const queryClient = useQueryClient();
   const nonCallingCandidates = React.useMemo(() => candidates.filter((c: Candidate) => c.broker?.name !== 'Calling'), [candidates]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(urlCandidateId);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('alm');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(DEFAULT_CV_TEMPLATE_ID);
   const [toast, setToast] = useState<string | null>(null);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -298,14 +288,12 @@ function CVGeneratorContent() {
                         </div>
                       ) : (
                         <>
-                          {selectedTemplateId === 'ussus' && <UssusTemplate candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
-                          {selectedTemplateId === 'al-shablan' && <AlShablanTemplate candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
-                          {selectedTemplateId === 'alm' && <ALMTemplate candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
-                          {selectedTemplateId === 'ka7' && <KA7Template candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
-                          {selectedTemplateId === 'ku2' && <KU2Template candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
-                          {selectedTemplateId === 'ma' && <MATemplate candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
-                          {selectedTemplateId === 'ra' && <RATemplate candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
-                          {selectedTemplateId === 'vision' && <VisionTemplate candidate={candidateWithFullUrls as any} facePhoto={facePhotoB64} fullBodyPhoto={fullBodyPhotoB64} />}
+                          <CVTemplateRenderer
+                            templateId={selectedTemplateId}
+                            candidate={candidateWithFullUrls as Candidate}
+                            facePhoto={facePhotoB64}
+                            fullBodyPhoto={fullBodyPhotoB64}
+                          />
                         </>
                       )}
                     </>

@@ -32,49 +32,16 @@ import { getFileUrl, getDownloadUrl } from '@/lib/utils';
 import { Candidate } from '@/types';
 import { useSession } from '@/lib/auth-client';
 
-import ALMTemplate from '@/components/cv/templates/ALMTemplate';
-import KA7Template from '@/components/cv/templates/KA7Template';
-import KU2Template from '@/components/cv/templates/KU2Template';
-import MATemplate from '@/components/cv/templates/MATemplate';
-import RATemplate from '@/components/cv/templates/RATemplate';
-import AlShablanTemplate from '@/components/cv/templates/AlShablanTemplate';
-import UssusTemplate from '@/components/cv/templates/UssusTemplate';
-import VisionTemplate from '@/components/cv/templates/VisionTemplate';
+import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, CV_TEMPLATE_NAMES, getTemplateComponent } from '@/lib/cv-templates';
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS', component: UssusTemplate },
-  { id: 'al-shablan', name: 'AL-Shablan', component: AlShablanTemplate },
-  { id: 'alm', name: 'ALAALAM', component: ALMTemplate },
-  { id: 'ka7', name: 'KAAFAAT', component: KA7Template },
-  { id: 'ku2', name: 'KHUZAM', component: KU2Template },
-  { id: 'ma', name: 'MA Standard', component: MATemplate },
-  { id: 'ra', name: 'RAYAAT', component: RATemplate },
-  { id: 'vision', name: 'Vision Layout', component: VisionTemplate },
-];
-
+const TEMPLATES = CV_TEMPLATES;
 
 const AGENCIES = [
   { id: 'all', name: 'All Agencies' },
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
+  ...CV_TEMPLATE_OPTIONS,
 ];
 
-const AGENCY_MAP: Record<string, string> = {
-  'ussus': 'USSUS',
-  'al-shablan': 'AL-Shablan',
-  'alm': 'ALAALAM',
-  'ka7': 'KAAFAAT',
-  'ku2': 'KHUZAM',
-  'ma': 'MA Standard',
-  'ra': 'RAYAAT',
-  'vision': 'Vision Layout',
-};
+const AGENCY_MAP: Record<string, string> = CV_TEMPLATE_NAMES;
 
 // Simplified candidate data structure from agency endpoint
 interface AgencyCandidate {
@@ -745,7 +712,7 @@ export default function AgencyContractsPage() {
           
           <button 
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-all shadow-sm active:scale-95"
           >
             <Download className="w-3.5 h-3.5" />
             Export XLSX (CSV)
@@ -758,12 +725,12 @@ export default function AgencyContractsPage() {
         {[
           { key: 'All', count: tabCounts.all, color: 'border-gray-200 text-gray-700 hover:bg-gray-50', activeColor: 'bg-gray-900 border-gray-900 text-white' },
           { key: 'In Process', count: tabCounts.inProcess, color: 'border-amber-200 text-amber-700 hover:bg-amber-50/50', activeColor: 'bg-amber-500 border-amber-500 text-white' },
-          { key: 'Arrived', count: tabCounts.arrived, color: 'border-emerald-200 text-emerald-700 hover:bg-emerald-50/50', activeColor: 'bg-emerald-600 border-emerald-600 text-white' },
+          { key: 'Arrived', count: tabCounts.arrived, color: 'border-primary-100 text-primary hover:bg-primary-50/50', activeColor: 'bg-primary border-primary text-white' },
           { key: 'Returned', count: tabCounts.returned, color: 'border-rose-200 text-rose-700 hover:bg-rose-50/50', activeColor: 'bg-rose-700 border-rose-700 text-white' },
           { key: 'Wakala Unpaid', count: tabCounts.wakalaUnpaid, color: 'border-orange-200 text-orange-700 hover:bg-orange-50/50', activeColor: 'bg-orange-500 border-orange-500 text-white' },
           { key: 'Company', count: tabCounts.company, color: 'border-blue-200 text-blue-700 hover:bg-blue-50/50', activeColor: 'bg-blue-600 border-blue-600 text-white' },
-          { key: 'Private', count: tabCounts.private, color: 'border-indigo-200 text-indigo-700 hover:bg-indigo-50/50', activeColor: 'bg-indigo-600 border-indigo-600 text-white' },
-          { key: 'Travel Next 7 Days', count: tabCounts.travelNext7, color: 'border-teal-200 text-teal-700 hover:bg-teal-50/50', activeColor: 'bg-teal-600 border-teal-600 text-white' },
+          { key: 'Private', count: tabCounts.private, color: 'border-primary-100 text-primary hover:bg-primary-50/50', activeColor: 'bg-primary border-primary text-white' },
+          { key: 'Travel Next 7 Days', count: tabCounts.travelNext7, color: 'border-primary-100 text-primary hover:bg-primary-50/50', activeColor: 'bg-primary border-primary text-white' },
           { key: 'Unfit', count: tabCounts.unfit, countColor: 'bg-red-100 text-red-700', color: 'border-red-200 text-red-700 hover:bg-red-50/50', activeColor: 'bg-red-600 border-red-600 text-white' },
         ].map((tab) => {
           const isActive = activeTab === tab.key;
@@ -833,7 +800,7 @@ export default function AgencyContractsPage() {
                       {/* Candidate Identity */}
                       <td className="px-5 py-4.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-xs text-indigo-600 shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center font-bold text-xs text-primary shrink-0">
                             {c.givenNames.charAt(0)}{c.surname.charAt(0)}
                           </div>
                           <div>
@@ -1264,7 +1231,7 @@ export default function AgencyContractsPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-border bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-xl">
+                <div className="p-2.5 bg-primary-50 border border-primary-100 text-primary rounded-xl">
                   <User size={20} />
                 </div>
                 <div>
@@ -1313,7 +1280,7 @@ export default function AgencyContractsPage() {
                           </div>
                           <h4 className="text-lg font-black text-text-primary uppercase mt-4">{pd.givenNames} {pd.surname}</h4>
                           <p className="text-xs font-mono font-bold text-text-tertiary mt-1">{pd.passportNumber}</p>
-                          <span className="mt-3 px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase rounded-full border border-indigo-200">
+                          <span className="mt-3 px-3 py-1 bg-primary-50 text-primary text-[10px] font-black uppercase rounded-full border border-primary-100">
                             {pi.job || 'Unassigned Job'}
                           </span>
                         </div>
@@ -1322,7 +1289,7 @@ export default function AgencyContractsPage() {
                         <div className="bg-gray-50/50 border border-border/40 rounded-3xl p-5">
                           <h5 className="text-xs font-black uppercase tracking-wider text-text-tertiary mb-3">Broker Details</h5>
                           <div className="flex items-center gap-2 text-sm text-text-primary font-bold">
-                            <Building className="w-4 h-4 text-indigo-500" />
+                            <Building className="w-4 h-4 text-primary" />
                             <span>{cd.broker?.name || 'No broker assigned'}</span>
                           </div>
                         </div>
@@ -1424,7 +1391,7 @@ export default function AgencyContractsPage() {
                                       <a 
                                         href={getDownloadUrl(doc.url!)}
                                         download
-                                        className="px-3 py-1.5 text-[10px] font-black uppercase bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-1 transition-all shadow-sm"
+                                        className="px-3 py-1.5 text-[10px] font-black uppercase bg-primary hover:bg-primary-dark text-white rounded-lg flex items-center gap-1 transition-all shadow-sm"
                                       >
                                         <Download size={12} />
                                         Save
@@ -1501,7 +1468,7 @@ export default function AgencyContractsPage() {
                     href={viewDocUrl} 
                     target="_blank" 
                     rel="noreferrer" 
-                    className="inline-flex items-center gap-1.5 text-indigo-600 hover:underline font-bold text-xs"
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline font-bold text-xs"
                   >
                     Open link in new tab
                   </a>
@@ -1523,7 +1490,7 @@ export default function AgencyContractsPage() {
 
       {/* CV Preview Modal */}
       {previewCv && (() => {
-        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || ALMTemplate;
+        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
         return (
           <div 
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in"

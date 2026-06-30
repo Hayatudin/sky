@@ -16,7 +16,7 @@ export default function Badge({ children, variant = 'default', size = 'sm', clas
     success: 'bg-success-light text-green-700',
     warning: 'bg-warning-light text-amber-700',
     danger: 'bg-danger-light text-red-700',
-    info: 'bg-primary-100 text-indigo-700',
+    info: 'bg-primary-100 text-primary',
   };
 
   const sizes = {

@@ -17,6 +17,18 @@ const getVisiblePages = (current: number, total: number) => {
   return [1, '...', current - 1, current, current + 1, '...', total];
 };
 
+function isPromoted(r: { verificationStatus: string; promotedCandidateId?: string | null }) {
+  return r.verificationStatus === 'promoted' || !!r.promotedCandidateId;
+}
+
+function getDateCutoffMs(filter: string): number | null {
+  const day = 24 * 60 * 60 * 1000;
+  if (filter === '1d') return Date.now() - day;
+  if (filter === '1w') return Date.now() - 7 * day;
+  if (filter === '1m') return Date.now() - 30 * day;
+  return null;
+}
+
 interface QuickReg {
   id: string;
   passportNumber: string;
@@ -72,6 +84,8 @@ export default function QuickRegisteredPage() {
   const { brokers, isLoading: loadingBrokers } = useBrokers();
   const loading = loadingRegistrations || loadingBrokers;
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'promoted'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | '1d' | '1w' | '1m'>('all');
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role ?? 'user';
   const canVerify = ['super_admin', 'processor', 'genaral'].includes(userRole);
@@ -156,13 +170,22 @@ export default function QuickRegisteredPage() {
 
 
   const filtered = registrations.filter(r => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      r.givenNames?.toLowerCase().includes(q) ||
-      r.surname?.toLowerCase().includes(q) ||
-      r.passportNumber?.toLowerCase().includes(q)
-    );
+    if (search) {
+      const q = search.toLowerCase();
+      const matchesSearch =
+        r.givenNames?.toLowerCase().includes(q) ||
+        r.surname?.toLowerCase().includes(q) ||
+        r.passportNumber?.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+    }
+
+    if (statusFilter === 'pending' && isPromoted(r)) return false;
+    if (statusFilter === 'promoted' && !isPromoted(r)) return false;
+
+    const cutoff = getDateCutoffMs(dateFilter);
+    if (cutoff !== null && new Date(r.createdAt).getTime() > cutoff) return false;
+
+    return true;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -179,7 +202,7 @@ export default function QuickRegisteredPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, statusFilter, dateFilter]);
 
   // Handle Musaned PDF upload for verification
   const handleMusanedUpload = async (file: File) => {
@@ -460,16 +483,37 @@ export default function QuickRegisteredPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" />
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name or passport..."
-          className="w-full pl-11 pr-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
-        />
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or passport..."
+            className="w-full pl-11 pr-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as 'all' | 'pending' | 'promoted')}
+          className="h-[42px] px-4 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[150px]"
+        >
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="promoted">Promoted</option>
+        </select>
+        <select
+          value={dateFilter}
+          onChange={e => setDateFilter(e.target.value as 'all' | '1d' | '1w' | '1m')}
+          className="h-[42px] px-4 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[170px]"
+        >
+          <option value="all">All Dates</option>
+          <option value="1d">Registered 1+ Day Ago</option>
+          <option value="1w">Registered 1+ Week Ago</option>
+          <option value="1m">Registered 1+ Month Ago</option>
+        </select>
       </div>
 
       {/* Table */}
@@ -481,7 +525,6 @@ export default function QuickRegisteredPage() {
                 <th className="px-6 py-4 font-semibold">Candidate</th>
                 <th className="px-6 py-4 font-semibold hidden sm:table-cell">Passport No.</th>
                 <th className="px-6 py-4 font-semibold hidden md:table-cell">Registrar ID</th>
-                <th className="px-6 py-4 font-semibold hidden md:table-cell">Agency</th>
                 <th className="px-6 py-4 font-semibold hidden lg:table-cell">Broker</th>
                 <th className="px-6 py-4 font-semibold hidden sm:table-cell">Status</th>
                 <th className="px-6 py-4 font-semibold hidden sm:table-cell">Date</th>
@@ -492,7 +535,7 @@ export default function QuickRegisteredPage() {
             <tbody className="divide-y divide-border/20">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 size={32} className="text-primary animate-spin" />
                       <p className="text-sm font-medium text-text-tertiary">Loading registrations...</p>
@@ -539,11 +582,6 @@ export default function QuickRegisteredPage() {
                           </div>
                           <span className="text-sm font-medium text-text-primary">{r.registeredBy || 'Walk-in'}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 hidden md:table-cell whitespace-nowrap">
-                        <span className="capitalize px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200 font-semibold text-text-primary text-[10px]">
-                          {r.agency || 'daera'}
-                        </span>
                       </td>
                       <td className="px-6 py-4 hidden lg:table-cell whitespace-nowrap text-xs text-text-secondary font-semibold">
                         {r.broker?.name || '—'}
@@ -653,7 +691,7 @@ export default function QuickRegisteredPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-text-tertiary text-sm">
+                  <td colSpan={8} className="px-6 py-12 text-center text-text-tertiary text-sm">
                     No registrations found.
                   </td>
                 </tr>
@@ -867,7 +905,7 @@ export default function QuickRegisteredPage() {
                         <button
                           onClick={handlePromote}
                           disabled={isPromoting}
-                          className="px-4 py-2.5 text-emerald-700 bg-emerald-50 border border-emerald-200 font-semibold rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 flex items-center gap-1.5 text-xs sm:text-sm"
+                          className="px-4 py-2.5 text-primary bg-primary-50 border border-primary-100 font-semibold rounded-xl hover:bg-primary-100 transition-colors disabled:opacity-50 flex items-center gap-1.5 text-xs sm:text-sm"
                           title="Push documents directly without editing"
                         >
                           {isPromoting ? (
@@ -1023,21 +1061,6 @@ export default function QuickRegisteredPage() {
                       </div>
                     )}
 
-                    {/* Agency Select Dropdown */}
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
-                        Agency
-                      </label>
-                      <select
-                        value={editForm.agency}
-                        onChange={e => setEditForm(prev => ({ ...prev, agency: e.target.value }))}
-                        className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 bg-white text-text-primary transition-all cursor-pointer"
-                      >
-                        <option value="daera">Daera</option>
-                        <option value="coolstaff">Coolstaff</option>
-                        <option value="boss">Boss</option>
-                      </select>
-                    </div>
 
                     {/* Passport Type Dropdown */}
                     <div className="md:col-span-2">

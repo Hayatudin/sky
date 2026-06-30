@@ -17,6 +17,7 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { CV_TEMPLATES } from '@/lib/cv-templates';
 import { useSession, authClient } from '@/lib/auth-client';
 import { useEffect } from 'react';
 
@@ -102,16 +103,7 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState({ cvDeadlines: true, newRegistrations: true, systemUpdates: false });
   const [preferences, setPreferences] = useState({ language: 'en', timezone: 'Asia/Riyadh', dateFormat: 'YYYY-MM-DD' });
 
-  const templates = [
-    { id: 'alm', name: 'ALM Template' },
-    { id: 'alshablan', name: 'Al Shablan Template' },
-    { id: 'ka7', name: 'KA-7 Template' },
-    { id: 'ku2', name: 'KU-2 Template' },
-    { id: 'ma', name: 'MA Template' },
-    { id: 'ra', name: 'RA Template' },
-    { id: 'ussus', name: 'Ussus Template' },
-    { id: 'vision', name: 'Vision Template' }
-  ];
+  const templates = CV_TEMPLATES.map((t) => ({ id: t.id, name: `${t.name} Template` }));
   const [agencyPrices, setAgencyPrices] = useState<Record<string, string>>({});
 
   // Fetch prices on mount
@@ -504,16 +496,16 @@ export default function SettingsPage() {
                         <p className="text-xs text-text-secondary mt-1">Successfully promoted into system</p>
                       </div>
 
-                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100 rounded-2xl p-5 shadow-sm">
-                        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Total Walk-In (Quick) Records</span>
+                      <div className="bg-primary-50 border border-primary-100 rounded-2xl p-5 shadow-sm">
+                        <span className="text-xs font-semibold text-primary uppercase tracking-wider">Total Walk-In (Quick) Records</span>
                         <div className="text-3xl font-extrabold text-text-primary mt-2">
                           {analyticsData.reduce((sum, u) => sum + (u.quickRegistrations || 0), 0)}
                         </div>
                         <p className="text-xs text-text-secondary mt-1">Temporary or scan registrations</p>
                       </div>
 
-                      <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-100 rounded-2xl p-5 shadow-sm">
-                        <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Top Performing Operator</span>
+                      <div className="bg-primary-50 border border-primary-100 rounded-2xl p-5 shadow-sm">
+                        <span className="text-xs font-semibold text-primary uppercase tracking-wider">Top Performing Operator</span>
                         <div className="text-xl font-bold text-text-primary mt-2 truncate">
                           {(() => {
                             const top = [...analyticsData].sort((a, b) => (b.candidatesRegistered || 0) - (a.candidatesRegistered || 0))[0];

@@ -22,48 +22,16 @@ import { getFileUrl } from '@/lib/utils';
 import { Candidate } from '@/types';
 import { useSession } from '@/lib/auth-client';
 
-import ALMTemplate from '@/components/cv/templates/ALMTemplate';
-import KA7Template from '@/components/cv/templates/KA7Template';
-import KU2Template from '@/components/cv/templates/KU2Template';
-import MATemplate from '@/components/cv/templates/MATemplate';
-import RATemplate from '@/components/cv/templates/RATemplate';
-import AlShablanTemplate from '@/components/cv/templates/AlShablanTemplate';
-import UssusTemplate from '@/components/cv/templates/UssusTemplate';
-import VisionTemplate from '@/components/cv/templates/VisionTemplate';
+import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, CV_TEMPLATE_NAMES, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent } from '@/lib/cv-templates';
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS', component: UssusTemplate },
-  { id: 'al-shablan', name: 'AL-Shablan', component: AlShablanTemplate },
-  { id: 'alm', name: 'ALAALAM', component: ALMTemplate },
-  { id: 'ka7', name: 'KAAFAAT', component: KA7Template },
-  { id: 'ku2', name: 'KHUZAM', component: KU2Template },
-  { id: 'ma', name: 'MA Standard', component: MATemplate },
-  { id: 'ra', name: 'RAYAAT', component: RATemplate },
-  { id: 'vision', name: 'Vision Layout', component: VisionTemplate },
-];
+const TEMPLATES = CV_TEMPLATES;
 
 const AGENCIES = [
   { id: 'all', name: 'All Agencies' },
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
+  ...CV_TEMPLATE_OPTIONS,
 ];
 
-const AGENCY_MAP: Record<string, string> = {
-  'ussus': 'USSUS',
-  'al-shablan': 'AL-Shablan',
-  'alm': 'ALAALAM',
-  'ka7': 'KAAFAAT',
-  'ku2': 'KHUZAM',
-  'ma': 'MA Standard',
-  'ra': 'RAYAAT',
-  'vision': 'Vision Layout',
-};
+const AGENCY_MAP: Record<string, string> = CV_TEMPLATE_NAMES;
 
 interface AvailableCandidate {
   id: string;
@@ -514,10 +482,10 @@ export default function AvailableCandidatesPage() {
             const surname = pData.surname || candidate.surname || '';
             const namePart = `${givenNames}_${surname}`.trim().replace(/\s+/g, '_');
 
-            const rawTemplateId = candidate.latestCVTemplate || 'alm';
+            const rawTemplateId = candidate.latestCVTemplate || DEFAULT_CV_TEMPLATE_ID;
             const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
             const templateObj = TEMPLATES.find(t => t.id === templateId);
-            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'ALAALAM';
+            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'Rawasi';
 
             const safeName = `${namePart}_${templateName}_${pNo}`.replace(/[^a-zA-Z0-9_]/g, '');
 
@@ -810,9 +778,9 @@ export default function AvailableCandidatesPage() {
       <div style={{ position: 'fixed', top: -9999, left: -9999, width: '210mm', zIndex: -1 }}>
         {renderingCandidates.map(c => {
           const firstCv = c.generatedCVs?.[0];
-          const rawTemplateId = firstCv ? (typeof firstCv === 'string' ? firstCv : firstCv.templateId) : (c.latestCVTemplate || 'alm');
+          const rawTemplateId = firstCv ? (typeof firstCv === 'string' ? firstCv : firstCv.templateId) : (c.latestCVTemplate || DEFAULT_CV_TEMPLATE_ID);
           const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
-          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || ALMTemplate;
+          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || getTemplateComponent();
 
           return (
             <div key={c.id} id={`bulk-render-${c.id}`} style={{ width: '210mm', backgroundColor: '#ffffff' }}>
@@ -1214,7 +1182,7 @@ export default function AvailableCandidatesPage() {
                   type="button"
                   disabled={isSelectingId !== null}
                   onClick={() => handleSelectCandidate(c.id)}
-                  className="w-full mt-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-[12px] font-black py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                  className="w-full mt-2.5 bg-primary hover:bg-primary-dark disabled:opacity-50 text-white text-[12px] font-black py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
                 >
                   {isSelectingId === c.id ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -1284,7 +1252,7 @@ export default function AvailableCandidatesPage() {
 
       {/* CV Preview Modal */}
       {previewCv && (() => {
-        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || ALMTemplate;
+        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
         return (
           <div 
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in"
@@ -1581,7 +1549,7 @@ export default function AvailableCandidatesPage() {
                     handleBulkDownload(downloadTask.format);
                   }
                 }}
-                className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl border border-indigo-100 transition-colors cursor-pointer"
+                className="flex-1 py-2 bg-primary-50 hover:bg-primary-100 text-primary text-xs font-bold rounded-xl border border-primary-100 transition-colors cursor-pointer"
               >
                 Restart Download
               </button>

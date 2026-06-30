@@ -17,37 +17,13 @@ import { api } from '@/lib/api';
 import { getFileUrl, cn } from '@/lib/utils';
 import { useSession } from '@/lib/auth-client';
 
-// Import CV templates
-import ALMTemplate from '@/components/cv/templates/ALMTemplate';
-import KA7Template from '@/components/cv/templates/KA7Template';
-import KU2Template from '@/components/cv/templates/KU2Template';
-import MATemplate from '@/components/cv/templates/MATemplate';
-import RATemplate from '@/components/cv/templates/RATemplate';
-import AlShablanTemplate from '@/components/cv/templates/AlShablanTemplate';
-import UssusTemplate from '@/components/cv/templates/UssusTemplate';
-import VisionTemplate from '@/components/cv/templates/VisionTemplate';
+import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS', category: 'Minimal', color: 'bg-cyan-500', textColor: 'text-cyan-600', bgLight: 'bg-cyan-50', component: UssusTemplate },
-  { id: 'al-shablan', name: 'AL-Shablan', category: 'Classic', color: 'bg-yellow-500', textColor: 'text-yellow-600', bgLight: 'bg-yellow-50', component: AlShablanTemplate },
-  { id: 'alm', name: 'ALAALAM', category: 'Classic', color: 'bg-blue-500', textColor: 'text-blue-600', bgLight: 'bg-blue-50', component: ALMTemplate },
-  { id: 'ka7', name: 'KAAFAAT', category: 'Professional', color: 'bg-emerald-500', textColor: 'text-emerald-600', bgLight: 'bg-emerald-50', component: KA7Template },
-  { id: 'ku2', name: 'KHUZAM', category: 'Minimal', color: 'bg-indigo-500', textColor: 'text-indigo-600', bgLight: 'bg-indigo-50', component: KU2Template },
-  { id: 'ma', name: 'MA Standard', category: 'Modern', color: 'bg-orange-500', textColor: 'text-orange-600', bgLight: 'bg-orange-50', component: MATemplate },
-  { id: 'ra', name: 'RAYAAT', category: 'Elegant', color: 'bg-purple-500', textColor: 'text-purple-600', bgLight: 'bg-purple-50', component: RATemplate },
-  { id: 'vision', name: 'Vision Layout', category: 'Premium', color: 'bg-[#0a5c4e]', textColor: 'text-[#0a5c4e]', bgLight: 'bg-[#e8f5e9]', component: VisionTemplate },
-];
+const TEMPLATES = CV_TEMPLATES;
 
 const AGENCIES = [
   { id: 'all', name: 'All' },
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ka7', name: 'KHAAFAAT' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
+  ...CV_TEMPLATE_OPTIONS,
 ];
 
 interface BrokerCandidate {
@@ -331,12 +307,12 @@ export default function BrokerCandidatesPage() {
     const firstCV = cvs[0];
     if (!firstCV) return null;
     const templateId = firstCV.templateId;
-    return templateId ? templateId.replace('tmpl-', '').toLowerCase() : null;
+    return templateId ? normalizeTemplateId(templateId) : null;
   };
 
   // Open single CV preview modal (fetching details dynamically)
   const handleOpenCV = async (candidate: any) => {
-    const activeTemplate = getNormalizedTemplateId(candidate) || 'alm';
+    const activeTemplate = getNormalizedTemplateId(candidate) || DEFAULT_CV_TEMPLATE_ID;
 
     try {
       setIsPreviewLoading(true);
@@ -801,10 +777,10 @@ export default function BrokerCandidatesPage() {
             const surname = pData.surname || candidate.surname || '';
             const namePart = `${givenNames}_${surname}`.trim().replace(/\s+/g, '_');
 
-            const rawTemplateId = candidate.latestCVTemplate || 'alm';
+            const rawTemplateId = candidate.latestCVTemplate || DEFAULT_CV_TEMPLATE_ID;
             const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
             const templateObj = TEMPLATES.find(t => t.id === templateId);
-            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'ALAALAM';
+            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'Rawasi';
 
             const safeName = `${namePart}_${templateName}_${pNo}`.replace(/[^a-zA-Z0-9_]/g, '');
 
@@ -1024,9 +1000,9 @@ export default function BrokerCandidatesPage() {
       <div style={{ position: 'fixed', top: -9999, left: -9999, width: '210mm', zIndex: -1 }}>
         {renderingCandidates.map(c => {
           const firstCv = c.generatedCVs?.[0];
-          const rawTemplateId = firstCv ? (typeof firstCv === 'string' ? firstCv : firstCv.templateId) : 'alm';
+          const rawTemplateId = firstCv ? (typeof firstCv === 'string' ? firstCv : firstCv.templateId) : DEFAULT_CV_TEMPLATE_ID;
           const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
-          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || ALMTemplate;
+          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || getTemplateComponent();
 
           return (
             <div key={c.id} id={`bulk-render-${c.id}`} style={{ width: '210mm', backgroundColor: '#ffffff' }}>
@@ -1243,7 +1219,7 @@ export default function BrokerCandidatesPage() {
               <button
                 onClick={() => setDownloadAllOpen(prev => !prev)}
                 disabled={isDownloadingAll}
-                className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 {isDownloadingAll ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -1703,7 +1679,7 @@ export default function BrokerCandidatesPage() {
 
       {/* Preview CV Modal */}
       {previewCv && (() => {
-        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || ALMTemplate;
+        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
         return (
           <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fade-in" onClick={() => setPreviewCv(null)}>
             <div className="relative my-8 bg-white rounded-xl shadow-2xl flex flex-col items-center max-w-full scale-in" onClick={e => e.stopPropagation()}>
@@ -1760,7 +1736,7 @@ export default function BrokerCandidatesPage() {
 
       {/* Hidden full-resolution CV render for download capture */}
       {downloadingCv && (() => {
-        const DlTemplate = TEMPLATES.find(t => t.id === downloadingCv.templateId)?.component || ALMTemplate;
+        const DlTemplate = TEMPLATES.find(t => t.id === downloadingCv.templateId)?.component || getTemplateComponent();
         return (
           <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 800, zIndex: -1 }}>
             <div ref={cvRenderRef}>
@@ -2021,7 +1997,7 @@ export default function BrokerCandidatesPage() {
                     startDownload(downloadTask.singleCv, downloadTask.format);
                   }
                 }}
-                className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl border border-indigo-100 transition-colors cursor-pointer"
+                className="flex-1 py-2 bg-primary-50 hover:bg-primary-100 text-primary text-xs font-bold rounded-xl border border-primary-100 transition-colors cursor-pointer"
               >
                 Restart Download
               </button>

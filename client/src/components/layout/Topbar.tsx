@@ -9,9 +9,11 @@ import { api } from '@/lib/api';
 
 interface TopbarProps {
   onMobileMenuToggle?: () => void;
+  isSidebarCollapsed?: boolean;
+  onSidebarToggle?: () => void;
 }
 
-export default function Topbar({ onMobileMenuToggle }: TopbarProps) {
+export default function Topbar({ onMobileMenuToggle, isSidebarCollapsed, onSidebarToggle }: TopbarProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,14 +117,36 @@ export default function Topbar({ onMobileMenuToggle }: TopbarProps) {
   const role = (session?.user as any)?.role ?? 'user';
 
   return (
-    <header className="sticky top-0 z-40 h-14 sm:h-16 bg-white/70 backdrop-blur-xl border-b border-border/50 flex items-center justify-between px-3 sm:px-4 md:px-8 gap-2">
-      {/* Mobile menu button */}
-      <button
-        onClick={onMobileMenuToggle}
-        className="lg:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors shrink-0"
-      >
-        <Menu size={22} className="text-text-secondary" />
-      </button>
+    <header className="sticky top-0 z-40 h-14 sm:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-4 md:px-6 gap-3">
+      {/* Left: menu + brand */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <button
+          onClick={onMobileMenuToggle}
+          className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
+        >
+          <Menu size={20} className="text-slate-600" />
+        </button>
+
+        {onSidebarToggle && (
+          <button
+            onClick={onSidebarToggle}
+            className="hidden lg:flex p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-800"
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
+        <div className="hidden sm:flex items-center gap-2.5 pl-1">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <span className="text-white font-black text-[10px]">SKY</span>
+          </div>
+          <div className="leading-tight">
+            <p className="text-sm font-bold text-slate-800">SKY Agency</p>
+            <p className="text-[10px] text-slate-400 font-medium hidden md:block">Foreign Employment System</p>
+          </div>
+        </div>
+      </div>
 
       {/* Search */}
       <div className="relative flex-1 max-w-[200px] sm:max-w-xs md:max-w-sm lg:max-w-md" ref={searchRef}>
@@ -252,7 +276,7 @@ export default function Topbar({ onMobileMenuToggle }: TopbarProps) {
                 {unreadCount > 0 && (
                   <button 
                     onClick={markAllRead}
-                    className="text-[10px] uppercase tracking-wider font-bold text-primary hover:text-indigo-700 flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md"
+                    className="text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary-dark flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md"
                   >
                     <CheckCheck size={12} /> Mark all read
                   </button>

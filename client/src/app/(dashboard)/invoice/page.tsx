@@ -7,17 +7,11 @@ import Input from '@/components/ui/Input';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { generateInvoicePdf } from '@/lib/invoicePdfGenerator';
 import { useInvoices } from '@/hooks/useInvoices';
+import { CV_TEMPLATES } from '@/lib/cv-templates';
 
 const TEMPLATES: Record<string, { name: string; fullName: string }> = {
-  'all': { name: 'ALL', fullName: '' },
-  'ussus': { name: 'USSUS', fullName: 'USSUS ALENJAZ RECRUITMENT COMPANY' },
-  'al-shablan': { name: 'AL-Shablan', fullName: 'AL-SHABLAN RECRUITMENT COMPANY' },
-  'alm': { name: 'ALAALAM', fullName: 'ALEM RECRUITMENT AGENCY' },
-  'ka7': { name: 'KAAFAAT', fullName: 'KAAFAAT ALAALAM RECRUITMENT COMPANY' },
-  'ku2': { name: 'KHUZAM', fullName: 'KHUZAM  RECRUITMENT COMPANY' },
-  'ma': { name: 'MA Standard', fullName: 'NAKHLAH RECRUITMENT COMPANY' },
-  'ra': { name: 'RAYAAT', fullName: 'RAYAAT RECRUITMENT COMPANY' },
-  'vision': { name: 'Vision Office', fullName: 'VISION RECRUITMENT OFFICE' }
+  all: { name: 'ALL', fullName: '' },
+  ...Object.fromEntries(CV_TEMPLATES.map((t) => [t.id, { name: t.name, fullName: t.fullName }])),
 };
 
 export default function InvoicePage() {
@@ -250,7 +244,7 @@ export default function InvoicePage() {
         {canDownload && (
           <button
             onClick={() => setShowDownloadModal(true)}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-green-600/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0"
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0"
           >
             <Download size={18} />
             <span>Download Invoice</span>
@@ -718,7 +712,7 @@ export default function InvoicePage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 text-white font-bold rounded-xl transition-all shadow-md text-sm flex items-center justify-center gap-1.5"
+                  className="px-5 py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all shadow-md text-sm flex items-center justify-center gap-1.5"
                 >
                   {isSaving ? (
                     <>

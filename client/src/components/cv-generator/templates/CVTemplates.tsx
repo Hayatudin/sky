@@ -42,7 +42,7 @@ export function TemplateModern({ candidate, facePhoto }: TemplateProps) {
   const { passportData: p, personalInfo: pi } = candidate;
   return (
     <div className="bg-white w-full aspect-[210/297] text-[10px] leading-relaxed overflow-hidden" style={{fontFamily:'Inter, sans-serif'}}>
-      <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-6 flex items-center gap-4">
+      <div className="bg-primary text-white p-6 flex items-center gap-4">
         {facePhoto && <img src={facePhoto} alt="Photo" className="w-20 h-24 object-cover rounded-lg border-2 border-white/30" crossOrigin="anonymous" />}
         <div><h1 className="text-xl font-bold">{p.givenNames} {p.surname}</h1><p className="text-indigo-100 mt-1">{p.nationality} • {p.gender}</p><p className="text-indigo-200 text-[9px]">{pi.phone} | {pi.email}</p></div>
       </div>
@@ -52,10 +52,10 @@ export function TemplateModern({ candidate, facePhoto }: TemplateProps) {
             <div key={i.l} className="bg-gray-50 rounded-lg p-2"><p className="text-[8px] text-gray-400 uppercase">{i.l}</p><p className="font-semibold text-gray-800">{i.v}</p></div>
           ))}
         </div>
-        <div><h3 className="text-xs font-bold text-indigo-600 uppercase mb-1">Languages</h3><div className="flex flex-wrap gap-1">{pi.languages.map(l=><span key={l} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[9px]">{l}</span>)}</div></div>
-        <div><h3 className="text-xs font-bold text-indigo-600 uppercase mb-1">Skills</h3><div className="flex flex-wrap gap-1">{pi.skills.map(s=><span key={s} className="px-2 py-0.5 bg-violet-50 text-violet-600 rounded-full text-[9px]">{s}</span>)}</div></div>
-        <div><h3 className="text-xs font-bold text-indigo-600 uppercase mb-1">Experience</h3><p className="text-gray-700">{pi.workExperience.map(e => `${e.experienceStatus} - ${e.country} (${e.yearsOfExperience})`).join(', ') || 'N/A'}</p></div>
-        <div><h3 className="text-xs font-bold text-indigo-600 uppercase mb-1">Passport</h3><p className="text-gray-700">No: {p.passportNumber} | Issued: {formatDate(p.dateOfIssue)} | Expires: {formatDate(p.dateOfExpiry)}</p></div>
+        <div><h3 className="text-xs font-bold text-primary uppercase mb-1">Languages</h3><div className="flex flex-wrap gap-1">{pi.languages.map(l=><span key={l} className="px-2 py-0.5 bg-primary-50 text-primary rounded-full text-[9px]">{l}</span>)}</div></div>
+        <div><h3 className="text-xs font-bold text-primary uppercase mb-1">Skills</h3><div className="flex flex-wrap gap-1">{pi.skills.map(s=><span key={s} className="px-2 py-0.5 bg-primary-50 text-primary rounded-full text-[9px]">{s}</span>)}</div></div>
+        <div><h3 className="text-xs font-bold text-primary uppercase mb-1">Experience</h3><p className="text-gray-700">{pi.workExperience.map(e => `${e.experienceStatus} - ${e.country} (${e.yearsOfExperience})`).join(', ') || 'N/A'}</p></div>
+        <div><h3 className="text-xs font-bold text-primary uppercase mb-1">Passport</h3><p className="text-gray-700">No: {p.passportNumber} | Issued: {formatDate(p.dateOfIssue)} | Expires: {formatDate(p.dateOfExpiry)}</p></div>
       </div>
     </div>
   );

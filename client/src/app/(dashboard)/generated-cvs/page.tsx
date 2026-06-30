@@ -13,26 +13,10 @@ import {
 import { cn, getFileUrl } from '@/lib/utils';
 import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
-import ALMTemplate from '@/components/cv/templates/ALMTemplate';
-import KA7Template from '@/components/cv/templates/KA7Template';
-import KU2Template from '@/components/cv/templates/KU2Template';
-import MATemplate from '@/components/cv/templates/MATemplate';
-import RATemplate from '@/components/cv/templates/RATemplate';
-import AlShablanTemplate from '@/components/cv/templates/AlShablanTemplate';
-import UssusTemplate from '@/components/cv/templates/UssusTemplate';
-import VisionTemplate from '@/components/cv/templates/VisionTemplate';
+import { CV_TEMPLATES, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId, getTemplateName } from '@/lib/cv-templates';
 import { clearCandidatesCache } from '@/hooks/useCandidates';
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS', category: 'Minimal', color: 'bg-cyan-500', textColor: 'text-cyan-600', bgLight: 'bg-cyan-50', component: UssusTemplate },
-  { id: 'al-shablan', name: 'AL-Shablan', category: 'Classic', color: 'bg-yellow-500', textColor: 'text-yellow-600', bgLight: 'bg-yellow-50', component: AlShablanTemplate },
-  { id: 'alm', name: 'ALAALAM', category: 'Classic', color: 'bg-blue-500', textColor: 'text-blue-600', bgLight: 'bg-blue-50', component: ALMTemplate },
-  { id: 'ka7', name: 'KAAFAAT', category: 'Professional', color: 'bg-emerald-500', textColor: 'text-emerald-600', bgLight: 'bg-emerald-50', component: KA7Template },
-  { id: 'ku2', name: 'KHUZAM', category: 'Minimal', color: 'bg-indigo-500', textColor: 'text-indigo-600', bgLight: 'bg-indigo-50', component: KU2Template },
-  { id: 'ma', name: 'MA Standard', category: 'Modern', color: 'bg-orange-500', textColor: 'text-orange-600', bgLight: 'bg-orange-50', component: MATemplate },
-  { id: 'ra', name: 'RAYAAT', category: 'Elegant', color: 'bg-purple-500', textColor: 'text-purple-600', bgLight: 'bg-purple-50', component: RATemplate },
-  { id: 'vision', name: 'Vision Layout', category: 'Premium', color: 'bg-[#0a5c4e]', textColor: 'text-[#0a5c4e]', bgLight: 'bg-[#e8f5e9]', component: VisionTemplate },
-];
+const TEMPLATES = CV_TEMPLATES;
 
 // ── Action Dropdown — portal with fixed positioning so it escapes overflow:hidden ──
 function ActionMenu({
@@ -818,7 +802,7 @@ function GeneratedCVsContent() {
                   <div className={cn('absolute top-0 inset-x-0 h-1 rounded-t-2xl', folder.color)} />
                   <div className="flex items-start justify-between mb-4 pt-1">
                     <div className={cn('p-2.5 rounded-xl', folder.bgLight)}>
-                      {folder.id === '__backup__' ? <Lock size={22} className={folder.textColor} /> : <FolderOpen size={22} className={folder.textColor} />}
+                      {(folder.id as string) === '__backup__' ? <Lock size={22} className={folder.textColor} /> : <FolderOpen size={22} className={folder.textColor} />}
                     </div>
                     <span className="text-xs font-bold px-2 py-1 rounded-full bg-surface-hover border border-border text-text-secondary">
                       {folder.cvs.length}
@@ -1044,10 +1028,10 @@ function GeneratedCVsContent() {
             const surname = pData.surname || candidate.surname || '';
             const namePart = `${givenNames}_${surname}`.trim().replace(/\s+/g, '_');
 
-            const rawTemplateId = candidate.latestCVTemplate || 'alm';
-            const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
+            const rawTemplateId = candidate.latestCVTemplate || DEFAULT_CV_TEMPLATE_ID;
+            const templateId = normalizeTemplateId(rawTemplateId);
             const templateObj = TEMPLATES.find(t => t.id === templateId);
-            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'ALAALAM';
+            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'Rawasi';
 
             const safeName = `${namePart}_${templateName}_${pNo}`.replace(/[^a-zA-Z0-9_]/g, '');
 
@@ -1142,9 +1126,9 @@ function GeneratedCVsContent() {
       <div style={{ position: 'fixed', top: -9999, left: -9999, width: '210mm', zIndex: -1 }}>
         {renderingCandidates.map(c => {
           const correspondingCv = cvs.find(cv => cv.candidateId === c.id);
-          const rawTemplateId = correspondingCv ? correspondingCv.templateId : 'alm';
-          const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
-          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || ALMTemplate;
+          const rawTemplateId = correspondingCv ? correspondingCv.templateId : DEFAULT_CV_TEMPLATE_ID;
+          const templateId = normalizeTemplateId(rawTemplateId);
+          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || getTemplateComponent();
           const facePhoto = getFileUrl(correspondingCv?.facePhotoUrl || c.facePhotoUrl || c.passportImageUrl);
           const fullBodyPhoto = getFileUrl(correspondingCv?.fullBodyPhotoUrl || c.fullBodyPhotoUrl);
 
@@ -1227,7 +1211,7 @@ function GeneratedCVsContent() {
                   <button
                     onClick={handleBulkMarkAsCvAvailable}
                     disabled={actionLoading || isBackupFolder}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 font-semibold"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary-dark transition-colors disabled:opacity-50 font-semibold"
                   >
                     <Check size={13} /> Mark as CV Available
                   </button>
@@ -1411,7 +1395,7 @@ function GeneratedCVsContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {activeCVs.map(cv => {
               const isSelected = selectedCVIds.has(cv.id);
-              const CardTemplate = TEMPLATES.find(t => t.id === cv.templateId)?.component || ALMTemplate;
+              const CardTemplate = TEMPLATES.find(t => t.id === cv.templateId)?.component || getTemplateComponent();
               const isLocked = cv.candidate.isLocked || cv.candidate.broker?.isLocked;
               return (
               <div 
@@ -1540,7 +1524,7 @@ function GeneratedCVsContent() {
 
         {/* Hidden full-resolution CV render for download capture */}
         {downloadingCv && (() => {
-          const DlTemplate = TEMPLATES.find(t => t.id === downloadingCv.templateId)?.component || ALMTemplate;
+          const DlTemplate = TEMPLATES.find(t => t.id === downloadingCv.templateId)?.component || getTemplateComponent();
           return (
             <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 800, zIndex: -1 }}>
               <div ref={cvRenderRef}>
@@ -1638,7 +1622,7 @@ function GeneratedCVsContent() {
       )}
       {/* Preview Modal */}
       {previewCv && (() => {
-        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || ALMTemplate;
+        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setPreviewCv(null)}>
             <div className="relative max-h-[95vh] overflow-auto bg-white rounded-xl shadow-2xl flex items-start justify-center" onClick={e => e.stopPropagation()}>
@@ -1716,7 +1700,7 @@ function GeneratedCVsContent() {
                     startDownload(downloadTask.singleCv, downloadTask.format);
                   }
                 }}
-                className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl border border-indigo-100 transition-colors cursor-pointer"
+                className="flex-1 py-2 bg-primary-50 hover:bg-primary-100 text-primary text-xs font-bold rounded-xl border border-primary-100 transition-colors cursor-pointer"
               >
                 Restart Download
               </button>

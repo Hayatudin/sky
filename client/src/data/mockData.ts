@@ -277,39 +277,25 @@ export const countries = [
 
 export const cvTemplates: CVTemplate[] = [
   {
-    id: 'tmpl-alm',
-    name: 'CV ALM',
-    description: 'Clean structured layout based on ALM template.',
+    id: 'tmpl-rawasi',
+    name: 'CV Rawasi',
+    description: 'Rawasi Alimtiaz agency employment application layout.',
     thumbnail: '/templates/classic.png',
     category: 'classic',
   },
   {
-    id: 'tmpl-ka7',
-    name: 'CV KA-7',
-    description: 'Modern design with accent bars based on KA-7 template.',
-    thumbnail: '/templates/modern.png',
-    category: 'modern',
-  },
-  {
-    id: 'tmpl-ku2',
-    name: 'CV KU2',
-    description: 'Professional layout based on KU2 template.',
+    id: 'tmpl-azm',
+    name: 'CV Azm',
+    description: 'Azm Alinjaz agency employment application layout.',
     thumbnail: '/templates/professional.png',
     category: 'professional',
   },
   {
-    id: 'tmpl-ma',
-    name: 'CV MA',
-    description: 'Minimalist design based on MA template.',
-    thumbnail: '/templates/minimal.png',
-    category: 'minimal',
-  },
-  {
-    id: 'tmpl-ra',
-    name: 'CV RA',
-    description: 'Elegant premium design based on RA template.',
-    thumbnail: '/templates/elegant.png',
-    category: 'elegant',
+    id: 'tmpl-mazaya',
+    name: 'CV Mazaya',
+    description: 'Mazaya recruitment agent employment application layout.',
+    thumbnail: '/templates/modern.png',
+    category: 'modern',
   },
 ];
 

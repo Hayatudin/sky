@@ -35,7 +35,7 @@ function LoginForm() {
         password,
       });
 
-      if (!signInError) {
+      if (!signInError && signInData) {
         // Sign in success! Check role for redirection
         const user = signInData.user as any;
         const role = user?.role;
@@ -51,11 +51,27 @@ function LoginForm() {
         return;
       }
 
-      // 2. If Sign In failed, attempt Sign Up (Seamless Flow)
-      // Note: We only try Sign Up if Sign In failed.
-      // Better Auth by default returns "Invalid email or password" for security.
-      console.log("Sign in failed with:", signInError.message, ". Attempting auto-registration...");
+      // Extract a readable sign-in error message
+      const signInMsg = (signInError as any)?.message
+        || (signInError as any)?.error
+        || (typeof signInError === 'string' ? signInError : null)
+        || '';
 
+      console.log("Sign in failed:", signInMsg || '(no message — server may be unreachable or returned 500)');
+
+      // 2. If Sign In failed, only try Sign Up if the error suggests the user doesn't exist.
+      // If the error message clearly says invalid credentials, skip sign-up attempt.
+      const looksLikeWrongPassword =
+        signInMsg.toLowerCase().includes('invalid') ||
+        signInMsg.toLowerCase().includes('password') ||
+        signInMsg.toLowerCase().includes('credentials');
+
+      if (looksLikeWrongPassword) {
+        setError('Invalid email or password');
+        return;
+      }
+
+      // Attempt auto-registration for potentially new users
       const namePrefix = email.split('@')[0];
       const displayName = namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1);
 
@@ -65,30 +81,39 @@ function LoginForm() {
         name: displayName,
       });
 
-      if (!signUpError) {
-        // Sign up success! New users are always "user" role, so go to home
+      if (!signUpError && signUpData) {
         console.log("Auto-registration successful for new user.");
         router.push('/');
         return;
       }
 
-      // 3. If both failed
-      // If signUpError is "User already exists", then the real error is the password from signIn
-      if (signUpError.message?.toLowerCase().includes('already exists') || signUpError.code === 'USER_ALREADY_EXISTS') {
+      const signUpMsg = (signUpError as any)?.message
+        || (signUpError as any)?.error
+        || (typeof signUpError === 'string' ? signUpError : null)
+        || '';
+
+      // 3. Both failed — determine best error message
+      if (
+        signUpMsg.toLowerCase().includes('already exists') ||
+        (signUpError as any)?.code === 'USER_ALREADY_EXISTS'
+      ) {
+        // User exists but wrong password
         setError('Invalid email or password');
+      } else if (!signInMsg && !signUpMsg) {
+        // Both errors were empty objects — server is likely down or returned 500
+        setError('Cannot connect to server. Please make sure the backend is running and try again.');
+        console.error("Auth failed with empty error objects — server may be down or returning 500", { signInError, signUpError });
       } else {
-        // Show the actual error from the server to help debugging
-        const errorMessage = signUpError.message || signInError.message || 'Authentication failed';
-        setError(errorMessage);
+        setError(signUpMsg || signInMsg || 'Authentication failed');
         console.error("Auth Fail Details:", { signInError, signUpError });
       }
       
     } catch (err: any) {
       console.error("Critical Auth Error:", err);
-      if (err.message === 'Failed to fetch') {
-        setError('Network error: Could not reach the server. Please check your internet or server connection.');
+      if (err?.message === 'Failed to fetch' || err?.cause?.code === 'ECONNREFUSED') {
+        setError('Cannot reach the server. Please check that the backend is running on port 4000.');
       } else {
-        setError(err.message || 'An error occurred during authentication');
+        setError(err.message || 'An unexpected error occurred during authentication');
       }
     } finally {
       setIsLoading(false);
@@ -100,8 +125,8 @@ function LoginForm() {
       {/* Animated background orbs */}
       {mounted && (
         <>
-          <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-600/20 blur-[120px] animate-pulse" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-violet-600/20 blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-primary/20 blur-[120px] animate-pulse" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-primary-light/20 blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
           <div className="absolute top-[40%] left-[60%] w-[300px] h-[300px] rounded-full bg-cyan-600/10 blur-[80px] animate-pulse" style={{ animationDelay: '2s' }} />
         </>
       )}
@@ -113,7 +138,7 @@ function LoginForm() {
         >
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-[0_8px_32px_rgba(99,102,241,0.4)] mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-[0_8px_32px_rgba(37,99,235,0.4)] mb-4">
               <span className="text-white font-black text-2xl tracking-tight">C</span>
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">COOLSTAFF</h1>
@@ -153,7 +178,7 @@ function LoginForm() {
                   placeholder="you@example.com"
                   required
                   disabled={isLoading}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all disabled:opacity-50"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-primary/60 focus:bg-white/8 transition-all disabled:opacity-50"
                 />
               </div>
             </div>
@@ -175,7 +200,7 @@ function LoginForm() {
                   placeholder="••••••••"
                   required
                   disabled={isLoading}
-                  className="w-full pl-10 pr-11 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all disabled:opacity-50"
+                  className="w-full pl-10 pr-11 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-primary/60 focus:bg-white/8 transition-all disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -191,7 +216,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isLoading || !email || !password}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold text-sm hover:from-indigo-500 hover:to-violet-500 transition-all shadow-[0_4px_24px_rgba(99,102,241,0.35)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3 rounded-xl bg-primary hover:bg-primary-dark text-white font-semibold text-sm transition-all shadow-[0_4px_24px_rgba(37,99,235,0.35)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {isLoading ? (
                 <>
@@ -215,7 +240,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}>
       <LoginForm />
     </Suspense>
   );

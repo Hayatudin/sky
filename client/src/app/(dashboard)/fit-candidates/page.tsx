@@ -17,37 +17,13 @@ import { Candidate } from '@/types';
 import { useCandidates, clearCandidatesCache } from '@/hooks/useCandidates';
 import { cn, getFileUrl } from '@/lib/utils';
 
-// Import CV templates
-import ALMTemplate from '@/components/cv/templates/ALMTemplate';
-import KA7Template from '@/components/cv/templates/KA7Template';
-import KU2Template from '@/components/cv/templates/KU2Template';
-import MATemplate from '@/components/cv/templates/MATemplate';
-import RATemplate from '@/components/cv/templates/RATemplate';
-import AlShablanTemplate from '@/components/cv/templates/AlShablanTemplate';
-import UssusTemplate from '@/components/cv/templates/UssusTemplate';
-import VisionTemplate from '@/components/cv/templates/VisionTemplate';
+import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS', category: 'Minimal', color: 'bg-cyan-500', textColor: 'text-cyan-600', bgLight: 'bg-cyan-50', component: UssusTemplate },
-  { id: 'al-shablan', name: 'AL-Shablan', category: 'Classic', color: 'bg-yellow-500', textColor: 'text-yellow-600', bgLight: 'bg-yellow-50', component: AlShablanTemplate },
-  { id: 'alm', name: 'ALAALAM', category: 'Classic', color: 'bg-blue-500', textColor: 'text-blue-600', bgLight: 'bg-blue-50', component: ALMTemplate },
-  { id: 'ka7', name: 'KAAFAAT', category: 'Professional', color: 'bg-emerald-500', textColor: 'text-emerald-600', bgLight: 'bg-emerald-50', component: KA7Template },
-  { id: 'ku2', name: 'KHUZAM', category: 'Minimal', color: 'bg-indigo-500', textColor: 'text-indigo-600', bgLight: 'bg-indigo-50', component: KU2Template },
-  { id: 'ma', name: 'MA Standard', category: 'Modern', color: 'bg-orange-500', textColor: 'text-orange-600', bgLight: 'bg-orange-50', component: MATemplate },
-  { id: 'ra', name: 'RAYAAT', category: 'Elegant', color: 'bg-purple-500', textColor: 'text-purple-600', bgLight: 'bg-purple-50', component: RATemplate },
-  { id: 'vision', name: 'Vision Layout', category: 'Premium', color: 'bg-[#0a5c4e]', textColor: 'text-[#0a5c4e]', bgLight: 'bg-[#e8f5e9]', component: VisionTemplate },
-];
+const TEMPLATES = CV_TEMPLATES;
 
 const AGENCIES = [
   { id: 'all', name: 'All' },
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ka7', name: 'KHAAFAAT' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
+  ...CV_TEMPLATE_OPTIONS,
 ];
 
 export default function FitCandidatesPage() {
@@ -206,7 +182,7 @@ export default function FitCandidatesPage() {
     const firstCV = cvs[0];
     if (!firstCV) return null;
     const templateId = typeof firstCV === 'string' ? firstCV : firstCV.templateId;
-    return templateId ? templateId.replace('tmpl-', '').toLowerCase() : null;
+    return templateId ? normalizeTemplateId(templateId) : null;
   };
 
   const filtered = useMemo(() => {
@@ -298,7 +274,7 @@ export default function FitCandidatesPage() {
 
   const handleOpenCV = async (candidate: Candidate) => {
     setOpenMenuId(null);
-    const templateId = getNormalizedTemplateId(candidate) || 'alm';
+    const templateId = getNormalizedTemplateId(candidate) || DEFAULT_CV_TEMPLATE_ID;
 
     try {
       setIsPreviewLoading(true);
@@ -624,10 +600,10 @@ export default function FitCandidatesPage() {
             const surname = pData.surname || candidate.surname || '';
             const namePart = `${givenNames}_${surname}`.trim().replace(/\s+/g, '_');
 
-            const rawTemplateId = candidate.latestCVTemplate || 'alm';
+            const rawTemplateId = candidate.latestCVTemplate || DEFAULT_CV_TEMPLATE_ID;
             const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
             const templateObj = TEMPLATES.find(t => t.id === templateId);
-            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'ALAALAM';
+            const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'Rawasi';
 
             const safeName = `${namePart}_${templateName}_${pNo}`.replace(/[^a-zA-Z0-9_]/g, '');
 
@@ -725,9 +701,9 @@ export default function FitCandidatesPage() {
       <div style={{ position: 'fixed', top: -9999, left: -9999, width: '210mm', zIndex: -1 }}>
         {renderingCandidates.map(c => {
           const firstCv = c.generatedCVs?.[0];
-          const rawTemplateId = firstCv ? (typeof firstCv === 'string' ? firstCv : firstCv.templateId) : 'alm';
+          const rawTemplateId = firstCv ? (typeof firstCv === 'string' ? firstCv : firstCv.templateId) : DEFAULT_CV_TEMPLATE_ID;
           const templateId = rawTemplateId.replace('tmpl-', '').toLowerCase();
-          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || ALMTemplate;
+          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || getTemplateComponent();
 
           return (
             <div key={c.id} id={`bulk-render-${c.id}`} style={{ width: '210mm', backgroundColor: '#ffffff' }}>
@@ -743,7 +719,7 @@ export default function FitCandidatesPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-emerald-50"><UserCheck size={22} className="text-emerald-600" /></div>
+            <div className="p-2 rounded-xl bg-primary-50"><UserCheck size={22} className="text-primary" /></div>
             Fit Candidates
           </h1>
           <p className="text-text-secondary mt-1 ml-12">Candidates who are marked as Medically Fit</p>
@@ -751,16 +727,16 @@ export default function FitCandidatesPage() {
 
         {/* Counter */}
         {!isLoading && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-xl border border-emerald-100 self-start md:self-auto">
-            <span className="text-2xl font-black text-emerald-600 leading-none">{filtered.length}</span>
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-xl border border-primary-100 self-start md:self-auto">
+            <span className="text-2xl font-black text-primary leading-none">{filtered.length}</span>
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 leading-none mb-0.5">Showing</span>
-              <span className="text-xs font-semibold text-emerald-600 leading-none">Fit Candidates</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70 leading-none mb-0.5">Showing</span>
+              <span className="text-xs font-semibold text-primary leading-none">Fit Candidates</span>
             </div>
             {filtered.length !== fitCandidates.length && (
               <div className="ml-3 pl-3 border-l border-emerald-200">
-                <span className="text-[10px] font-bold text-emerald-600/60 uppercase tracking-wider">Total Fit</span>
-                <p className="text-sm font-black text-emerald-600/80 leading-none">{fitCandidates.length}</p>
+                <span className="text-[10px] font-bold text-primary/60 uppercase tracking-wider">Total Fit</span>
+                <p className="text-sm font-black text-primary/80 leading-none">{fitCandidates.length}</p>
               </div>
             )}
           </div>
@@ -1163,7 +1139,7 @@ export default function FitCandidatesPage() {
 
       {/* Hidden full-resolution CV render for download capture */}
       {downloadingCv && (() => {
-        const DlTemplate = TEMPLATES.find(t => t.id === downloadingCv.templateId)?.component || ALMTemplate;
+        const DlTemplate = TEMPLATES.find(t => t.id === downloadingCv.templateId)?.component || getTemplateComponent();
         return (
           <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 800, zIndex: -1 }}>
             <div ref={cvRenderRef}>
@@ -1179,7 +1155,7 @@ export default function FitCandidatesPage() {
 
       {/* Preview CV Modal */}
       {previewCv && (() => {
-        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || ALMTemplate;
+        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
         return (
           <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={() => setPreviewCv(null)}>
             <div className="relative my-8 bg-white rounded-xl shadow-2xl flex flex-col items-center max-w-full" onClick={e => e.stopPropagation()}>
@@ -1313,7 +1289,7 @@ export default function FitCandidatesPage() {
                     startDownload(downloadTask.singleCv, downloadTask.format);
                   }
                 }}
-                className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl border border-indigo-100 transition-colors cursor-pointer"
+                className="flex-1 py-2 bg-primary-50 hover:bg-primary-100 text-primary text-xs font-bold rounded-xl border border-primary-100 transition-colors cursor-pointer"
               >
                 Restart Download
               </button>

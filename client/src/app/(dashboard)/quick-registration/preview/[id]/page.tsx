@@ -441,7 +441,6 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
         <div className="p-3 sm:p-4 space-y-2">
           <CopyField label="Religion" value={data.religion || ''} icon={<BookOpen size={16} />} />
           <CopyField label="Broker" value={data.broker?.name || ''} icon={<Users size={16} />} />
-          <CopyField label="Agency" value={data.agency ? data.agency.charAt(0).toUpperCase() + data.agency.slice(1) : 'Daera'} icon={<BookOpen size={16} />} />
           <CopyField label="Marital Status" value={data.maritalStatus || ''} icon={<Heart size={16} />} />
           {data.numberOfChildren > 0 && (
             <CopyField label="Number of Children" value={String(data.numberOfChildren)} icon={<Baby size={16} />} />
@@ -871,21 +870,6 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
                       </div>
                     )}
 
-                    {/* Agency Select Dropdown */}
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
-                        Agency
-                      </label>
-                      <select
-                        value={editForm.agency}
-                        onChange={e => setEditForm(prev => ({ ...prev, agency: e.target.value }))}
-                        className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 bg-white text-text-primary transition-all cursor-pointer"
-                      >
-                        <option value="daera">Daera</option>
-                        <option value="coolstaff">Coolstaff</option>
-                        <option value="boss">Boss</option>
-                      </select>
-                    </div>
 
                     {/* Broker Connection */}
                     <div className="md:col-span-2">

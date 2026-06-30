@@ -16,6 +16,7 @@ import { useSession } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 import { useBrokers } from '@/hooks/useBrokers';
 import { useLeaders } from '@/hooks/useLeaders';
+import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
 export default function BrokersPage() {
   const router = useRouter();
@@ -534,27 +535,6 @@ export default function BrokersPage() {
                       <>
                         <div className="border-t border-border/40 my-1" />
 
-                        {/* Assign Leader */}
-                        <button
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            setMenuCoords(null);
-                            setMoveBrokerTarget(broker);
-                            setSelectedLeaderId(broker.leaderId || '');
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-text-primary hover:bg-primary/5 hover:text-primary transition-colors text-left cursor-pointer"
-                        >
-                          <Folder size={16} className="text-lime-500 shrink-0" />
-                          <div>
-                            <p>Assign Leader</p>
-                            <p className="text-[10px] font-normal text-text-tertiary">
-                              {broker.leader ? `Leader: ${broker.leader.name}` : 'Unassigned'}
-                            </p>
-                          </div>
-                        </button>
-
-                        <div className="border-t border-border/40 my-1" />
-
                         {/* Lock / Unlock */}
                         <button
                           onClick={() => {
@@ -613,12 +593,6 @@ export default function BrokersPage() {
                 <span className="text-xs font-medium">Partner</span>
               </div>
             </div>
-            {broker.leader && (
-              <div className="flex items-center gap-1.5 bg-lime-500/10 text-lime-600 dark:text-lime-400 px-2 py-0.5 rounded-full border border-lime-500/20 text-[10px] font-bold uppercase tracking-wider w-max mt-1">
-                <Folder size={10} />
-                Leader: {broker.leader.name}
-              </div>
-            )}
           </div>
         </div>
 
@@ -633,7 +607,7 @@ export default function BrokersPage() {
                   return templates.map((t, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100/50 truncate max-w-[100px]"
+                      className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-bold bg-primary-50 text-primary border border-primary-100/50 truncate max-w-[100px]"
                       title={t}
                     >
                       {t}
@@ -736,7 +710,7 @@ export default function BrokersPage() {
                           return (
                             <>
                               <span className="text-[10px] text-text-tertiary">•</span>
-                              <span className="text-[10px] text-indigo-600 font-bold truncate max-w-[120px]" title={templates.join(', ')}>
+                              <span className="text-[10px] text-primary font-bold truncate max-w-[120px]" title={templates.join(', ')}>
                                 {templates.join(', ')}
                               </span>
                             </>
@@ -891,25 +865,7 @@ export default function BrokersPage() {
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <Button
-            onClick={() => {
-              setShowAddLeaderForm(!showAddLeaderForm);
-              setShowAddForm(false);
-            }}
-            variant={showAddLeaderForm ? "outline" : "secondary"}
-            className="flex-1 md:flex-none h-12 px-6 rounded-2xl shadow-md group"
-          >
-            {showAddLeaderForm ? 'Cancel Leader' : (
-              <span className="flex items-center gap-2">
-                <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300 text-lime-500" />
-                Create Leader
-              </span>
-            )}
-          </Button>
-          <Button
-            onClick={() => {
-              setShowAddForm(!showAddForm);
-              setShowAddLeaderForm(false);
-            }}
+            onClick={() => setShowAddForm(!showAddForm)}
             variant={showAddForm ? "outline" : "primary"}
             className="flex-1 md:flex-none h-12 px-6 rounded-2xl shadow-lg shadow-primary/10 group"
           >
@@ -922,35 +878,6 @@ export default function BrokersPage() {
           </Button>
         </div>
       </div>
-
-      {/* ───── Add Leader Form ───── */}
-      {showAddLeaderForm && (
-        <div className="bg-surface rounded-3xl border border-lime-500/20 shadow-xl p-8 animate-slide-in-top">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-lime-500/10 flex items-center justify-center">
-              <Folder size={20} className="text-lime-500" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-text-primary">Leader Registration</h2>
-              <p className="text-sm text-text-tertiary">Create a new organizational leader to group brokers.</p>
-            </div>
-          </div>
-          <form onSubmit={handleAddLeader} className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Leader Name (e.g., John Doe)..."
-                value={newLeaderName}
-                onChange={e => setNewLeaderName(e.target.value)}
-                required
-                className="h-12 rounded-xl"
-              />
-            </div>
-            <Button type="submit" loading={isAddingLeader} className="h-12 px-10 rounded-xl bg-lime-600 hover:bg-lime-700 text-white border-lime-600">
-              Initialize Leader
-            </Button>
-          </form>
-        </div>
-      )}
 
       {/* ───── Add Broker Form ───── */}
       {showAddForm && (
@@ -981,169 +908,21 @@ export default function BrokersPage() {
         </div>
       )}
 
-      {/* ───── Main View Grid (Grouped by Leaders Folders) ───── */}
-      <div className="space-y-12 animate-fade-in">
-        {/* Leaders Folders Section */}
-        <div>
-          <h2 className="text-xl font-black text-text-primary mb-6 flex items-center gap-2">
-            <Folder className="text-lime-500" size={24} />
-            Recruitment Leaders
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {isLeadersLoading || isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-48 bg-surface rounded-[2rem] border border-border animate-pulse" />
-              ))
-            ) : filteredLeaders.length > 0 ? (
-              filteredLeaders.map(leader => {
-                return (
-                  <div key={leader.id} className="relative pt-10 group/folder flex flex-col">
-                    {/* Folder Tab shape */}
-                    <div 
-                      className="absolute top-0 left-0 text-black rounded-t-[1.25rem] px-5 py-2.5 font-extrabold text-xs flex items-center gap-3 shadow-md z-10 transition-all duration-300 bg-gray-100 border border-b-0 border-gray-300"
-                    >
-                      <Folder size={14} className="text-gray-700 shrink-0" />
-                      <span className="truncate max-w-[120px]">{leader.name}</span>
-                      
-                      {isAuthorized && (
-                        <div className="flex items-center gap-1 ml-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditLeaderTarget(leader);
-                              setEditLeaderName(leader.name);
-                            }}
-                            className="p-1 rounded-full hover:bg-black/10 text-black/60 hover:text-primary transition-colors cursor-pointer"
-                            title="Edit Leader Name"
-                          >
-                            <Edit3 size={12} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteLeaderReason('');
-                              setDeleteLeaderTarget(leader);
-                            }}
-                            className="p-1 rounded-full hover:bg-black/10 text-black/60 hover:text-red-700 transition-colors cursor-pointer"
-                            title="Delete Leader"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {/* Folder Top Line */}
-                    <div className="absolute top-0 left-[180px] right-0 h-10 border-b border-border/50" />
-
-                    {/* Folder Body */}
-                    <div
-                      className="bg-surface border border-border/50 rounded-b-[2rem] rounded-tr-[2rem] p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:border-lime-400/30 flex flex-col justify-between relative overflow-hidden w-full min-h-[160px] h-full"
-                    >
-                      {/* Background element */}
-                      <div className="absolute -right-10 -bottom-10 w-24 h-24 bg-primary/5 rounded-full blur-xl pointer-events-none" />
-
-                      <div className="space-y-3 relative z-10 w-full">
-                        <h3 className="text-lg font-bold text-text-primary mt-2">{leader.name}</h3>
-                        <p className="text-xs text-text-tertiary">Recruitment Leader Profile Group</p>
-                      </div>
-
-                      <div className="mt-8 flex justify-between items-center relative z-10 border-t border-border/30 pt-4 w-full">
-                        <div className="flex gap-6">
-                          <div>
-                            <p className="text-[10px] text-text-tertiary uppercase font-black tracking-wider mb-1">Brokers</p>
-                            <p className="text-xl font-black text-text-primary leading-none tabular-nums">
-                              {leader._count?.brokers || 0}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-text-tertiary uppercase font-black tracking-wider mb-1">Candidates</p>
-                            <p className="text-xl font-black text-lime-500 leading-none tabular-nums">
-                              {leader.totalCandidates || 0}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => router.push(`/brokers/leader/${leader.id}`)}
-                          className="px-4 py-2 text-xs font-bold bg-lime-500/10 text-lime-600 hover:bg-lime-500 hover:text-white border border-lime-500/20 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm hover:shadow-lime-500/20"
-                        >
-                          Open Group
-                          <ArrowRight size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full py-12 text-center bg-surface border border-dashed border-border rounded-[2rem]">
-                <Folder size={32} className="mx-auto text-text-tertiary opacity-30 mb-3" />
-                <h4 className="text-sm font-bold text-text-primary">No Leaders Found</h4>
-              </div>
-            )}
+      {/* ───── Brokers List ───── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {isBrokersLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-48 bg-surface rounded-[2rem] border border-border animate-pulse" />
+          ))
+        ) : filteredBrokers.length > 0 ? (
+          filteredBrokers.map(broker => renderBrokerCard(broker))
+        ) : (
+          <div className="col-span-full py-12 text-center bg-surface border border-dashed border-border rounded-[2rem]">
+            <Users size={32} className="mx-auto text-text-tertiary opacity-30 mb-3" />
+            <h4 className="text-sm font-bold text-text-primary">No Brokers Found</h4>
           </div>
-        </div>
-
-        {/* Independent Brokers Section */}
-        <div className="pt-6">
-          <h2 className="text-xl font-black text-text-primary mb-6 flex items-center gap-2">
-            <Users className="text-primary" size={24} />
-            Independent Brokers
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {isLeadersLoading || isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-48 bg-surface rounded-[2rem] border border-border animate-pulse" />
-              ))
-            ) : independentBrokers.length > 0 ? (
-              independentBrokers.map(broker => renderBrokerCard(broker))
-            ) : (
-              <div className="col-span-full py-12 text-center bg-surface border border-dashed border-border rounded-[2rem]">
-                <Users size={32} className="mx-auto text-text-tertiary opacity-30 mb-3" />
-                <h4 className="text-sm font-bold text-text-primary">No Independent Brokers Found</h4>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
-
-      {/* ═══════════ Bulk Action Floating Bar ═══════════ */}
-      {selectedBrokerIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface/90 backdrop-blur-md border border-primary/20 rounded-[2rem] shadow-2xl p-5 z-40 flex flex-col sm:flex-row items-center gap-4 animate-slide-in-bottom max-w-2xl w-[90%] sm:w-full">
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 bg-primary/10 text-primary font-black text-xs rounded-full">
-              {selectedBrokerIds.length} Selected
-            </div>
-            <p className="text-sm font-bold text-text-primary">Brokers to Move</p>
-          </div>
-          <div className="flex-1 flex gap-3 w-full sm:w-auto">
-            <select
-              value={bulkTargetLeaderId}
-              onChange={e => setBulkTargetLeaderId(e.target.value)}
-              className="flex-1 h-11 px-4 text-xs font-semibold rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-            >
-              <option value="" disabled>Select target leader...</option>
-              <option value="independent">Independent (No Leader)</option>
-              {leaders.map(l => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-            <Button
-              onClick={handleMoveSelectedBrokers}
-              loading={isBulkMoving}
-              disabled={!bulkTargetLeaderId}
-              className="h-11 text-xs px-6 bg-lime-600 hover:bg-lime-700 text-white rounded-xl border-lime-600 shadow-lg shadow-lime-600/15"
-            >
-              Move Bulk
-            </Button>
-          </div>
-          <button
-            onClick={() => setSelectedBrokerIds([])}
-            className="text-xs text-text-tertiary hover:text-text-primary hover:underline font-bold transition-colors cursor-pointer"
-          >
-            Clear Selection
-          </button>
-        </div>
-      )}
 
       {/* ═══════════ Move Candidates Modal ═══════════ */}
       {moveTarget && (
@@ -1555,16 +1334,7 @@ export default function BrokersPage() {
   );
 }
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
-];
+const TEMPLATES = CV_TEMPLATE_OPTIONS;
 
 function ChangeTemplateModal({
   brokerName,

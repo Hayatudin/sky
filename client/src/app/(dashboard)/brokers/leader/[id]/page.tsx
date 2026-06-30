@@ -14,6 +14,7 @@ import Input from '@/components/ui/Input';
 import { Broker, Leader } from '@/types';
 import { useSession } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
+import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
 export default function LeaderBrokersPage() {
   const params = useParams();
@@ -499,7 +500,7 @@ export default function LeaderBrokersPage() {
                   return templates.map((t, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100/50 truncate max-w-[100px]"
+                      className="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-bold bg-primary-50 text-primary border border-primary-100/50 truncate max-w-[100px]"
                       title={t}
                     >
                       {t}
@@ -956,16 +957,7 @@ export default function LeaderBrokersPage() {
   );
 }
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
-];
+const TEMPLATES = CV_TEMPLATE_OPTIONS;
 
 function ChangeTemplateModal({
   brokerName,

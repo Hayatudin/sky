@@ -43,45 +43,65 @@ app.use(cookieParser());
 
 // Better Auth handler — MUST come before body parsers
 import { auth } from './lib/auth';
-import { toNodeHandler } from 'better-auth/node';
 import { ensureDatabaseSchema } from './lib/db-healing';
 import { db } from './db';
 import { user, candidate } from './db/schema';
 import { sql } from 'drizzle-orm';
 
-app.all('/api/auth/*', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
-  console.log(`[AUTH] request: ${req.method} ${req.url}`);
-  
+// Manual auth handler — reads raw body stream then delegates to better-auth.
+// Using toNodeHandler() from better-call causes a res.writeHead-after-setHeader
+// bug in Express 4 that silently returns 500 on all POST requests.
+app.all('/api/auth/*', async (req: Request, res: Response) => {
+  const proto = (req.headers['x-forwarded-proto'] as string) || (req.socket && (req.socket as any).encrypted ? 'https' : 'http');
+  const host = req.headers['x-forwarded-host'] as string || req.headers['host'] || 'localhost:4000';
+  const base = `${proto}://${host}`;
+  const url = `${base}${req.originalUrl}`;
+
+  // Build web-standard Headers
   const headers = new Headers();
   for (const [key, value] of Object.entries(req.headers)) {
     if (Array.isArray(value)) value.forEach(v => headers.append(key, v));
-    else if (value) headers.set(key, value);
+    else if (value) headers.set(key, value as string);
   }
 
-  // Create standard Web Request with pre-read string body
-  const request = new globalThis.Request(`http://${req.headers.host}${req.url}`, {
-    method: req.method,
-    headers: headers,
-    body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
-  });
+  let body: string | undefined;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    body = await new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      req.on('error', reject);
+    });
+  }
 
   try {
+    const request = new globalThis.Request(url, {
+      method: req.method,
+      headers,
+      body: body && body.length > 0 ? body : undefined,
+    });
+
     const response = await auth.handler(request);
-    
-    res.status(response.status);
+
+    // Write status + headers — avoid calling both setHeader and writeHead
+    res.statusCode = response.status;
     response.headers.forEach((value, key) => {
       if (key.toLowerCase() === 'set-cookie') {
-         res.append('Set-Cookie', value);
+        res.append('Set-Cookie', value);
       } else {
-         res.setHeader(key, value);
+        res.setHeader(key, value);
       }
     });
 
-    const text = await response.text();
-    res.send(text);
+    const responseBody = await response.text();
+    res.end(responseBody);
   } catch (err: any) {
-    console.error("AUTH FATAL ERROR:", err);
-    res.status(500).json({ error: err.message });
+    console.error('[AUTH] handler error:', err);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: err.message || 'Internal auth error' }));
+    }
   }
 });
 

@@ -8,7 +8,7 @@ import { LogOut, LayoutDashboard, User, ChevronDown, Loader2 } from 'lucide-reac
 import { cn } from '@/lib/utils';
 import { DASHBOARD_ROLES } from '@/lib/role-config';
 
-const BRAND = '#2A276C';
+const BRAND = '#2563EB';
 
 const NAV_LINKS = [
   { label: 'Home', href: '#home' },
@@ -101,7 +101,7 @@ export default function HomePage() {
       <nav className={cn(
         "fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-6xl transition-all duration-500 border",
         mobileMenu
-          ? "rounded-[2.5rem] bg-[#2A276C] border-white/10 shadow-2xl py-5"
+          ? "rounded-[2.5rem] bg-[#2563EB] border-white/10 shadow-2xl py-5"
           : scrolled
             ? "bg-white/90 shadow-xl shadow-black/5 backdrop-blur-xl border-gray-100 rounded-full py-2"
             : "bg-white/60 backdrop-blur-md border-gray-200/50 rounded-full py-2",
@@ -112,14 +112,14 @@ export default function HomePage() {
           <a href="#home" className="flex items-center gap-2.5 pl-3" onClick={() => setMobileMenu(false)}>
             <div className={cn(
               "w-9 h-9 rounded-xl flex items-center justify-center font-black text-base transition-colors",
-              mobileMenu ? "bg-white text-[#2A276C]" : "text-white"
+              mobileMenu ? "bg-white text-[#2563EB]" : "text-white"
             )} style={!mobileMenu ? { background: BRAND } : {}}>
               C
             </div>
             <div className="leading-none">
               <span className={cn(
                 "font-black text-[17px] tracking-tight transition-colors",
-                mobileMenu ? "text-white" : "text-[#2A276C]"
+                mobileMenu ? "text-white" : "text-[#2563EB]"
               )}>COOLSTAFF</span>
               <p className={cn(
                 "text-[8px] font-bold uppercase tracking-[0.18em] mt-0.5 transition-colors",
@@ -131,7 +131,7 @@ export default function HomePage() {
           {/* Desktop Links */}
           <div className="hidden lg:flex items-center gap-7">
             {NAV_LINKS.map(l => (
-              <a key={l.href} href={l.href} className="text-[13px] font-semibold text-gray-500 hover:text-[#2A276C] transition-colors">{l.label}</a>
+              <a key={l.href} href={l.href} className="text-[13px] font-semibold text-gray-500 hover:text-[#2563EB] transition-colors">{l.label}</a>
             ))}
           </div>
 
@@ -145,7 +145,7 @@ export default function HomePage() {
                   onClick={() => setProfileOpen(!profileOpen)}
                   className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all"
                 >
-                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs uppercase">
+                  <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary font-bold text-xs uppercase">
                     {session.user.name?.charAt(0) || 'U'}
                   </div>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
@@ -158,7 +158,7 @@ export default function HomePage() {
                       <p className="text-[10px] text-gray-400 truncate">{session.user.email}</p>
                     </div>
                     {canAccessDashboard && (
-                      <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 text-[13px] text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition-colors">
+                      <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 text-[13px] text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors">
                         <LayoutDashboard size={14} /> Dashboard
                       </Link>
                     )}
@@ -172,7 +172,7 @@ export default function HomePage() {
                 )}
               </div>
             ) : (
-              <Link href="/login" className="px-4 py-2 text-[13px] font-semibold text-gray-600 hover:text-[#2A276C] transition-colors">
+              <Link href="/login" className="px-4 py-2 text-[13px] font-semibold text-gray-600 hover:text-[#2563EB] transition-colors">
                 Sign In
               </Link>
             )}
@@ -242,7 +242,7 @@ export default function HomePage() {
                 <Link
                   href="/login"
                   onClick={() => setMobileMenu(false)}
-                  className="block text-center py-4 bg-white text-[#2A276C] rounded-[1.5rem] text-sm font-black shadow-xl"
+                  className="block text-center py-4 bg-white text-[#2563EB] rounded-[1.5rem] text-sm font-black shadow-xl"
                 >
                   Sign In to Portal
                 </Link>
@@ -255,15 +255,15 @@ export default function HomePage() {
       {/* ═══ HERO ═══ */}
       <section id="home" className="relative min-h-screen pt-32 pb-20 bg-gradient-to-b from-[#f8f7ff] via-white to-white overflow-hidden">
         {/* Subtle decorative blobs */}
-        <div className="absolute top-20 right-0 w-[600px] h-[600px] bg-[#2A276C]/[0.03] rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-100/40 rounded-full blur-3xl" />
+        <div className="absolute top-20 right-0 w-[600px] h-[600px] bg-[#2563EB]/[0.03] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-primary-100/40 rounded-full blur-3xl" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-8 lg:gap-4">
           {/* Left */}
           <div className="flex-1 max-w-xl">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#2A276C]/[0.06] border border-[#2A276C]/10 rounded-full mb-8">
-              <span className="w-2 h-2 rounded-full bg-[#2A276C] animate-pulse" />
-              <span className="text-[#2A276C] text-[11px] font-bold uppercase tracking-wider">Licensed Ethiopian Agency</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#2563EB]/[0.06] border border-[#2563EB]/10 rounded-full mb-8">
+              <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
+              <span className="text-[#2563EB] text-[11px] font-bold uppercase tracking-wider">Licensed Ethiopian Agency</span>
             </div>
 
             <h1 className="text-[2.8rem] md:text-[3.5rem] lg:text-[3.8rem] font-black leading-[1.08] tracking-tight mb-6">
@@ -344,7 +344,7 @@ export default function HomePage() {
       <section id="about" className="py-28 bg-white">
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
           <div className="relative">
-            <div className="absolute -inset-3 bg-[#2A276C]/5 rounded-3xl" />
+            <div className="absolute -inset-3 bg-[#2563EB]/5 rounded-3xl" />
             <img src="/about-section.png" alt="COOLSTAFF Office" className="relative rounded-2xl shadow-lg w-full" />
             {/* Floating card */}
             <div className="absolute -right-4 -bottom-4 bg-white rounded-2xl shadow-xl border border-gray-100 px-5 py-4">
@@ -363,7 +363,7 @@ export default function HomePage() {
             </p>
             <div className="grid grid-cols-2 gap-3">
               {[['🇪🇹', 'Based in Addis Ababa'], ['📄', 'Fully Licensed'], ['⚡', 'Fast Processing'], ['❤️', 'Ethical Standards']].map(([icon, text]) => (
-                <div key={text} className="flex items-center gap-3 bg-[#f8f7ff] rounded-xl px-4 py-3 border border-[#2A276C]/5">
+                <div key={text} className="flex items-center gap-3 bg-[#f8f7ff] rounded-xl px-4 py-3 border border-[#2563EB]/5">
                   <span className="text-lg">{icon}</span>
                   <span className="text-sm font-semibold text-gray-700">{text}</span>
                 </div>
@@ -383,8 +383,8 @@ export default function HomePage() {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {SERVICES.map(s => (
-              <div key={s.title} className="group p-7 bg-white rounded-2xl border border-gray-100 hover:border-[#2A276C]/20 hover:shadow-xl hover:shadow-[#2A276C]/5 hover:-translate-y-1 transition-all duration-300 cursor-default">
-                <div className="w-14 h-14 rounded-2xl bg-[#2A276C]/[0.06] group-hover:bg-[#2A276C] flex items-center justify-center text-2xl group-hover:scale-110 transition-all duration-300">
+              <div key={s.title} className="group p-7 bg-white rounded-2xl border border-gray-100 hover:border-[#2563EB]/20 hover:shadow-xl hover:shadow-[#2563EB]/5 hover:-translate-y-1 transition-all duration-300 cursor-default">
+                <div className="w-14 h-14 rounded-2xl bg-[#2563EB]/[0.06] group-hover:bg-[#2563EB] flex items-center justify-center text-2xl group-hover:scale-110 transition-all duration-300">
                   <span className="group-hover:grayscale-0 group-hover:brightness-200">{s.icon}</span>
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mt-5 mb-2">{s.title}</h3>
@@ -513,9 +513,9 @@ export default function HomePage() {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             {WHY_US.map(w => (
-              <div key={w.num} className="p-7 rounded-2xl border border-gray-100 hover:border-[#2A276C]/20 bg-gradient-to-b from-[#fafaff] to-white hover:shadow-lg hover:shadow-[#2A276C]/5 transition-all group">
+              <div key={w.num} className="p-7 rounded-2xl border border-gray-100 hover:border-[#2563EB]/20 bg-gradient-to-b from-[#fafaff] to-white hover:shadow-lg hover:shadow-[#2563EB]/5 transition-all group">
                 <span className="text-5xl font-black" style={{ color: 'rgba(42,39,108,0.08)' }}>{w.num}</span>
-                <h3 className="text-base font-bold text-gray-900 mt-4 mb-2 group-hover:text-[#2A276C] transition-colors">{w.title}</h3>
+                <h3 className="text-base font-bold text-gray-900 mt-4 mb-2 group-hover:text-[#2563EB] transition-colors">{w.title}</h3>
                 <p className="text-sm text-gray-400 leading-relaxed">{w.desc}</p>
               </div>
             ))}

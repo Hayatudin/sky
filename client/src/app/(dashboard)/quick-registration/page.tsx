@@ -17,6 +17,7 @@ import Input from '@/components/ui/Input';
 import FileUpload from '@/components/ui/FileUpload';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { languageOptions } from '@/data/mockData';
+import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
 const emptyPassportData: PassportData = {
   passportNumber: '', surname: '', givenNames: '', dateOfBirth: '',
@@ -24,16 +25,7 @@ const emptyPassportData: PassportData = {
   dateOfIssue: '', dateOfExpiry: '', placeOfBirth: '',
 };
 
-const OFFICES = [
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
-];
+const OFFICES = CV_TEMPLATE_OPTIONS;
 
 const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
   return new Promise((resolve) => {
@@ -102,7 +94,7 @@ export default function QuickRegistrationPage() {
   const [relativeIdImageUrl, setRelativeIdImageUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [allowVideo, setAllowVideo] = useState(false);
-  const [agency, setAgency] = useState('');
+  const [agency, setAgency] = useState('daera');
   const [office, setOffice] = useState('');
   const [passportType, setPassportType] = useState('original');
 
@@ -361,17 +353,11 @@ export default function QuickRegistrationPage() {
     }
 
     if (!isCalling) {
-      if (!cocDocumentUrl || !labourIdUrl || !candidateIdImageUrl || !relativeIdImageUrl || !videoUrl) {
-        setError('All documents (COC, Labour ID, Candidate ID, Relative ID, and Video) are required.');
+      if (!cocDocumentUrl || !labourIdUrl || !candidateIdImageUrl || !relativeIdImageUrl) {
+        setError('All documents (COC, Labour ID, Candidate ID, and Relative ID) are required.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-    }
-
-    if (!agency) {
-      setError('Agency selection is required.');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
     }
 
     if (isCalling && !office) {
@@ -504,7 +490,7 @@ export default function QuickRegistrationPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">Quick Registration</h1>
             {((session?.user as any)?.role === 'calling') && (
-              <span className="px-3 py-1 bg-teal-500/10 text-teal-600 text-xs font-black rounded-full border border-teal-500/20 uppercase tracking-wider animate-pulse">
+              <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-black rounded-full border border-primary/20 uppercase tracking-wider animate-pulse">
                 Calling Portal
               </span>
             )}
@@ -922,7 +908,7 @@ export default function QuickRegistrationPage() {
             />
             {!isCalling && (
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video</label>
                 {videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) ? (
                   <div className="space-y-2">
                     <div className="relative">
@@ -961,54 +947,24 @@ export default function QuickRegistrationPage() {
                       onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setVideoUrl(base64), 50 * 1024 * 1024)}
                       onClear={() => setVideoUrl(null)}
                       helperText="MP4, WebM or MOV — Max 50MB"
-                      required
                     />
                   </div>
                 )}
               </div>
             )}
 
-            {isCalling ? (
-              <>
-                <div className="md:col-span-1 pt-4 border-t border-border/60">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Agency <span className="text-red-500">*</span></label>
-                  <select
-                    value={agency}
-                    onChange={e => setAgency(e.target.value)}
-                    className="w-full h-12 px-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all cursor-pointer"
-                  >
-                    <option value="" disabled>Select Agency...</option>
-                    <option value="daera">Daera</option>
-                    <option value="coolstaff">Coolstaff</option>
-                    <option value="boss">Boss</option>
-                  </select>
-                </div>
-                <div className="md:col-span-1 pt-4 border-t border-border/60">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Office <span className="text-red-500">*</span></label>
-                  <select
-                    value={office}
-                    onChange={e => setOffice(e.target.value)}
-                    className="w-full h-12 px-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all cursor-pointer"
-                  >
-                    <option value="" disabled>Select Office...</option>
-                    {OFFICES.map(off => (
-                      <option key={off.id} value={off.id}>{off.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            ) : (
-              <div className="md:col-span-2 pt-4 border-t border-border/60">
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Agency <span className="text-red-500">*</span></label>
+            {isCalling && (
+              <div className="md:col-span-1 pt-4 border-t border-border/60">
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Office <span className="text-red-500">*</span></label>
                 <select
-                  value={agency}
-                  onChange={e => setAgency(e.target.value)}
+                  value={office}
+                  onChange={e => setOffice(e.target.value)}
                   className="w-full h-12 px-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all cursor-pointer"
                 >
-                  <option value="" disabled>Select Agency...</option>
-                  <option value="daera">Daera</option>
-                  <option value="coolstaff">Coolstaff</option>
-                  <option value="boss">Boss</option>
+                  <option value="" disabled>Select Office...</option>
+                  {OFFICES.map(off => (
+                    <option key={off.id} value={off.id}>{off.name}</option>
+                  ))}
                 </select>
               </div>
             )}

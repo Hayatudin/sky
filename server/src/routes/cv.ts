@@ -96,13 +96,9 @@ const calculateAge = (dob: Date | null | undefined) => {
 };
 
 const TEMPLATE_MAP: Record<string, string> = {
-  'tmpl-alm': 'CV ALM.docx',
-  'tmpl-ka7': 'CV KA-7-v3.docx',
-  'tmpl-ku2': 'CV KU2.docx',
-  'tmpl-ma': 'CV MA.docx',
-  'tmpl-ra': 'CV RA.docx',
-  'tmpl-al-shablan': 'CV Al-shablan.docx',
-  'tmpl-ussus': 'CV Ussus.docx',
+  'tmpl-rawasi': 'CV ALM.docx',
+  'tmpl-azm': 'CV ALM.docx',
+  'tmpl-mazaya': 'CV MA.docx',
 };
 
 router.post('/generate', async (req: Request, res: Response) => {
@@ -437,7 +433,7 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
             await Promise.all(batch.map(async (candItem) => {
               try {
                 const firstCv = candItem.generatedCVs?.[0];
-                const rawTemplateId = firstCv ? firstCv.templateId : 'alm';
+                const rawTemplateId = firstCv ? firstCv.templateId : 'rawasi';
                 const templateId = rawTemplateId.startsWith('tmpl-') ? rawTemplateId : `tmpl-${rawTemplateId}`;
 
                 const templateRef = TEMPLATE_MAP[templateId] || 'CV ALM.docx';
@@ -679,7 +675,7 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                 const page = await browser.newPage();
                 try {
                   const firstCv = candItem.generatedCVs?.[0];
-                  const rawTemplateId = firstCv ? firstCv.templateId : 'alm';
+                  const rawTemplateId = firstCv ? firstCv.templateId : 'rawasi';
                   const clientTemplateRoute = rawTemplateId.replace('tmpl-', '').toLowerCase();
 
                   const printUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/cv-print/${candItem.id}/${clientTemplateRoute}`;
@@ -739,7 +735,7 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
             if (!firstCv) {
               await db.insert(generatedCV).values({
                 candidateId: candItem.id,
-                templateId: 'alm',
+                templateId: 'rawasi',
                 facePhotoUrl: candItem.facePhotoUrl || '',
                 fullBodyPhotoUrl: candItem.fullBodyPhotoUrl || ''
               });

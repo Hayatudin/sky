@@ -13,7 +13,7 @@ interface TemplateGridProps {
 
 const templateColors: Record<string, { from: string; to: string; accent: string }> = {
   classic: { from: 'from-gray-700', to: 'to-gray-900', accent: 'bg-gray-600' },
-  modern: { from: 'from-indigo-500', to: 'to-violet-600', accent: 'bg-indigo-500' },
+  modern: { from: 'from-primary', to: 'to-primary-dark', accent: 'bg-primary' },
   professional: { from: 'from-slate-700', to: 'to-slate-900', accent: 'bg-slate-600' },
   minimal: { from: 'from-gray-100', to: 'to-gray-200', accent: 'bg-gray-400' },
   elegant: { from: 'from-amber-500', to: 'to-yellow-600', accent: 'bg-amber-500' },

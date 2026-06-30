@@ -1,21 +1,15 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { CV_TEMPLATES, normalizeTemplateId } from './cv-templates';
 
 const TEMPLATES: Record<string, { name: string; fullName: string }> = {
-  'all': { name: 'ALL', fullName: '' },
-  'ussus': { name: 'USSUS', fullName: 'USSUS ALENJAZ RECRUITMENT COMPANY' },
-  'al-shablan': { name: 'AL-Shablan', fullName: 'AL-SHABLAN RECRUITMENT COMPANY' },
-  'alm': { name: 'ALAALAM', fullName: 'ALEM RECRUITMENT AGENCY' },
-  'ka7': { name: 'KAAFAAT', fullName: 'KAAFAAT ALAALAM RECRUITMENT COMPANY' },
-  'ku2': { name: 'KHUZAM', fullName: 'KHUZAM  RECRUITMENT COMPANY' },
-  'ma': { name: 'MA Standard', fullName: 'NAKHLAH RECRUITMENT COMPANY' },
-  'ra': { name: 'RAYAAT', fullName: 'RAYAAT RECRUITMENT COMPANY' },
-  'vision': { name: 'Vision Office', fullName: 'VISION RECRUITMENT OFFICE' }
+  all: { name: 'ALL', fullName: '' },
+  ...Object.fromEntries(CV_TEMPLATES.map((t) => [t.id, { name: t.name, fullName: t.fullName }])),
 };
 
 const getAgencyName = (templateId: string | null | undefined): string => {
   if (!templateId) return 'N/A';
-  const tid = templateId.toLowerCase().trim();
+  const tid = normalizeTemplateId(templateId);
   const found = TEMPLATES[tid];
   const fullName = found ? found.fullName : templateId;
   const firstWord = fullName.trim().split(/\s+/)[0];

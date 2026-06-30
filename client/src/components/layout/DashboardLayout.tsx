@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isMobileOpen]);
 
   return (
-    <div className="flex h-screen bg-lavender w-full overflow-hidden">
+    <div className="flex h-screen bg-slate-100 w-full overflow-hidden">
       {/* Desktop sidebar — hidden on mobile */}
       <div className="hidden lg:block">
         <Sidebar
@@ -66,7 +66,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <div id="main-scroll-container" className="flex-1 flex flex-col h-screen relative overflow-y-auto scroll-smooth">
-        <Topbar onMobileMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
+        <Topbar
+          onMobileMenuToggle={() => setIsMobileOpen(!isMobileOpen)}
+          isSidebarCollapsed={isCollapsed}
+          onSidebarToggle={() => setIsCollapsed(prev => !prev)}
+        />
         <main className="flex-1 p-3 sm:p-4 md:p-8">
           {children}
         </main>

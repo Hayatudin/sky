@@ -2,25 +2,9 @@
 
 import { useEffect, useState, use } from 'react';
 import { api } from '@/lib/api';
-import ALMTemplate from '@/components/cv/templates/ALMTemplate';
-import AlShablanTemplate from '@/components/cv/templates/AlShablanTemplate';
-import KA7Template from '@/components/cv/templates/KA7Template';
-import KU2Template from '@/components/cv/templates/KU2Template';
-import MATemplate from '@/components/cv/templates/MATemplate';
-import RATemplate from '@/components/cv/templates/RATemplate';
-import UssusTemplate from '@/components/cv/templates/UssusTemplate';
-import VisionTemplate from '@/components/cv/templates/VisionTemplate';
-
-const TEMPLATE_COMPONENTS: Record<string, any> = {
-  'alm': ALMTemplate,
-  'al-shablan': AlShablanTemplate,
-  'ka7': KA7Template,
-  'ku2': KU2Template,
-  'ma': MATemplate,
-  'ra': RATemplate,
-  'ussus': UssusTemplate,
-  'vision': VisionTemplate,
-};
+import { getFileUrl } from '@/lib/utils';
+import CVTemplateRenderer from '@/components/cv/CVTemplateRenderer';
+import { normalizeTemplateId } from '@/lib/cv-templates';
 
 export default function CVPrintPage({ params }: { params: Promise<{ id: string; template: string }> }) {
   const { id, template } = use(params);
@@ -45,7 +29,8 @@ export default function CVPrintPage({ params }: { params: Promise<{ id: string; 
   if (loading) return <div className="p-10">Loading template...</div>;
   if (!candidate) return <div className="p-10">Candidate not found</div>;
 
-  const TemplateComponent = TEMPLATE_COMPONENTS[template] || ALMTemplate;
+  const facePhoto = getFileUrl(candidate.facePhotoUrl || candidate.passportImageUrl);
+  const fullBodyPhoto = getFileUrl(candidate.fullBodyPhotoUrl);
 
   return (
     <div className="bg-white min-h-screen">
@@ -67,10 +52,16 @@ export default function CVPrintPage({ params }: { params: Promise<{ id: string; 
         }
       `}</style>
       <div id="cv-container">
-        <TemplateComponent 
-          candidate={candidate} 
-          facePhoto={candidate.passportImageUrl} 
-          fullBodyPhoto={candidate.fullBodyPhotoUrl} 
+        <CVTemplateRenderer
+          templateId={normalizeTemplateId(template)}
+          candidate={{
+            ...candidate,
+            passportImageUrl: getFileUrl(candidate.passportImageUrl),
+            facePhotoUrl: getFileUrl(candidate.facePhotoUrl),
+            fullBodyPhotoUrl: getFileUrl(candidate.fullBodyPhotoUrl),
+          }}
+          facePhoto={facePhoto}
+          fullBodyPhoto={fullBodyPhoto}
         />
       </div>
     </div>

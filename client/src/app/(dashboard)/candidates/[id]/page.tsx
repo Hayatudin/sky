@@ -215,7 +215,7 @@ export default function CandidateDetailPage() {
                   {c.isRequested && (
                     <span className="text-[#FF7A59] border border-[#FF7A59]/30 bg-white rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Requested</span>
                   )}
-                  <span className="text-indigo-600 border border-indigo-200 bg-white rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Candidate</span>
+                  <span className="text-primary border border-primary-200 bg-white rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Candidate</span>
                   {pi.job && (
                     <span className="text-gray-600 border border-gray-200 bg-white rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">{pi.job}</span>
                   )}
@@ -512,7 +512,7 @@ export default function CandidateDetailPage() {
                     ) : (
                       <button
                         onClick={() => router.push(`/generated-cvs?folder=${c.latestCVTemplate}&search=${c.passportData.passportNumber}`)}
-                        className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                        className="shrink-0 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
                       >
                         View
                       </button>

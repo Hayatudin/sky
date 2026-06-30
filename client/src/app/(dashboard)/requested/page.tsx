@@ -13,17 +13,9 @@ import { cn } from '@/lib/utils';
 
 import { useCandidates } from '@/hooks/useCandidates';
 import { useQueryClient } from '@tanstack/react-query';
+import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
-];
+const TEMPLATES = CV_TEMPLATE_OPTIONS;
 
 export default function RequestedPage() {
   const router = useRouter();
@@ -405,7 +397,7 @@ export default function RequestedPage() {
         <button
           disabled={isGenerating}
           onClick={handleGenerateReport}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 disabled:from-blue-400 disabled:to-indigo-400 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-blue-600/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:cursor-not-allowed shrink-0"
+          className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark disabled:bg-primary/60 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:cursor-not-allowed shrink-0"
         >
           {isGenerating ? (
             <>
@@ -794,7 +786,7 @@ export default function RequestedPage() {
                 )}
                 <button
                   onClick={saveDeployedDate}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white font-bold text-sm hover:from-blue-700 hover:to-indigo-600 transition-all shadow-lg shadow-blue-600/20"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold text-sm transition-all shadow-lg shadow-primary/20"
                 >
                   Save Date
                 </button>

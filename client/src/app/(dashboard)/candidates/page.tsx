@@ -14,17 +14,9 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { authClient } from '@/lib/auth-client';
 
 import { useCandidates } from '@/hooks/useCandidates';
+import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
-const TEMPLATES = [
-  { id: 'ussus', name: 'USSUS' },
-  { id: 'al-shablan', name: 'AL-Shablan' },
-  { id: 'alm', name: 'ALAALAM' },
-  { id: 'ka7', name: 'KAAFAAT' },
-  { id: 'ku2', name: 'KHUZAM' },
-  { id: 'ma', name: 'MA Standard' },
-  { id: 'ra', name: 'RAYAAT' },
-  { id: 'vision', name: 'Vision Layout' },
-];
+const TEMPLATES = CV_TEMPLATE_OPTIONS;
 
 export default function CandidatesPage() {
   const router = useRouter();
@@ -321,9 +313,9 @@ export default function CandidatesPage() {
         <div className="flex flex-wrap items-center gap-2">
           {[
             { key: 'all', label: 'All Agencies', color: 'border-gray-200 text-gray-700 hover:bg-gray-50', activeColor: 'bg-gray-900 border-gray-900 text-white' },
-            { key: 'daera', label: 'Daera', color: 'border-blue-200 text-blue-700 hover:bg-blue-50/55', activeColor: 'bg-blue-600 border-blue-600 text-white' },
-            { key: 'coolstaff', label: 'Coolstaff', color: 'border-teal-200 text-teal-700 hover:bg-teal-50/55', activeColor: 'bg-teal-600 border-teal-600 text-white' },
-            { key: 'boss', label: 'Boss', color: 'border-purple-200 text-purple-700 hover:bg-purple-50/55', activeColor: 'bg-purple-600 border-purple-600 text-white' },
+            { key: 'daera', label: 'Daera', color: 'border-primary-100 text-primary hover:bg-primary-50/55', activeColor: 'bg-primary border-primary text-white' },
+            { key: 'coolstaff', label: 'Coolstaff', color: 'border-primary-100 text-primary hover:bg-primary-50/55', activeColor: 'bg-primary border-primary text-white' },
+            { key: 'boss', label: 'Boss', color: 'border-primary-100 text-primary hover:bg-primary-50/55', activeColor: 'bg-primary border-primary text-white' },
           ].map((btn) => {
             const isActive = agencyFilter === btn.key;
             const count = candidates.filter(c => btn.key === 'all' ? true : c.agency?.toLowerCase() === btn.key).length;
@@ -355,14 +347,14 @@ export default function CandidatesPage() {
           className={cn(
             "flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95",
             callingFilter
-              ? "bg-teal-600 border-teal-600 text-white"
-              : "border-teal-200 text-teal-700 hover:bg-teal-50/55"
+              ? "bg-primary border-primary text-white"
+              : "border-primary-100 text-primary hover:bg-primary-50/55"
           )}
         >
           <span>Calling Candidates</span>
           <span className={cn(
             "inline-flex items-center justify-center min-w-5 h-5 px-1 text-[10px] font-black rounded-full",
-            callingFilter ? "bg-white/20 text-white" : "bg-teal-55 text-teal-700 border border-teal-200"
+            callingFilter ? "bg-white/20 text-white" : "bg-primary-50 text-primary border border-primary-100"
           )}>
             {candidates.filter(c => c.broker?.name === 'Calling').length}
           </span>

@@ -41,14 +41,9 @@ ensureCandidateColumns();
 // Email-to-agency template ID resolver fallback mapping
 function inferAgencyFromEmail(email: string): string | null {
   const e = email.toLowerCase();
-  if (e.includes('ussus')) return 'ussus';
-  if (e.includes('khuzam') || e.includes('ku2')) return 'ku2';
-  if (e.includes('kafaat') || e.includes('ka7')) return 'ka7';
-  if (e.includes('alaalam') || e.includes('alm')) return 'alm';
-  if (e.includes('rayaat') || e.includes('ra')) return 'ra';
-  if (e.includes('shablan')) return 'al-shablan';
-  if (e.includes('vision')) return 'vision';
-  if (e.includes('ma')) return 'ma';
+  if (e.includes('rawasi') || e.includes('rewasi')) return 'rawasi';
+  if (e.includes('azm') || e.includes('alinjaz')) return 'azm';
+  if (e.includes('mazaya')) return 'mazaya';
   return null;
 }
 
