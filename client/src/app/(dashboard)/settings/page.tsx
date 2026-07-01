@@ -384,7 +384,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between p-4 border border-border rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
                     <div>
                       <p className="font-semibold text-text-primary">System Updates & Announcements</p>
-                      <p className="text-sm text-text-secondary">Important news and updates about the COOLSTAFF platform.</p>
+                      <p className="text-sm text-text-secondary">Important news and updates about the SKY Agency platform.</p>
                     </div>
                     <Toggle checked={notifications.systemUpdates} onChange={(v) => setNotifications({...notifications, systemUpdates: v})} />
                   </div>

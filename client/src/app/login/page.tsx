@@ -2,26 +2,34 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Eye, EyeOff, Loader2, AlertCircle, LogIn, Home } from 'lucide-react';
 import { signIn, signUp } from '@/lib/auth-client';
 import { DASHBOARD_ROLES } from '@/lib/role-config';
 
 export const dynamic = 'force-dynamic';
+
+// ─── mode types ────────────────────────────────────────────────────────────────
+type Mode = 'signin' | 'signup';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
 
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<Mode>('signin');
+  const [name, setName]       = useState('');
+  const [email, setEmail]     = useState('');
   const [password, setPassword] = useState('');
-  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd, setShowPwd]  = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Animated background orbs
+  const [error, setError]     = useState('');
   const [mounted, setMounted] = useState(false);
+
   useEffect(() => { setMounted(true); }, []);
+
+  // reset error when switching modes
+  useEffect(() => { setError(''); }, [mode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,91 +37,62 @@ function LoginForm() {
     setIsLoading(true);
 
     try {
-      // 1. Attempt Sign In
-      const { data: signInData, error: signInError } = await signIn.email({
-        email,
-        password,
-      });
+      if (mode === 'signup') {
+        // ── Sign Up flow ──────────────────────────────────────────────────────
+        if (!name.trim()) { setError('Please enter your name.'); setIsLoading(false); return; }
+
+        const { data, error: signUpError } = await signUp.email({ email, password, name: name.trim() });
+
+        if (!signUpError && data) {
+          router.push('/');
+          return;
+        }
+
+        const msg = (signUpError as any)?.message || (signUpError as any)?.error || '';
+        if (msg.toLowerCase().includes('already exists')) {
+          setError('An account with this email already exists. Please sign in.');
+        } else if (!msg) {
+          setError('Cannot connect to server. Please make sure the backend is running.');
+        } else {
+          setError(msg);
+        }
+        return;
+      }
+
+      // ── Sign In flow ────────────────────────────────────────────────────────
+      const { data: signInData, error: signInError } = await signIn.email({ email, password });
 
       if (!signInError && signInData) {
-        // Sign in success! Check role for redirection
-        const user = signInData.user as any;
-        const role = user?.role;
-        console.log("Sign in successful. User role:", role);
-        
+        const role = (signInData.user as any)?.role;
         if (role === 'agency') {
           router.push('/agency/contracts');
         } else if (DASHBOARD_ROLES.includes(role)) {
-          router.push('/dashboard');
+          router.push(callbackUrl);
         } else {
           router.push('/');
         }
         return;
       }
 
-      // Extract a readable sign-in error message
-      const signInMsg = (signInError as any)?.message
-        || (signInError as any)?.error
-        || (typeof signInError === 'string' ? signInError : null)
-        || '';
+      const signInMsg = (signInError as any)?.message || (signInError as any)?.error || '';
 
-      console.log("Sign in failed:", signInMsg || '(no message — server may be unreachable or returned 500)');
-
-      // 2. If Sign In failed, only try Sign Up if the error suggests the user doesn't exist.
-      // If the error message clearly says invalid credentials, skip sign-up attempt.
-      const looksLikeWrongPassword =
+      if (!signInMsg) {
+        setError('Cannot connect to server. Please make sure the backend is running on port 4000.');
+      } else if (
         signInMsg.toLowerCase().includes('invalid') ||
         signInMsg.toLowerCase().includes('password') ||
-        signInMsg.toLowerCase().includes('credentials');
-
-      if (looksLikeWrongPassword) {
-        setError('Invalid email or password');
-        return;
-      }
-
-      // Attempt auto-registration for potentially new users
-      const namePrefix = email.split('@')[0];
-      const displayName = namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1);
-
-      const { data: signUpData, error: signUpError } = await signUp.email({
-        email,
-        password,
-        name: displayName,
-      });
-
-      if (!signUpError && signUpData) {
-        console.log("Auto-registration successful for new user.");
-        router.push('/');
-        return;
-      }
-
-      const signUpMsg = (signUpError as any)?.message
-        || (signUpError as any)?.error
-        || (typeof signUpError === 'string' ? signUpError : null)
-        || '';
-
-      // 3. Both failed — determine best error message
-      if (
-        signUpMsg.toLowerCase().includes('already exists') ||
-        (signUpError as any)?.code === 'USER_ALREADY_EXISTS'
+        signInMsg.toLowerCase().includes('credentials')
       ) {
-        // User exists but wrong password
-        setError('Invalid email or password');
-      } else if (!signInMsg && !signUpMsg) {
-        // Both errors were empty objects — server is likely down or returned 500
-        setError('Cannot connect to server. Please make sure the backend is running and try again.');
-        console.error("Auth failed with empty error objects — server may be down or returning 500", { signInError, signUpError });
+        setError('Invalid email or password.');
       } else {
-        setError(signUpMsg || signInMsg || 'Authentication failed');
-        console.error("Auth Fail Details:", { signInError, signUpError });
+        setError(signInMsg);
       }
-      
+
     } catch (err: any) {
-      console.error("Critical Auth Error:", err);
       if (err?.message === 'Failed to fetch' || err?.cause?.code === 'ECONNREFUSED') {
-        setError('Cannot reach the server. Please check that the backend is running on port 4000.');
+        setError('Cannot reach the server. Is the backend running on port 4000?');
       } else {
-        setError(err.message || 'An unexpected error occurred during authentication');
+        setError(err.message || 'An unexpected error occurred.');
       }
     } finally {
       setIsLoading(false);
@@ -121,118 +100,206 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#0a0a0f]">
-      {/* Animated background orbs */}
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden select-none">
+      {/* ── Sky-blue gradient background ───────────────────────────────────── */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          background: 'linear-gradient(160deg, #d6edf8 0%, #b8ddf0 30%, #a0cfe8 60%, #c8e8f5 100%)',
+        }}
+      />
+
+      {/* Subtle cloud-like blobs */}
       {mounted && (
         <>
-          <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-primary/20 blur-[120px] animate-pulse" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-primary-light/20 blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-[40%] left-[60%] w-[300px] h-[300px] rounded-full bg-cyan-600/10 blur-[80px] animate-pulse" style={{ animationDelay: '2s' }} />
+          <div className="absolute bottom-0 left-[-5%] w-[55%] h-[45%] rounded-[60%] bg-white/25 blur-3xl" />
+          <div className="absolute bottom-[-10%] right-[5%] w-[50%] h-[50%] rounded-[60%] bg-white/20 blur-3xl" />
+          <div className="absolute top-[15%] right-[-5%] w-[35%] h-[35%] rounded-full bg-white/15 blur-3xl" />
+          {/* Decorative thin arc */}
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full border border-white/30 pointer-events-none"
+            style={{ transform: 'translate(-50%, -30%) rotate(-20deg)' }}
+          />
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] rounded-full border border-white/20 pointer-events-none"
+            style={{ transform: 'translate(-50%, -25%) rotate(-20deg)' }}
+          />
         </>
       )}
 
-      {/* Glass card */}
-      <div className="relative z-10 w-full max-w-md px-4">
-        <div
-          className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_32px_64px_rgba(0,0,0,0.5)] p-8"
-        >
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-[0_8px_32px_rgba(37,99,235,0.4)] mb-4">
-              <span className="text-white font-black text-2xl tracking-tight">C</span>
+      {/* ── Card ───────────────────────────────────────────────────────────── */}
+      <div className="relative z-10 w-full max-w-[400px] px-4">
+
+        {/* Back to Home */}
+        <div className="mb-3 flex">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-[12px] text-sky-700/70 hover:text-sky-800 transition-colors group"
+          >
+            <span className="w-6 h-6 rounded-lg bg-white/60 backdrop-blur border border-white/70 shadow-sm flex items-center justify-center group-hover:bg-white transition-colors">
+              <Home size={12} className="text-sky-700" />
+            </span>
+            Back to Home
+          </Link>
+        </div>
+
+        <div className="rounded-3xl bg-white/80 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,80,160,0.12),0_4px_16px_rgba(0,80,160,0.08)] border border-white/70 px-8 py-9">
+
+          {/* Icon pill */}
+          <div className="flex justify-center mb-5">
+            <div className="w-12 h-12 rounded-2xl bg-white shadow-[0_4px_16px_rgba(0,0,0,0.10)] border border-gray-100 flex items-center justify-center">
+              <LogIn size={22} className="text-gray-700" strokeWidth={1.8} />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">COOLSTAFF</h1>
-            <p className="text-white/40 text-sm mt-1 tracking-widest uppercase text-[10px]">
-              Employment Agency
+          </div>
+
+          {/* Title */}
+          <div className="text-center mb-6">
+            <h1 className="text-[22px] font-bold text-gray-900 leading-tight">
+              {mode === 'signin' ? 'Sign in with email' : 'Create your account'}
+            </h1>
+            <p className="text-[13px] text-gray-500 mt-1.5 leading-snug">
+              {mode === 'signin'
+                ? 'Welcome back to the SKY agency portal.'
+                : 'Fill in the details below to get started.'}
             </p>
           </div>
 
-          <div className="mb-6 text-center">
-            <h2 className="text-lg font-semibold text-white">Welcome to Coolstaff</h2>
-
-          </div>
-
-          {/* Error banner */}
+          {/* Error */}
           {error && (
-            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm mb-5">
-              <AlertCircle size={16} className="shrink-0" />
+            <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-[13px] mb-5">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
-            <div>
-              <label className="block text-white/60 text-xs font-medium mb-1.5 uppercase tracking-wider">
-                Email address
-              </label>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Name field — sign up only */}
+            {mode === 'signup' && (
               <div className="relative">
-                <Mail
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30"
-                />
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-[13px] pointer-events-none">
+                  👤
+                </span>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Full name"
                   required
                   disabled={isLoading}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-primary/60 focus:bg-white/8 transition-all disabled:opacity-50"
+                  className="w-full pl-9 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 text-[14px] focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-50"
                 />
               </div>
+            )}
+
+            {/* Email */}
+            <div className="relative">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m2 7 10 7 10-7" />
+              </svg>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                required
+                disabled={isLoading}
+                autoComplete="email"
+                className="w-full pl-9 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 text-[14px] focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-50"
+              />
             </div>
 
             {/* Password */}
-            <div>
-              <label className="block text-white/60 text-xs font-medium mb-1.5 uppercase tracking-wider">
-                Password
-              </label>
-              <div className="relative">
-                <Lock
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30"
-                />
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  disabled={isLoading}
-                  className="w-full pl-10 pr-11 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm focus:outline-none focus:border-primary/60 focus:bg-white/8 transition-all disabled:opacity-50"
-                />
+            <div className="relative">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <input
+                type={showPwd ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+                disabled={isLoading}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                className="w-full pl-9 pr-11 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 text-[14px] focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-50"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowPwd((p) => !p)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showPwd
+                  ? <EyeOff size={16} />
+                  : <Eye size={16} />
+                }
+              </button>
+            </div>
+
+            {/* Forgot password link — sign in only */}
+            {mode === 'signin' && (
+              <div className="flex justify-end -mt-1">
                 <button
                   type="button"
-                  onClick={() => setShowPwd((p) => !p)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                  className="text-[12px] text-gray-500 hover:text-gray-700 transition-colors"
+                  onClick={() => setError('Password reset is not available yet. Contact your administrator.')}
                 >
-                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  Forgot password?
                 </button>
               </div>
-            </div>
+            )}
 
             {/* Submit */}
             <button
               type="submit"
               disabled={isLoading || !email || !password}
-              className="w-full py-3 rounded-xl bg-primary hover:bg-primary-dark text-white font-semibold text-sm transition-all shadow-[0_4px_24px_rgba(37,99,235,0.35)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3 mt-1 rounded-xl bg-gray-900 hover:bg-gray-800 active:bg-gray-950 text-white font-semibold text-[14px] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(0,0,0,0.18)]"
             >
               {isLoading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Signing in…
+                  {mode === 'signin' ? 'Signing in…' : 'Creating account…'}
                 </>
               ) : (
-                'Sign In'
+                mode === 'signin' ? 'Get Started' : 'Create Account'
               )}
             </button>
           </form>
 
-          <p className="text-center text-white/20 text-xs mt-8">
-            COOLSTAFF — Foreign Employment Agency System
+          {/* Mode switcher */}
+          <p className="text-center text-[13px] text-gray-500 mt-5">
+            {mode === 'signin' ? (
+              <>
+                Don&apos;t have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => setMode('signup')}
+                  className="text-blue-600 font-medium hover:underline"
+                >
+                  Sign up
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => setMode('signin')}
+                  className="text-blue-600 font-medium hover:underline"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
           </p>
         </div>
+
+        {/* Footer label */}
+        <p className="text-center text-[11px] text-sky-700/60 mt-4 tracking-wide">
+          SKY Foreign Employment Agency System
+        </p>
       </div>
     </div>
   );
@@ -240,7 +307,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #d6edf8 0%, #b8ddf0 50%, #a0cfe8 100%)' }}>
+          <Loader2 className="animate-spin text-sky-600" size={28} />
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

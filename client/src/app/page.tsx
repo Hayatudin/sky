@@ -114,13 +114,13 @@ export default function HomePage() {
               "w-9 h-9 rounded-xl flex items-center justify-center font-black text-base transition-colors",
               mobileMenu ? "bg-white text-[#2563EB]" : "text-white"
             )} style={!mobileMenu ? { background: BRAND } : {}}>
-              C
+              S
             </div>
             <div className="leading-none">
               <span className={cn(
                 "font-black text-[17px] tracking-tight transition-colors",
                 mobileMenu ? "text-white" : "text-[#2563EB]"
-              )}>COOLSTAFF</span>
+              )}>SKY</span>
               <p className={cn(
                 "text-[8px] font-bold uppercase tracking-[0.18em] mt-0.5 transition-colors",
                 mobileMenu ? "text-white/40" : "text-gray-400"
@@ -314,7 +314,7 @@ export default function HomePage() {
 
               <img
                 src="/HERO.png"
-                alt="COOLSTAFF Hero"
+                alt="SKY Agency Hero"
                 className="relative w-full h-auto rounded-3xl"
               />
               {/* Floating badge */}
@@ -345,7 +345,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
           <div className="relative">
             <div className="absolute -inset-3 bg-[#2563EB]/5 rounded-3xl" />
-            <img src="/about-section.png" alt="COOLSTAFF Office" className="relative rounded-2xl shadow-lg w-full" />
+            <img src="/about-section.png" alt="SKY Agency Office" className="relative rounded-2xl shadow-lg w-full" />
             {/* Floating card */}
             <div className="absolute -right-4 -bottom-4 bg-white rounded-2xl shadow-xl border border-gray-100 px-5 py-4">
               <p className="text-3xl font-black" style={{ color: BRAND }}>10+</p>
@@ -353,10 +353,10 @@ export default function HomePage() {
             </div>
           </div>
           <div>
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: BRAND }}>About COOLSTAFF</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: BRAND }}>About SKY</span>
             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 mb-6 leading-tight">Your Trusted Bridge to Gulf Employment</h2>
             <p className="text-gray-500 leading-relaxed mb-5 text-[15px]">
-              COOLSTAFF Foreign Employment Agency is one of Ethiopia&apos;s leading recruitment agencies, dedicated to providing reliable and professional services. Since our founding, we have helped thousands of candidates secure employment across the Middle East.
+              SKY Foreign Employment Agency is one of Ethiopia&apos;s leading recruitment agencies, dedicated to providing reliable and professional services. Since our founding, we have helped thousands of candidates secure employment across the Middle East.
             </p>
             <p className="text-gray-500 leading-relaxed mb-8 text-[15px]">
               We specialize in deploying domestic workers, caregivers, and skilled professionals to Saudi Arabia, UAE, Kuwait, Bahrain, and beyond. Our ethical approach ensures dignity for every candidate.
@@ -509,7 +509,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: BRAND }}>Our Advantages</span>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3">Why Partners Choose COOLSTAFF</h2>
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3">Why Partners Choose SKY</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             {WHY_US.map(w => (
@@ -554,13 +554,13 @@ export default function HomePage() {
           <div className="rounded-3xl p-10 md:p-16 grid lg:grid-cols-2 gap-12" style={{ background: BRAND }}>
             <div>
               <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-white/70 text-[11px] font-bold uppercase tracking-wider mb-6">Get In Touch</span>
-              <h2 className="text-3xl md:text-4xl font-black text-white mb-6 leading-tight">Ready to Partner<br />with COOLSTAFF?</h2>
+              <h2 className="text-3xl md:text-4xl font-black text-white mb-6 leading-tight">Ready to Partner<br />with SKY?</h2>
               <p className="text-white/60 leading-relaxed mb-8 text-[15px]">Reach us by WhatsApp, phone or email. Our team is ready for partner inquiries.</p>
               <div className="space-y-3">
                 {[
                   ['📍', 'Address', 'Girar, Ayer Tena, Addis Ababa, Ethiopia'],
                   ['📱', 'WhatsApp', '+251 960 178 117'],
-                  ['📧', 'Email', 'info@coolstaffagency.com'],
+                  ['📧', 'Email', 'info@skyagency.com'],
                 ].map(([icon, label, value]) => (
                   <div key={label} className="flex items-center gap-4 bg-white/[0.06] rounded-xl px-5 py-4 border border-white/10">
                     <span className="text-lg">{icon}</span>
@@ -595,9 +595,9 @@ export default function HomePage() {
             <div className="md:col-span-2">
               <div className="flex items-center gap-2.5 mb-5">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-base" style={{ background: BRAND }}>C</div>
-                <div><span className="font-black text-[17px]">COOLSTAFF</span><p className="text-[8px] text-purple-300 font-bold uppercase tracking-[0.18em] mt-0.5">Foreign Employment Agency</p></div>
+                <div><span className="font-black text-[17px]">SKY</span><p className="text-[8px] text-purple-300 font-bold uppercase tracking-[0.18em] mt-0.5">Foreign Employment Agency</p></div>
               </div>
-              <p className="text-gray-500 text-sm leading-relaxed max-w-sm">COOLSTAFF connects Ethiopian talent with Gulf opportunities through ethical, reliable and professional recruitment services.</p>
+              <p className="text-gray-500 text-sm leading-relaxed max-w-sm">SKY Foreign Employment Agency connects Ethiopian talent with Gulf opportunities through ethical, reliable and professional recruitment services.</p>
             </div>
             <div>
               <h4 className="font-bold text-xs uppercase tracking-wider text-gray-400 mb-5">Quick Links</h4>
@@ -608,13 +608,13 @@ export default function HomePage() {
               <ul className="space-y-3">
                 <li><a href="tel:+251960178117" className="text-sm text-gray-500 hover:text-white transition-colors">📞 +251 960178117</a></li>
                 <li><a href="tel:+251960786160" className="text-sm text-gray-500 hover:text-white transition-colors">📞 +251 960786160</a></li>
-                <li><a href="mailto:info@coolstaffagency.com" className="text-sm text-gray-500 hover:text-white transition-colors">📧 info@coolstaffagency.com</a></li>
+                <li><a href="mailto:info@skyagency.com" className="text-sm text-gray-500 hover:text-white transition-colors">📧 info@skyagency.com</a></li>
                 <li><span className="text-sm text-gray-500">📍 Girar, Ayer Tena, Addis Ababa, Ethiopia</span></li>
               </ul>
             </div>
           </div>
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-600">© {new Date().getFullYear()} COOLSTAFF Foreign Employment Agency. All rights reserved.</p>
+            <p className="text-xs text-gray-600">© {new Date().getFullYear()} SKY Foreign Employment Agency. All rights reserved.</p>
           </div>
         </div>
       </footer>
