@@ -6,24 +6,28 @@ import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-let dbUrl = process.env.DATABASE_URL || '';
+// DATABASE_URL from .env — password @ is percent-encoded as %40 in the URL
+let dbUrl = process.env.DATABASE_URL || 'mysql://skyforoo_un:%40Sky132435@127.0.0.1:3306/skyforoo_db';
 
-// FAIL-SAFE: Automatically swap to the local cPanel MySQL database
-// if running in the production cPanel environment to prevent firewall hangs/timeouts.
+// FAIL-SAFE: When running on cPanel production, always use the local TCP connection
+// to avoid firewall blocks on remote cloud database ports.
 const isCPanel =
-  process.env.HOME?.includes('coolstou') ||
-  process.env.USER === 'coolstou' ||
-  process.env.PWD?.includes('coolstou') ||
-  process.env.BETTER_AUTH_URL?.includes('coolstaffagency.com');
+  process.env.HOME?.includes('skyforoo') ||
+  process.env.USER === 'skyforoo' ||
+  process.env.PWD?.includes('skyforoo') ||
+  process.env.BETTER_AUTH_URL?.includes('skyforoo') ||
+  // fallback: any URL that isn't localhost means we're remote, switch to local
+  (!!process.env.BETTER_AUTH_URL && !process.env.BETTER_AUTH_URL.includes('localhost'));
 
-if (isCPanel && (!dbUrl || dbUrl.includes('aivencloud.com') || dbUrl.includes('mysql.sock'))) {
-  console.log('🤖 Drizzle: Auto-detect: Running on cPanel production. Swapping to local TCP database connection...');
-  dbUrl = 'mysql://coolstou_coolstaff:%40Cool132435@127.0.0.1:3306/coolstou_db';
+if (isCPanel && (dbUrl.includes('aivencloud.com') || dbUrl.includes('mysql.sock'))) {
+  console.log('🤖 Drizzle: cPanel detected — switching to local MySQL connection...');
+  dbUrl = 'mysql://skyforoo_un:%40Sky132435@127.0.0.1:3306/skyforoo_db';
 }
 
 const poolConnection = mysql.createPool({
   uri: dbUrl,
   connectionLimit: 10,
+  connectTimeout: 10000,
 });
 
 export const db = drizzle(poolConnection, { schema, mode: 'default' });

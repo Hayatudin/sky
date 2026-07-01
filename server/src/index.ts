@@ -354,7 +354,7 @@ app.get('/api/debug-db', authenticateSession, requireSuperAdmin, async (req: Req
 
 // Root route
 app.get('/', (req: Request, res: Response) => {
-  res.json({ message: 'COOLSTAFF API is running' });
+  res.json({ message: 'SKY Agency API is running' });
 });
 
 // --- GLOBAL ERROR HANDLER ---

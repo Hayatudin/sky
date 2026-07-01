@@ -30,11 +30,9 @@ export const auth = betterAuth({
 
   trustedOrigins: [
     'http://localhost:3000',
-    'https://coolstaffagency.com',
-    'https://www.coolstaffagency.com',
-    'https://coolstaffagencyyy.vercel.app',
-    'https://daera-agency.vercel.app', // Added common alternative
-  ],
+    // Production — add your actual Vercel URL and custom domain here
+    process.env.CLIENT_URL || 'http://localhost:3000',
+  ].filter(Boolean) as string[],
 
   advanced: {
     basePath: '/api/auth',
