@@ -61,17 +61,31 @@ router.get('/', async (req: Request, res: Response) => {
       console.warn('Could not fetch brokers for candidates mapping:', err);
     }
 
-    const dbCandidates = await db.query.candidate.findMany({
-      orderBy: (c, { desc }) => [desc(c.registeredAt)],
-      with: {
-        generatedCVs: {
-          orderBy: (gc, { desc }) => [desc(gc.createdAt)],
-          columns: { id: true, templateId: true }
-        },
-        registeredBy: { columns: { name: true } },
-        invoices: { columns: { isDelivered: true } }
-      }
-    });
+    const dbCandidates = await db.select().from(candidate)
+      .orderBy(sql`${candidate.registeredAt} DESC`);
+
+    // Batch fetch generatedCVs
+    const allCandidateIds = dbCandidates.map(c => c.id);
+    const allCVs = allCandidateIds.length > 0
+      ? await db.select({ id: generatedCV.id, templateId: generatedCV.templateId, candidateId: generatedCV.candidateId, createdAt: generatedCV.createdAt })
+          .from(generatedCV).where(inArray(generatedCV.candidateId, allCandidateIds))
+      : [];
+    const cvsMap = new Map<string, any[]>();
+    for (const cv of allCVs) {
+      if (!cvsMap.has(cv.candidateId)) cvsMap.set(cv.candidateId, []);
+      cvsMap.get(cv.candidateId)!.push(cv);
+    }
+
+    // Batch fetch invoices
+    const allInvoices = allCandidateIds.length > 0
+      ? await db.select({ candidateId: invoice.candidateId, isDelivered: invoice.isDelivered })
+          .from(invoice).where(inArray(invoice.candidateId, allCandidateIds))
+      : [];
+    const invoicesMap = new Map<string, any[]>();
+    for (const inv of allInvoices) {
+      if (!invoicesMap.has(inv.candidateId)) invoicesMap.set(inv.candidateId, []);
+      invoicesMap.get(inv.candidateId)!.push(inv);
+    }
 
     const userList = await db.select({ id: user.id, name: user.name }).from(user);
     const userMap = new Map<string, string>();
@@ -84,7 +98,9 @@ router.get('/', async (req: Request, res: Response) => {
         return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
       };
 
-      const registeredByName = c.registeredById ? (userMap.get(c.registeredById) || c.registeredBy?.name || 'Admin') : 'Admin';
+      const registeredByName = c.registeredById ? (userMap.get(c.registeredById) || 'Admin') : 'Admin';
+      const candidateCVs = (cvsMap.get(c.id) || []).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const candidateInvoices = invoicesMap.get(c.id) || [];
 
       return {
         id: c.id,
@@ -163,11 +179,11 @@ router.get('/', async (req: Request, res: Response) => {
         visaDate: c.visaDate ? c.visaDate.toISOString() : null,
         salary: c.salary || '1000SR',
         price: isSuperAdmin ? (c.price ?? null) : null,
-        generatedCVs: c.generatedCVs?.map((cv: any) => ({ id: cv.id, templateId: cv.templateId })) || [],
-        latestCVTemplate: c.generatedCVs?.[0]?.templateId || null,
+        generatedCVs: candidateCVs.map((cv: any) => ({ id: cv.id, templateId: cv.templateId })) || [],
+        latestCVTemplate: candidateCVs[0]?.templateId || null,
         registeredBy: registeredByName,
-        hasInvoice: c.invoices && c.invoices.length > 0,
-        isInvoiceDelivered: c.invoices?.some((i: any) => i.isDelivered) || false,
+        hasInvoice: candidateInvoices.length > 0,
+        isInvoiceDelivered: candidateInvoices.some((i: any) => i.isDelivered) || false,
         agency: c.agency || 'Sky',
         allowVideo: c.allowVideo ?? false,
       };
@@ -537,17 +553,18 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     const c = await db.query.candidate.findFirst({
       where: eq(candidate.id, id),
-      with: {
-        broker: true,
-        generatedCVs: {
-          orderBy: (gc, { desc }) => [desc(gc.createdAt)],
-          limit: 1
-        },
-        registeredBy: { columns: { name: true } }
-      }
     });
 
     if (!c) return res.status(404).json({ error: 'Not found' });
+
+    // Fetch related data separately (MySQL 5.7 — no lateral joins)
+    const [brokerData, latestCV, registeredByData] = await Promise.all([
+      c.brokerId ? db.query.broker.findFirst({ where: eq(broker.id, c.brokerId) }) : Promise.resolve(null),
+      db.select({ id: generatedCV.id, templateId: generatedCV.templateId })
+        .from(generatedCV).where(eq(generatedCV.candidateId, id))
+        .orderBy(sql`${generatedCV.createdAt} DESC`).limit(1),
+      c.registeredById ? db.select({ name: user.name }).from(user).where(eq(user.id, c.registeredById)).limit(1) : Promise.resolve([]),
+    ]);
 
     // Look up the linked QuickRegistration by passport number to use as a
     // fallback video source when the Candidate's own quickVideoUrl is null.
@@ -632,14 +649,14 @@ router.get('/:id', async (req: Request, res: Response) => {
       quickVideoUrl: encryptPath(c.quickVideoUrl ?? entryVideoUrl),
       deployedDate: c.deployedDate ? c.deployedDate.toISOString() : null,
       registeredAt: c.registeredAt.toISOString(),
-      broker: c.broker,
+      broker: brokerData || null,
       visaSelected: c.visaSelected,
       visaDate: c.visaDate ? c.visaDate.toISOString() : null,
       salary: c.salary || '1000SR',
       isLocked: c.isLocked ?? false,
       cvDownloaded: c.cvDownloaded ?? false,
-      latestCVTemplate: c.generatedCVs?.[0]?.templateId || null,
-      registeredBy: c.registeredBy?.name || 'Admin',
+      latestCVTemplate: latestCV[0]?.templateId || null,
+      registeredBy: registeredByData[0]?.name || 'Admin',
       agency: c.agency || 'Sky',
       allowVideo: c.allowVideo ?? false,
       price: isSuperAdmin ? c.price : null,
