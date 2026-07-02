@@ -34,23 +34,11 @@ export default function CVPrintPage({ params }: { params: Promise<{ id: string; 
 
   return (
     <div className="bg-white min-h-screen">
-      <style jsx global>{`
-        @page {
-          size: A4;
-          margin: 0;
-        }
-        body {
-          margin: 0;
-          padding: 0;
-          -webkit-print-color-adjust: exact;
-        }
-        #cv-container {
-          width: 210mm;
-          min-height: 297mm;
-          margin: 0 auto;
-          box-shadow: none !important;
-        }
-      `}</style>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @page { size: A4; margin: 0; }
+        body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
+        #cv-container { width: 210mm; min-height: 297mm; margin: 0 auto; box-shadow: none !important; }
+      `}} />
       <div id="cv-container">
         <CVTemplateRenderer
           templateId={normalizeTemplateId(template)}

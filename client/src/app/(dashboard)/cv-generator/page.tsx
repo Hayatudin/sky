@@ -185,29 +185,19 @@ function CVGeneratorContent() {
 
   return (
     <div className="print:bg-white print:m-0 print:p-0">
-      {/* Hide everything except CV when printing */}
-      <style jsx global>{`
+      {/* Print styles injected via a regular style tag */}
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          #cv-print-area, #cv-print-area * {
-            visibility: visible !important;
-          }
+          body * { visibility: hidden; }
+          #cv-print-area, #cv-print-area * { visibility: visible !important; }
           #cv-print-area {
             position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            left: 0 !important; top: 0 !important;
+            width: 100% !important; margin: 0 !important; padding: 0 !important;
           }
-          @page {
-            size: A4;
-            margin: 0;
-          }
+          @page { size: A4; margin: 0; }
         }
-      `}</style>
+      `}} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
