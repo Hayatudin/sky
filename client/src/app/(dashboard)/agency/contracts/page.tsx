@@ -33,6 +33,7 @@ import { Candidate } from '@/types';
 import { useSession } from '@/lib/auth-client';
 
 import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, CV_TEMPLATE_NAMES, getTemplateComponent } from '@/lib/cv-templates';
+import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 
 const TEMPLATES = CV_TEMPLATES;
 
@@ -1550,11 +1551,13 @@ export default function AgencyContractsPage() {
               {/* Preview Content */}
               <div className="flex-1 overflow-y-auto p-6 bg-slate-100/30 flex justify-center items-start">
                 <div className="w-[800px] shrink-0 bg-white shadow-lg relative border border-border" ref={cvRenderRef}>
-                  <PrevTemplate
-                    candidate={previewCv.candidate}
-                    facePhoto={getFileUrl(previewCv.candidate.facePhotoUrl || previewCv.candidate.passportImageUrl)}
-                    fullBodyPhoto={getFileUrl(previewCv.candidate.fullBodyPhotoUrl)}
-                  />
+                  {previewCv.candidate && (
+                    <PrevTemplate
+                      candidate={makeSafeCandidate(previewCv.candidate)}
+                      facePhoto={getFileUrl(previewCv.candidate?.facePhotoUrl || previewCv.candidate?.passportImageUrl)}
+                      fullBodyPhoto={getFileUrl(previewCv.candidate?.fullBodyPhotoUrl)}
+                    />
+                  )}
                 </div>
               </div>
 

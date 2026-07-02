@@ -18,6 +18,7 @@ import { useCandidates, clearCandidatesCache } from '@/hooks/useCandidates';
 import { cn, getFileUrl } from '@/lib/utils';
 
 import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
+import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 
 const TEMPLATES = CV_TEMPLATES;
 
@@ -709,7 +710,7 @@ export default function FitCandidatesPage() {
           return (
             <div key={c.id} id={`bulk-render-${c.id}`} style={{ width: '210mm', backgroundColor: '#ffffff' }}>
               <FolderTemplate
-                candidate={c}
+                candidate={makeSafeCandidate(c)}
                 facePhoto={getFileUrl(c.facePhotoUrl || c.passportImageUrl)}
                 fullBodyPhoto={getFileUrl(c.fullBodyPhotoUrl)}
               />
@@ -1144,10 +1145,14 @@ export default function FitCandidatesPage() {
         return (
           <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 800, zIndex: -1 }}>
             <div ref={cvRenderRef}>
-              <DlTemplate
-                candidate={downloadingCv.candidate}
-                facePhoto={getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate.facePhotoUrl || downloadingCv.candidate.passportImageUrl)}
-                fullBodyPhoto={getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate.fullBodyPhotoUrl)}
+              {downloadingCv.candidate && (
+                <DlTemplate
+                  candidate={makeSafeCandidate(downloadingCv.candidate)}
+                  facePhoto={getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate?.facePhotoUrl || downloadingCv.candidate?.passportImageUrl)}
+                  fullBodyPhoto={getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate?.fullBodyPhotoUrl)}
+                />
+              )}
+            </div>
               />
             </div>
           </div>
@@ -1193,10 +1198,14 @@ export default function FitCandidatesPage() {
               </div>
 
               <div className="w-[800px] max-w-full shrink-0 bg-white shadow-xl relative mt-16 rounded-b-xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <PrevTemplate
-                  candidate={previewCv.candidate}
-                  facePhoto={getFileUrl(previewCv.facePhotoUrl || previewCv.candidate.facePhotoUrl || previewCv.candidate.passportImageUrl)}
-                  fullBodyPhoto={getFileUrl(previewCv.fullBodyPhotoUrl || previewCv.candidate.fullBodyPhotoUrl)}
+                {previewCv.candidate && (
+                  <PrevTemplate
+                    candidate={makeSafeCandidate(previewCv.candidate)}
+                    facePhoto={getFileUrl(previewCv.facePhotoUrl || previewCv.candidate?.facePhotoUrl || previewCv.candidate?.passportImageUrl)}
+                    fullBodyPhoto={getFileUrl(previewCv.fullBodyPhotoUrl || previewCv.candidate?.fullBodyPhotoUrl)}
+                  />
+                )}
+              </div>
                 />
               </div>
             </div>

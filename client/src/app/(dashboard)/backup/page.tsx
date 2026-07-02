@@ -13,6 +13,7 @@ import { cn, getFileUrl } from '@/lib/utils';
 import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import { CV_TEMPLATES, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent } from '@/lib/cv-templates';
+import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 
 const TEMPLATES = CV_TEMPLATES;
 
@@ -141,11 +142,13 @@ function ChangeTemplateModal({
                 >
                   <div className="h-44 bg-gray-100 overflow-hidden relative">
                     <div className="origin-top-left scale-[0.22] w-[800px] absolute top-0 left-0 pointer-events-none">
-                      <TC
-                        candidate={cv.candidate}
-                        facePhoto={cv.facePhotoUrl || cv.candidate.facePhotoUrl || cv.candidate.passportImageUrl}
-                        fullBodyPhoto={cv.fullBodyPhotoUrl || cv.candidate.fullBodyPhotoUrl}
-                      />
+                      {cv.candidate && (
+                        <TC
+                          candidate={makeSafeCandidate(cv.candidate)}
+                          facePhoto={cv.facePhotoUrl || cv.candidate?.facePhotoUrl || cv.candidate?.passportImageUrl}
+                          fullBodyPhoto={cv.fullBodyPhotoUrl || cv.candidate?.fullBodyPhotoUrl}
+                        />
+                      )}
                     </div>
                     {isSelected && (
                       <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow z-10">
@@ -776,7 +779,7 @@ export default function BackupPage() {
           return (
             <div key={c.id} id={`bulk-render-${c.id}`} style={{ width: '210mm', backgroundColor: '#ffffff' }}>
               <FolderTemplate
-                candidate={c}
+                candidate={makeSafeCandidate(c)}
                 facePhoto={facePhoto}
                 fullBodyPhoto={fullBodyPhoto}
               />
@@ -931,11 +934,13 @@ export default function BackupPage() {
                 >
                   {/* Scaled live template render */}
                   <div className="origin-top-left scale-[0.22] w-[800px] absolute top-0 left-0 pointer-events-none">
-                    <TC
-                      candidate={cv.candidate}
-                      facePhoto={getFileUrl(cv.facePhotoUrl || cv.candidate.facePhotoUrl || cv.candidate.passportImageUrl)}
-                      fullBodyPhoto={getFileUrl(cv.fullBodyPhotoUrl || cv.candidate.fullBodyPhotoUrl)}
-                    />
+                    {cv.candidate && (
+                      <TC
+                        candidate={makeSafeCandidate(cv.candidate)}
+                        facePhoto={getFileUrl(cv.facePhotoUrl || cv.candidate?.facePhotoUrl || cv.candidate?.passportImageUrl)}
+                        fullBodyPhoto={getFileUrl(cv.fullBodyPhotoUrl || cv.candidate?.fullBodyPhotoUrl)}
+                      />
+                    )}
                   </div>
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center">
@@ -1042,10 +1047,14 @@ export default function BackupPage() {
           return (
             <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 800, zIndex: -1 }}>
               <div ref={cvRenderRef}>
-                <DlTemplate
-                  candidate={downloadingCv.candidate}
-                  facePhoto={getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate.facePhotoUrl || downloadingCv.candidate.passportImageUrl)}
-                  fullBodyPhoto={getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate.fullBodyPhotoUrl)}
+                {downloadingCv.candidate && (
+                  <DlTemplate
+                    candidate={makeSafeCandidate(downloadingCv.candidate)}
+                    facePhoto={getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate?.facePhotoUrl || downloadingCv.candidate?.passportImageUrl)}
+                    fullBodyPhoto={getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate?.fullBodyPhotoUrl)}
+                  />
+                )}
+              </div>
                 />
               </div>
             </div>
@@ -1063,11 +1072,13 @@ export default function BackupPage() {
                 ✕
               </button>
               <div className="w-[800px]">
-                <PrevTemplate
-                  candidate={previewCv.candidate}
-                  facePhoto={getFileUrl(previewCv.facePhotoUrl || previewCv.candidate.facePhotoUrl || previewCv.candidate.passportImageUrl)}
-                  fullBodyPhoto={getFileUrl(previewCv.fullBodyPhotoUrl || previewCv.candidate.fullBodyPhotoUrl)}
-                />
+                {previewCv.candidate && (
+                  <PrevTemplate
+                    candidate={makeSafeCandidate(previewCv.candidate)}
+                    facePhoto={getFileUrl(previewCv.facePhotoUrl || previewCv.candidate?.facePhotoUrl || previewCv.candidate?.passportImageUrl)}
+                    fullBodyPhoto={getFileUrl(previewCv.fullBodyPhotoUrl || previewCv.candidate?.fullBodyPhotoUrl)}
+                  />
+                )}
               </div>
             </div>
           </div>
