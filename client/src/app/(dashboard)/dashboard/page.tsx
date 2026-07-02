@@ -132,6 +132,27 @@ export default function DashboardPage() {
   const recentCandidates = allCandidates.slice(0, 10);
   const recentRequested = allCandidates.filter(c => c.isRequested).slice(0, 10);
 
+  // Safe helpers to prevent crashes on null/empty candidate fields
+  const safeInitials = (c: any) => {
+    const f = c?.passportData?.givenNames?.[0] ?? '?';
+    const l = c?.passportData?.surname?.[0] ?? '?';
+    return `${f}${l}`;
+  };
+  const safeName = (c: any) =>
+    `${c?.passportData?.givenNames ?? ''} ${c?.passportData?.surname ?? ''}`.trim() || 'Unknown';
+  const safePassport = (c: any) => c?.passportData?.passportNumber ?? '';
+  const safeExpiry = (c: any) => {
+    const d = c?.passportData?.dateOfExpiry;
+    if (!d) return 'N/A';
+    try { return new Date(d).toLocaleDateString(); } catch { return 'N/A'; }
+  };
+  const safeEmail = (c: any) => c?.personalInfo?.email ?? '';
+  const safeSkills = (c: any) => {
+    const skills = c?.personalInfo?.skills;
+    if (!Array.isArray(skills) || skills.length === 0) return '';
+    return skills.slice(0, 3).join(', ') + (skills.length > 3 ? '...' : '');
+  };
+
   return (
     <div className="space-y-8 animate-fade-in pb-10">
       {/* Header */}
@@ -249,24 +270,24 @@ export default function DashboardPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 border border-primary-100">
-                            <span className="text-primary font-bold text-sm">{candidate.passportData.givenNames.charAt(0)}{candidate.passportData.surname.charAt(0)}</span>
+                            <span className="text-primary font-bold text-sm">{safeInitials(candidate)}</span>
                           </div>
                           <div>
                             <p className="font-semibold text-text-primary flex items-center gap-2 text-sm">
-                              {candidate.passportData.givenNames} {candidate.passportData.surname}
+                              {safeName(candidate)}
                               {candidate.isFlagged && <Flag size={14} className="text-red-500 fill-red-500" />}
                             </p>
-                            <p className="text-xs text-text-tertiary">{candidate.personalInfo.email}</p>
+                            <p className="text-xs text-text-tertiary">{safeEmail(candidate)}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-sm font-medium text-text-primary">{candidate.passportData.passportNumber}</p>
-                        <p className="text-xs text-text-tertiary">Exp: {new Date(candidate.passportData.dateOfExpiry).toLocaleDateString()}</p>
+                        <p className="text-sm font-medium text-text-primary">{safePassport(candidate)}</p>
+                        <p className="text-xs text-text-tertiary">Exp: {safeExpiry(candidate)}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-text-primary font-medium truncate max-w-[200px]">{candidate.personalInfo.workExperience ? 'Experienced' : 'Fresher'}</p>
-                        <p className="text-xs text-text-tertiary truncate max-w-[200px]">{candidate.personalInfo.skills.slice(0, 3).join(', ')}{candidate.personalInfo.skills.length > 3 ? '...' : ''}</p>
+                        <p className="text-sm text-text-primary font-medium truncate max-w-[200px]">{candidate?.personalInfo?.workExperience ? 'Experienced' : 'Fresher'}</p>
+                        <p className="text-xs text-text-tertiary truncate max-w-[200px]">{safeSkills(candidate)}</p>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {candidate.isRequested ? (
@@ -395,24 +416,24 @@ export default function DashboardPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 border border-primary-100">
-                            <span className="text-primary font-bold text-sm">{candidate.passportData.givenNames.charAt(0)}{candidate.passportData.surname.charAt(0)}</span>
+                            <span className="text-primary font-bold text-sm">{safeInitials(candidate)}</span>
                           </div>
                           <div>
                             <p className="font-semibold text-text-primary flex items-center gap-2 text-sm">
-                              {candidate.passportData.givenNames} {candidate.passportData.surname}
+                              {safeName(candidate)}
                               {candidate.isFlagged && <Flag size={14} className="text-red-500 fill-red-500" />}
                             </p>
-                            <p className="text-xs text-text-tertiary">{candidate.personalInfo.email}</p>
+                            <p className="text-xs text-text-tertiary">{safeEmail(candidate)}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-sm font-medium text-text-primary">{candidate.passportData.passportNumber}</p>
-                        <p className="text-xs text-text-tertiary">Exp: {new Date(candidate.passportData.dateOfExpiry).toLocaleDateString()}</p>
+                        <p className="text-sm font-medium text-text-primary">{safePassport(candidate)}</p>
+                        <p className="text-xs text-text-tertiary">Exp: {safeExpiry(candidate)}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-text-primary font-medium truncate max-w-[200px]">{candidate.personalInfo.workExperience ? 'Experienced' : 'Fresher'}</p>
-                        <p className="text-xs text-text-tertiary truncate max-w-[200px]">{candidate.personalInfo.skills.slice(0, 3).join(', ')}{candidate.personalInfo.skills.length > 3 ? '...' : ''}</p>
+                        <p className="text-sm text-text-primary font-medium truncate max-w-[200px]">{candidate?.personalInfo?.workExperience ? 'Experienced' : 'Fresher'}</p>
+                        <p className="text-xs text-text-tertiary truncate max-w-[200px]">{safeSkills(candidate)}</p>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
