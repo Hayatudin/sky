@@ -488,7 +488,7 @@ export default function QuickRegistrationPage() {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">Quick Registration</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">Entry</h1>
             {((session?.user as any)?.role === 'calling') && (
               <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-black rounded-full border border-primary/20 uppercase tracking-wider animate-pulse">
                 Calling Portal
