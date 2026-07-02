@@ -28,7 +28,9 @@ function CVGeneratorContent() {
   const router = useRouter();
   const urlCandidateId = searchParams.get('candidateId');
 
-  const { candidates, isLoading, mutate: setCandidates } = useCandidates();
+  const { candidates: rawCandidates, isLoading, mutate: setCandidates } = useCandidates();
+  // Guard against non-array responses (API errors, loading states)
+  const candidates = Array.isArray(rawCandidates) ? rawCandidates : [];
   const queryClient = useQueryClient();
   const nonCallingCandidates = React.useMemo(() => candidates.filter((c: Candidate) => c.broker?.name !== 'Calling'), [candidates]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(urlCandidateId);

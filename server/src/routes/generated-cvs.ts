@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { broker, candidate, generatedCV } from '../db/schema';
-import { eq, and, not, desc } from 'drizzle-orm';
+import { eq, and, not, desc, inArray, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 
 const router = Router();
@@ -106,37 +106,47 @@ async function getBrokerLockMap(): Promise<Record<string, boolean>> {
 // GET /api/generated-cvs
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const generatedCVsList = await db.query.generatedCV.findMany({
-      with: {
-        candidate: {
-          with: {
-            broker: true
-          }
-        }
-      },
-      orderBy: (gc, { desc }) => [desc(gc.createdAt)]
-    });
-    
+    // MySQL 5.7 compatible — no lateral joins
+    const generatedCVsList = await db.select().from(generatedCV)
+      .orderBy(desc(generatedCV.createdAt));
+
+    if (generatedCVsList.length === 0) {
+      return res.json([]);
+    }
+
+    const candidateIds = [...new Set(generatedCVsList.map(cv => cv.candidateId))];
+    const candidates = candidateIds.length > 0
+      ? await db.select().from(candidate).where(inArray(candidate.id, candidateIds))
+      : [];
+
+    const brokerIds = [...new Set(candidates.map((c: any) => c.brokerId).filter(Boolean))] as string[];
+    const brokers = brokerIds.length > 0
+      ? await db.select().from(broker).where(inArray(broker.id, brokerIds))
+      : [];
+    const brokerMap = new Map(brokers.map(b => [b.id, b]));
+    const candidateMap = new Map(candidates.map(c => ({
+      ...c,
+      broker: c.brokerId ? (brokerMap.get(c.brokerId) || null) : null
+    })).map(c => [c.id, c]));
+
     const lockMap = await getBrokerLockMap();
 
     const mappedCVs = generatedCVsList.map((cv: any) => {
-      const formattedCandidateObj = formatCandidate(cv.candidate);
+      const cand = candidateMap.get(cv.candidateId);
+      const formattedCandidateObj = formatCandidate(cand);
       if (formattedCandidateObj) {
-        formattedCandidateObj.cvDownloaded = cv.candidate?.cvDownloaded ?? false;
+        formattedCandidateObj.cvDownloaded = cand?.cvDownloaded ?? false;
         if (formattedCandidateObj.broker) {
           formattedCandidateObj.broker.isLocked = lockMap[formattedCandidateObj.broker.id] ?? false;
         }
       }
-      return {
-        ...cv,
-        candidate: formattedCandidateObj
-      };
+      return { ...cv, candidate: formattedCandidateObj };
     });
-    
+
     res.json(mappedCVs);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching generated CVs:', error);
-    res.status(500).json({ error: 'Failed to fetch generated CVs' });
+    res.status(500).json({ error: 'Failed to fetch generated CVs', message: error?.message });
   }
 });
 
