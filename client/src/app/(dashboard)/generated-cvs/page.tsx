@@ -15,6 +15,7 @@ import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import { CV_TEMPLATES, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId, getTemplateName } from '@/lib/cv-templates';
 import { clearCandidatesCache } from '@/hooks/useCandidates';
+import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 
 const TEMPLATES = CV_TEMPLATES;
 
@@ -173,11 +174,13 @@ function ChangeTemplateModal({
                 >
                   <div className="h-44 bg-gray-100 overflow-hidden relative">
                     <div className="origin-top-left scale-[0.22] w-[800px] absolute top-0 left-0 pointer-events-none">
-                      <TC
-                        candidate={cv.candidate}
-                        facePhoto={getFileUrl(cv.facePhotoUrl || cv.candidate.facePhotoUrl || cv.candidate.passportImageUrl)}
-                        fullBodyPhoto={getFileUrl(cv.fullBodyPhotoUrl || cv.candidate.fullBodyPhotoUrl)}
-                      />
+                      {cv.candidate && (
+                        <TC
+                          candidate={makeSafeCandidate(cv.candidate)}
+                          facePhoto={getFileUrl(cv.facePhotoUrl || cv.candidate?.facePhotoUrl || cv.candidate?.passportImageUrl)}
+                          fullBodyPhoto={getFileUrl(cv.fullBodyPhotoUrl || cv.candidate?.fullBodyPhotoUrl)}
+                        />
+                      )}
                     </div>
                     {isSelected && (
                       <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow z-10">
@@ -657,9 +660,9 @@ function GeneratedCVsContent() {
             candidateId: downloadingCv.candidateId,
             templateId: `tmpl-${downloadingCv.templateId}`,
             format: 'doc',
-            deadline: downloadingCv.candidate.cvDeadline || new Date().toISOString().split('T')[0],
-            facePhoto: getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate.facePhotoUrl || downloadingCv.candidate.passportImageUrl),
-            fullBodyPhoto: getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate.fullBodyPhotoUrl)
+            deadline: downloadingCv.candidate?.cvDeadline || new Date().toISOString().split('T')[0],
+            facePhoto: getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate?.facePhotoUrl || downloadingCv.candidate?.passportImageUrl),
+            fullBodyPhoto: getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate?.fullBodyPhotoUrl)
           };
 
           const response = await api('/api/cv/generate', {
@@ -1141,7 +1144,7 @@ function GeneratedCVsContent() {
           return (
             <div key={c.id} id={`bulk-render-${c.id}`} style={{ width: '210mm', backgroundColor: '#ffffff' }}>
               <FolderTemplate
-                candidate={c}
+                candidate={makeSafeCandidate(c)}
                 facePhoto={facePhoto}
                 fullBodyPhoto={fullBodyPhoto}
               />
@@ -1402,7 +1405,8 @@ function GeneratedCVsContent() {
             {activeCVs.map(cv => {
               const isSelected = selectedCVIds.has(cv.id);
               const CardTemplate = TEMPLATES.find(t => t.id === cv.templateId)?.component || getTemplateComponent();
-              const isLocked = cv.candidate.isLocked || cv.candidate.broker?.isLocked;
+              const isLocked = cv.candidate?.isLocked || cv.candidate?.broker?.isLocked;
+              const safeCandidate = cv.candidate ? makeSafeCandidate(cv.candidate) : null;
               return (
               <div 
                 key={cv.id} 
@@ -1423,11 +1427,13 @@ function GeneratedCVsContent() {
                 >
                   {/* Scaled live template render */}
                   <div className="origin-top-left scale-[0.22] w-[800px] absolute top-0 left-0 pointer-events-none">
-                    <CardTemplate
-                      candidate={cv.candidate}
-                      facePhoto={getFileUrl(cv.facePhotoUrl || cv.candidate.facePhotoUrl || cv.candidate.passportImageUrl)}
-                      fullBodyPhoto={getFileUrl(cv.fullBodyPhotoUrl || cv.candidate.fullBodyPhotoUrl)}
-                    />
+                    {safeCandidate && (
+                      <CardTemplate
+                        candidate={safeCandidate}
+                        facePhoto={getFileUrl(cv.facePhotoUrl || cv.candidate?.facePhotoUrl || cv.candidate?.passportImageUrl)}
+                        fullBodyPhoto={getFileUrl(cv.fullBodyPhotoUrl || cv.candidate?.fullBodyPhotoUrl)}
+                      />
+                    )}
                   </div>
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center">
@@ -1534,11 +1540,13 @@ function GeneratedCVsContent() {
           return (
             <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 800, zIndex: -1 }}>
               <div ref={cvRenderRef}>
-                <DlTemplate
-                  candidate={downloadingCv.candidate}
-                  facePhoto={getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate.facePhotoUrl || downloadingCv.candidate.passportImageUrl)}
-                  fullBodyPhoto={getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate.fullBodyPhotoUrl)}
-                />
+                {downloadingCv.candidate && (
+                  <DlTemplate
+                    candidate={makeSafeCandidate(downloadingCv.candidate)}
+                    facePhoto={getFileUrl(downloadingCv.facePhotoUrl || downloadingCv.candidate?.facePhotoUrl || downloadingCv.candidate?.passportImageUrl)}
+                    fullBodyPhoto={getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate?.fullBodyPhotoUrl)}
+                  />
+                )}
               </div>
             </div>
           );
@@ -1636,11 +1644,13 @@ function GeneratedCVsContent() {
                 <X size={20} />
               </button>
               <div className="w-[800px] shrink-0 bg-white shadow-xl relative">
-                <PrevTemplate
-                  candidate={previewCv.candidate}
-                  facePhoto={getFileUrl(previewCv.facePhotoUrl || previewCv.candidate.facePhotoUrl || previewCv.candidate.passportImageUrl)}
-                  fullBodyPhoto={getFileUrl(previewCv.fullBodyPhotoUrl || previewCv.candidate.fullBodyPhotoUrl)}
-                />
+                {previewCv.candidate && (
+                  <PrevTemplate
+                    candidate={makeSafeCandidate(previewCv.candidate)}
+                    facePhoto={getFileUrl(previewCv.facePhotoUrl || previewCv.candidate?.facePhotoUrl || previewCv.candidate?.passportImageUrl)}
+                    fullBodyPhoto={getFileUrl(previewCv.fullBodyPhotoUrl || previewCv.candidate?.fullBodyPhotoUrl)}
+                  />
+                )}
               </div>
             </div>
           </div>

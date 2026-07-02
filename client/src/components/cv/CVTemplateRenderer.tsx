@@ -12,7 +12,7 @@ interface CVTemplateRendererProps {
 }
 
 // Builds a safe candidate object with all fields guaranteed to be non-null
-function makeSafeCandidate(c: Candidate): Candidate {
+export function makeSafeCandidate(c: Candidate): Candidate {
   const pi = c.personalInfo || ({} as any);
   return {
     ...c,
