@@ -1,11 +1,12 @@
 /**
- * Central API helper for the frontend to communicate with the standalone backend.
+ * Central API helper — cross-domain auth (Vercel frontend → cPanel backend).
  *
- * Authentication strategy for cross-domain (Vercel → cPanel):
- * - Tries to read the session token from better-auth's cookie cache
- * - Falls back to calling getSession() to get a fresh token if cookie read fails
- * - In-memory token cache with 4-minute TTL (refreshes before better-auth's 5-min expiry)
- * - On 401 response: clears token cache and retries once with a fresh token
+ * Strategy:
+ * 1. Read token from better-auth cookie if readable (not HttpOnly)
+ * 2. Fall back to getSession() API call for the fresh token
+ * 3. Cache the token for 4 minutes to avoid hammering the auth endpoint
+ * 4. On 401: force a live getSession() call bypassing all caches, then retry
+ * 5. Proactive refresh: refresh token every 3 minutes in the background
  */
 
 import { getSession } from './auth-client';
@@ -16,54 +17,18 @@ const API_BASE_URL = (
   'http://localhost:4000'
 ).replace(/\/$/, '');
 
-// ── In-memory token cache ─────────────────────────────────────────────────────
-const TOKEN_TTL_MS = 4 * 60 * 1000; // 4 minutes (less than better-auth's 5-min cache)
-let cachedToken: string | null = null;
-let cacheExpiry: number = 0;
-let fetchingToken: Promise<string | null> | null = null;
+// ── Token cache ───────────────────────────────────────────────────────────────
+const CACHE_TTL_MS   = 4 * 60 * 1000;   // 4 min normal cache
+const REFRESH_MS     = 3 * 60 * 1000;   // proactive refresh every 3 min
 
-/** Read the session token — from memory cache first, then from better-auth */
-async function getAuthToken(): Promise<string | null> {
-  // Return cached token if still fresh
-  if (cachedToken && Date.now() < cacheExpiry) {
-    return cachedToken;
-  }
+let cachedToken:   string | null = null;
+let cacheExpiry:   number        = 0;
+let refreshTimer:  ReturnType<typeof setTimeout> | null = null;
+let pendingFetch:  Promise<string | null> | null = null;
 
-  // De-duplicate concurrent refresh requests
-  if (fetchingToken) return fetchingToken;
-
-  fetchingToken = (async () => {
-    try {
-      // 1. Try reading from cookie (works if not HttpOnly)
-      const cookieToken = readSessionCookie();
-      if (cookieToken) {
-        cachedToken = cookieToken;
-        cacheExpiry = Date.now() + TOKEN_TTL_MS;
-        return cookieToken;
-      }
-
-      // 2. Fall back to calling getSession() — makes an API call but gives fresh token
-      const sessionData = await getSession();
-      const token = (sessionData?.data as any)?.session?.token ?? null;
-      if (token) {
-        cachedToken = token;
-        cacheExpiry = Date.now() + TOKEN_TTL_MS;
-      }
-      return token;
-    } catch {
-      return null;
-    } finally {
-      fetchingToken = null;
-    }
-  })();
-
-  return fetchingToken;
-}
-
-/** Try to read the better-auth session token from document.cookie */
+// ── Cookie reader ─────────────────────────────────────────────────────────────
 function readSessionCookie(): string | null {
   if (typeof document === 'undefined') return null;
-  // better-auth may use various cookie names depending on config
   const patterns = [
     /(?:^|;\s*)better-auth\.session_token=([^;]+)/,
     /(?:^|;\s*)better-auth_session_token=([^;]+)/,
@@ -77,14 +42,86 @@ function readSessionCookie(): string | null {
   return null;
 }
 
-/** Invalidate the token cache (called on 401 to force a fresh token on retry) */
-function invalidateTokenCache() {
-  cachedToken = null;
-  cacheExpiry = 0;
-  fetchingToken = null;
+// ── Force a live session fetch (bypasses all caches) ─────────────────────────
+async function fetchFreshToken(): Promise<string | null> {
+  try {
+    // Force a live HTTP call — no-store bypasses better-auth's cookie cache
+    const sessionData = await getSession({
+      fetchOptions: { cache: 'no-store' } as any,
+    });
+    return (sessionData?.data as any)?.session?.token ?? null;
+  } catch {
+    return null;
+  }
 }
 
-// ── Main API function ─────────────────────────────────────────────────────────
+// ── Main token getter ─────────────────────────────────────────────────────────
+async function getAuthToken(forceRefresh = false): Promise<string | null> {
+  // Return cached if still fresh and not forced
+  if (!forceRefresh && cachedToken && Date.now() < cacheExpiry) {
+    return cachedToken;
+  }
+
+  // De-duplicate concurrent requests
+  if (pendingFetch) return pendingFetch;
+
+  pendingFetch = (async () => {
+    try {
+      let token: string | null = null;
+
+      if (!forceRefresh) {
+        // Try cookie first (fast, no network)
+        token = readSessionCookie();
+      }
+
+      if (!token) {
+        // Either forced refresh or cookie not readable — hit the server
+        token = await fetchFreshToken();
+      }
+
+      if (token) {
+        cachedToken = token;
+        cacheExpiry = Date.now() + CACHE_TTL_MS;
+        scheduleProactiveRefresh();
+      } else {
+        // No token — clear cache
+        cachedToken = null;
+        cacheExpiry = 0;
+      }
+
+      return token;
+    } catch {
+      return null;
+    } finally {
+      pendingFetch = null;
+    }
+  })();
+
+  return pendingFetch;
+}
+
+// ── Proactive background refresh ──────────────────────────────────────────────
+function scheduleProactiveRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    // Silently refresh in the background before the cache expires
+    const fresh = await fetchFreshToken();
+    if (fresh) {
+      cachedToken = fresh;
+      cacheExpiry = Date.now() + CACHE_TTL_MS;
+      scheduleProactiveRefresh(); // schedule next refresh
+    }
+  }, REFRESH_MS);
+}
+
+/** Force clear — called on signout */
+export function clearAuthTokenCache() {
+  cachedToken = null;
+  cacheExpiry = 0;
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+}
+
+// ── Main API call ─────────────────────────────────────────────────────────────
 export async function api(path: string, options: RequestInit = {}): Promise<Response> {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const url = `${API_BASE_URL}${cleanPath}`;
@@ -108,12 +145,11 @@ export async function api(path: string, options: RequestInit = {}): Promise<Resp
 
   let response = await makeRequest(token);
 
-  // On 401: clear cache, get a fresh token, retry once
+  // On 401: force a live server session refresh and retry once
   if (response.status === 401) {
-    console.warn(`[API] 401 on ${url} — refreshing session token and retrying...`);
-    invalidateTokenCache();
-    const freshToken = await getAuthToken();
-    if (freshToken && freshToken !== token) {
+    console.warn(`[API] 401 on ${url} — forcing live session refresh...`);
+    const freshToken = await getAuthToken(true); // force = true → bypasses cache, hits server
+    if (freshToken) {
       response = await makeRequest(freshToken);
     }
   }

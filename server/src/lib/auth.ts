@@ -24,7 +24,7 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24,      // refresh if older than 1 day
     cookieCache: {
       enabled: true,
-      maxAge: 60 * 5,             // 5 min client-side cache
+      maxAge: 60 * 60,  // 1 hour client-side cache (was 5 min — too short for cross-domain)
     },
   },
 
