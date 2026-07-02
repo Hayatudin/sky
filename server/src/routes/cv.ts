@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { candidate, generatedCV } from '../db/schema';
+import { candidate, generatedCV, broker, user } from '../db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
@@ -425,11 +425,21 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
       try {
         const dbCandidates = await db.query.candidate.findMany({
           where: inArray(candidate.id, candidateIds),
-          with: { generatedCVs: true }
         });
 
+        // Batch fetch generatedCVs separately (MySQL 5.7 — no lateral joins)
+        const cvsList = candidateIds.length > 0
+          ? await db.select().from(generatedCV).where(inArray(generatedCV.candidateId, candidateIds))
+          : [];
+        const cvsMap = new Map<string, typeof cvsList>();
+        for (const cv of cvsList) {
+          if (!cvsMap.has(cv.candidateId)) cvsMap.set(cv.candidateId, []);
+          cvsMap.get(cv.candidateId)!.push(cv);
+        }
+        const dbCandidatesWithCVs = dbCandidates.map((c: any) => ({ ...c, generatedCVs: cvsMap.get(c.id) || [] }));
+
         // Filter out locked candidates directly
-        const candidates = dbCandidates.filter(c => !c.isLocked);
+        const candidates = dbCandidatesWithCVs.filter((c: any) => !c.isLocked);
 
         if (format === 'doc' || format === 'docx') {
           const BATCH_SIZE = 20;
@@ -814,14 +824,38 @@ router.post('/candidates-batch', async (req: Request, res: Response) => {
 
     const dbCandidates = await db.query.candidate.findMany({
       where: inArray(candidate.id, candidateIds),
-      with: { 
-        generatedCVs: true,
-        broker: true,
-        registeredBy: true
-      }
     });
 
-    const candidates = dbCandidates.filter(c => !c.isLocked);
+    // Batch fetch relations separately (MySQL 5.7 — no lateral joins)
+    const batchCVs = candidateIds.length > 0
+      ? await db.select().from(generatedCV).where(inArray(generatedCV.candidateId, candidateIds))
+      : [];
+    const batchBrokerIds = [...new Set(dbCandidates.map((c: any) => c.brokerId).filter(Boolean))];
+    const batchBrokers = batchBrokerIds.length > 0
+      ? await db.select().from(broker).where(inArray(broker.id, batchBrokerIds as string[]))
+      : [];
+    const batchUsers = dbCandidates.map((c: any) => c.registeredById).filter(Boolean);
+    const batchUserIds = [...new Set(batchUsers)];
+    const usersList = batchUserIds.length > 0
+      ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, batchUserIds as string[]))
+      : [];
+
+    const batchCVsMap = new Map<string, typeof batchCVs>();
+    for (const cv of batchCVs) {
+      if (!batchCVsMap.has(cv.candidateId)) batchCVsMap.set(cv.candidateId, []);
+      batchCVsMap.get(cv.candidateId)!.push(cv);
+    }
+    const brokerMapBatch = new Map(batchBrokers.map((b: any) => [b.id, b]));
+    const userMapBatch = new Map(usersList.map((u: any) => [u.id, u]));
+
+    const candidates = dbCandidates
+      .filter((c: any) => !c.isLocked)
+      .map((c: any) => ({
+        ...c,
+        generatedCVs: batchCVsMap.get(c.id) || [],
+        broker: c.brokerId ? (brokerMapBatch.get(c.brokerId) || null) : null,
+        registeredBy: c.registeredById ? (userMapBatch.get(c.registeredById) || null) : null,
+      }));
 
     const formatDate = (date: Date | null | undefined) => date?.toISOString().split('T')[0] || '';
 

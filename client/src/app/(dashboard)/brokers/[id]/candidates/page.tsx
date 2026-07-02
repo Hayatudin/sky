@@ -545,7 +545,7 @@ export default function BrokerCandidatesPage() {
       try {
         if (isCancelledRef.current) throw new Error('Cancelled');
         const htmlToImage = await import('html-to-image');
-        const safeName = (downloadingCv.candidate.surname || 'CV').replace(/[^a-zA-Z0-9]/g, '');
+        const safeName = (downloadingCv.candidate?.surname || downloadingCv.candidate?.passportData?.surname || 'CV').replace(/[^a-zA-Z0-9]/g, '');
         const fileName = `CV_${safeName}_${downloadingCv.templateId.toUpperCase()}`;
 
         const origH = el.style.height; const origO = el.style.overflow;
@@ -753,6 +753,7 @@ export default function BrokerCandidatesPage() {
         if (isCancelledRef.current) throw new Error('Cancelled');
         if (!batchRes.ok) throw new Error('Failed to fetch candidate details');
         const candidatesData = await batchRes.json();
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
 
         const JSZip = (await import('jszip')).default;
         const htmlToImage = await import('html-to-image');
@@ -760,9 +761,9 @@ export default function BrokerCandidatesPage() {
         const zip = new JSZip();
 
         const CHUNK_SIZE = 5;
-        for (let i = 0; i < candidatesData.length; i += CHUNK_SIZE) {
+        for (let i = 0; i < safeCandidatesData.length; i += CHUNK_SIZE) {
           if (isCancelledRef.current) throw new Error('Cancelled');
-          const chunk = candidatesData.slice(i, i + CHUNK_SIZE);
+          const chunk = safeCandidatesData.slice(i, i + CHUNK_SIZE);
           setRenderingCandidates(chunk);
           await bgWait(60);
 
@@ -1801,7 +1802,7 @@ export default function BrokerCandidatesPage() {
               </div>
 
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {brokers
+                {(Array.isArray(brokers) ? brokers : [])
                   .filter(b => b.id !== brokerId)
                   .filter(b => b.name.toLowerCase().includes(brokerSearchQuery.toLowerCase()))
                   .map(otherBroker => (

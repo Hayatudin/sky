@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { invoice, candidate, generatedCV, templatePrice } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 
 const router = Router();
@@ -9,20 +9,37 @@ const router = Router();
 // GET /api/invoices
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const invoices = await db.query.invoice.findMany({
-      with: {
-        candidate: {
-          with: {
-            generatedCVs: {
-              columns: { templateId: true }
-            }
-          }
-        }
-      },
-      orderBy: (i, { desc }) => [desc(i.createdAt)]
-    });
-    
-    res.json(invoices);
+    // MySQL 5.7 compatible — no lateral joins
+    const invoices = await db.select().from(invoice).orderBy(desc(invoice.createdAt));
+
+    if (invoices.length === 0) return res.json([]);
+
+    // Batch fetch candidates
+    const candidateIds = [...new Set(invoices.map(inv => inv.candidateId))];
+    const candidates = candidateIds.length > 0
+      ? await db.select().from(candidate).where(inArray(candidate.id, candidateIds))
+      : [];
+
+    // Batch fetch generatedCVs (only templateId needed)
+    const cvs = candidateIds.length > 0
+      ? await db.select({ candidateId: generatedCV.candidateId, templateId: generatedCV.templateId })
+          .from(generatedCV).where(inArray(generatedCV.candidateId, candidateIds))
+      : [];
+
+    const cvsMap = new Map<string, { templateId: string }[]>();
+    for (const cv of cvs) {
+      if (!cvsMap.has(cv.candidateId)) cvsMap.set(cv.candidateId, []);
+      cvsMap.get(cv.candidateId)!.push({ templateId: cv.templateId });
+    }
+
+    const candidateMap = new Map(candidates.map(c => [c.id, { ...c, generatedCVs: cvsMap.get(c.id) || [] }]));
+
+    const result = invoices.map(inv => ({
+      ...inv,
+      candidate: candidateMap.get(inv.candidateId) || null,
+    }));
+
+    res.json(result);
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
     res.status(500).json({ error: 'Failed to fetch invoices', message: error.message });
@@ -196,15 +213,15 @@ router.put('/:id', async (req: Request, res: Response) => {
       .set(updateData)
       .where(eq(invoice.id, id));
 
-    // Fetch the updated invoice with candidate relation
-    const updated = await db.query.invoice.findFirst({
-      where: eq(invoice.id, id),
-      with: {
-        candidate: true
-      }
-    });
+    // Fetch the updated invoice with candidate data (MySQL 5.7 compatible)
+    const [updatedInv] = await db.select().from(invoice).where(eq(invoice.id, id)).limit(1);
+    let candidateData = null;
+    if (updatedInv?.candidateId) {
+      const [cand] = await db.select().from(candidate).where(eq(candidate.id, updatedInv.candidateId)).limit(1);
+      candidateData = cand || null;
+    }
 
-    return res.json(updated);
+    return res.json({ ...updatedInv, candidate: candidateData });
   } catch (error: any) {
     console.error('Failed to update invoice:', error);
     res.status(500).json({ error: 'Failed to update invoice', message: error.message });

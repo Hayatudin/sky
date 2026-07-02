@@ -72,8 +72,8 @@ export default function DeploymentsPage() {
     }
   };
 
-  const filtered = candidates.filter(c => {
-    const fullName = `${c.givenNames} ${c.surname}`.toLowerCase();
+  const filtered = (Array.isArray(candidates) ? candidates : []).filter(c => {
+    const fullName = `${c.givenNames ?? ''} ${c.surname ?? ''}`.toLowerCase();
     const passport = c.passportNumber?.toLowerCase() || '';
     const broker = c.broker?.name?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
@@ -184,8 +184,8 @@ export default function DeploymentsPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center border border-primary-100 shrink-0">
                             <span className="text-primary font-bold text-sm">
-                              {c.givenNames.charAt(0)}
-                              {c.surname.charAt(0)}
+                              {c.givenNames?.charAt(0) ?? '?'}
+                              {c.surname?.charAt(0) ?? '?'}
                             </span>
                           </div>
                           <div>

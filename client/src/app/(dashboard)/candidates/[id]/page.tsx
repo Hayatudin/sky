@@ -196,12 +196,12 @@ export default function CandidateDetailPage() {
               {c.facePhotoUrl ? (
                 <img src={getFileUrl(c.facePhotoUrl)} alt="Face" className="w-full h-full object-cover" crossOrigin="anonymous" />
               ) : (
-                <span className="text-primary font-black text-5xl">{pd.givenNames.charAt(0)}{pd.surname.charAt(0)}</span>
+                <span className="text-primary font-black text-5xl">{pd.givenNames?.charAt(0) ?? '?'}{pd.surname?.charAt(0) ?? '?'}</span>
               )}
             </div>
             {/* Status Badge Overlapping Avatar */}
             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#A020F0] text-white text-[11px] font-bold px-4 py-1.5 rounded-full border-2 border-white shadow-md whitespace-nowrap">
-              {c.status.toUpperCase()}
+              {c.status?.toUpperCase() ?? 'UNKNOWN'}
             </div>
           </div>
 
@@ -511,7 +511,7 @@ export default function CandidateDetailPage() {
                       </span>
                     ) : (
                       <button
-                        onClick={() => router.push(`/generated-cvs?folder=${c.latestCVTemplate}&search=${c.passportData.passportNumber}`)}
+                        onClick={() => router.push(`/generated-cvs?folder=${c.latestCVTemplate}&search=${c.passportData?.passportNumber ?? ''}`)}
                         className="shrink-0 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
                       >
                         View

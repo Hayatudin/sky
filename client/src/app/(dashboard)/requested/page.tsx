@@ -163,7 +163,7 @@ export default function RequestedPage() {
         } else {
           tdName.style.backgroundColor = '#fffbeb';
         }
-        tdName.innerText = `${c.passportData.givenNames} ${c.passportData.surname}`.toUpperCase();
+        tdName.innerText = `${c.passportData?.givenNames} ${c.passportData?.surname}`.toUpperCase();
         row.appendChild(tdName);
 
         // 3. DATE
@@ -345,7 +345,7 @@ export default function RequestedPage() {
     setDeployDateValue(currentDate);
     setDeployDateModal({
       candidateId: c.id,
-      name: `${c.passportData.givenNames} ${c.passportData.surname}`,
+      name: `${c.passportData?.givenNames} ${c.passportData?.surname}`,
       currentDate,
     });
   };
@@ -497,11 +497,11 @@ export default function RequestedPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center shrink-0 border border-green-100">
-                            <span className="text-green-600 font-bold text-sm">{c.passportData.givenNames.charAt(0)}{c.passportData.surname.charAt(0)}</span>
+                            <span className="text-green-600 font-bold text-sm">{c.passportData?.givenNames?.charAt(0) ?? '?'}{c.passportData?.surname?.charAt(0) ?? '?'}</span>
                           </div>
                           <div>
                             <p className="font-semibold text-text-primary text-sm flex items-center gap-1.5">
-                              {c.passportData.givenNames} {c.passportData.surname}
+                              {c.passportData?.givenNames} {c.passportData?.surname}
                               {c.isFlagged && <Flag size={13} className="text-red-500 fill-red-500" />}
                             </p>
                             <p className="text-xs text-text-tertiary">{c.personalInfo.email}</p>
@@ -511,7 +511,7 @@ export default function RequestedPage() {
 
                       {/* Passport Number */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">
-                        {c.passportData.passportNumber}
+                        {c.passportData?.passportNumber}
                       </td>
 
                       {/* CV Agency */}
@@ -810,7 +810,7 @@ export default function RequestedPage() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-text-secondary">
-                  Are you sure you want to cancel the visa selection for <strong className="text-text-primary">{candidate ? `${candidate.passportData.givenNames} ${candidate.passportData.surname}` : 'this candidate'}</strong>?
+                  Are you sure you want to cancel the visa selection for <strong className="text-text-primary">{candidate ? `${candidate.passportData?.givenNames} ${candidate.passportData?.surname}` : 'this candidate'}</strong>?
                 </p>
                 <div>
                   <label className="block text-sm font-semibold text-text-primary mb-2">

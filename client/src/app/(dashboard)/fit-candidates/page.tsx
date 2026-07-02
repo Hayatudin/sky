@@ -173,7 +173,7 @@ export default function FitCandidatesPage() {
 
   // Filter candidates list
   const fitCandidates = useMemo(() => {
-    return allCandidates.filter(c => c.personalInfo.medicalStatus === 'Fit');
+    return allCandidates.filter(c => c.personalInfo?.medicalStatus === 'Fit');
   }, [allCandidates]);
 
   // Helper to extract candidate template ID
@@ -188,8 +188,8 @@ export default function FitCandidatesPage() {
   const filtered = useMemo(() => {
     return fitCandidates.filter(c => {
       // 1. Search Query
-      const name = `${c.passportData.givenNames} ${c.passportData.surname}`.toLowerCase();
-      const passport = c.passportData.passportNumber.toLowerCase();
+      const name = `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''}`.toLowerCase();
+      const passport = (c.passportData?.passportNumber ?? '').toLowerCase();
       const shelfId = (c.shelfId || '').toLowerCase();
       const query = searchQuery.toLowerCase();
       const matchesSearch = name.includes(query) || passport.includes(query) || shelfId.includes(query);
@@ -198,8 +198,8 @@ export default function FitCandidatesPage() {
       const matchesLanguage = !languageFilter
         ? true
         : languageFilter === 'muslim'
-          ? (c.personalInfo.religion?.toLowerCase() === 'muslim' || c.personalInfo.religion?.toLowerCase() === 'islam')
-          : (c.personalInfo.religion?.toLowerCase() !== 'muslim' && c.personalInfo.religion?.toLowerCase() !== 'islam');
+          ? (c.personalInfo?.religion?.toLowerCase() === 'muslim' || c.personalInfo?.religion?.toLowerCase() === 'islam')
+          : (c.personalInfo?.religion?.toLowerCase() !== 'muslim' && c.personalInfo?.religion?.toLowerCase() !== 'islam');
 
       // 3. Flagged Filter
       const matchesFlagged = flaggedFilter
@@ -576,6 +576,8 @@ export default function FitCandidatesPage() {
         if (isCancelledRef.current) throw new Error('Cancelled');
         if (!batchRes.ok) throw new Error('Failed to fetch candidate details');
         const candidatesData = await batchRes.json();
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
 
         const JSZip = (await import('jszip')).default;
         const htmlToImage = await import('html-to-image');
@@ -583,9 +585,9 @@ export default function FitCandidatesPage() {
         const zip = new JSZip();
 
         const CHUNK_SIZE = 5;
-        for (let i = 0; i < candidatesData.length; i += CHUNK_SIZE) {
+        for (let i = 0; i < safeCandidatesData.length; i += CHUNK_SIZE) {
           if (isCancelledRef.current) throw new Error('Cancelled');
-          const chunk = candidatesData.slice(i, i + CHUNK_SIZE);
+          const chunk = safeCandidatesData.slice(i, i + CHUNK_SIZE);
           setRenderingCandidates(chunk);
           await bgWait(60);
 
@@ -899,24 +901,24 @@ export default function FitCandidatesPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100">
                             <span className="text-emerald-600 font-bold text-sm">
-                              {c.passportData.givenNames.charAt(0)}{c.passportData.surname.charAt(0)}
+                              {c.passportData?.givenNames?.charAt(0) ?? "?"}{c.passportData?.surname?.charAt(0) ?? "?"}
                             </span>
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-text-primary text-sm">
-                                {c.passportData.givenNames} {c.passportData.surname}
+                                {c.passportData?.givenNames} {c.passportData?.surname}
                               </span>
                               {c.isFlagged && (
                                 <Flag size={14} className="text-red-500 fill-red-500 animate-pulse" />
                               )}
                             </div>
-                            <span className="text-xs text-text-tertiary hidden sm:block">{c.personalInfo.phone || 'No Phone'}</span>
+                            <span className="text-xs text-text-tertiary hidden sm:block">{c.personalInfo?.phone || "No Phone"}</span>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">
-                        {c.passportData.passportNumber}
+                        {c.passportData?.passportNumber ?? ""}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">

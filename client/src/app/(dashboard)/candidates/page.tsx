@@ -454,11 +454,11 @@ export default function CandidatesPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 border border-primary-100">
-                          <span className="text-primary font-bold text-sm">{candidate.passportData.givenNames.charAt(0)}{candidate.passportData.surname.charAt(0)}</span>
+                          <span className="text-primary font-bold text-sm">{candidate.passportData?.givenNames?.charAt(0) ?? '?'}{candidate.passportData?.surname?.charAt(0) ?? '?'}</span>
                         </div>
                         <div>
                           <p className="font-semibold text-text-primary text-sm flex items-center gap-1.5">
-                            {candidate.passportData.givenNames} {candidate.passportData.surname}
+                            {candidate.passportData?.givenNames} {candidate.passportData?.surname}
                             {candidate.isFlagged && <Flag size={13} className="text-red-500 fill-red-500" />}
                             {candidate.broker?.isLocked && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-50 border border-red-200 rounded-md text-red-500" title={`Broker "${candidate.broker.name}" is locked`}>
@@ -473,8 +473,8 @@ export default function CandidatesPage() {
 
                     {/* Passport */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-text-primary">{candidate.passportData.passportNumber}</p>
-                      <p className="text-xs text-text-tertiary">Exp: {new Date(candidate.passportData.dateOfExpiry).toLocaleDateString()}</p>
+                      <p className="text-sm font-medium text-text-primary">{candidate.passportData?.passportNumber}</p>
+                      <p className="text-xs text-text-tertiary">Exp: {new Date(candidate.passportData?.dateOfExpiry).toLocaleDateString()}</p>
                     </td>
 
                     {/* CV Agency */}
@@ -802,7 +802,7 @@ export default function CandidatesPage() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-text-secondary">
-                  Are you sure you want to cancel the visa selection for <strong className="text-text-primary">{candidate ? `${candidate.passportData.givenNames} ${candidate.passportData.surname}` : 'this candidate'}</strong>?
+                  Are you sure you want to cancel the visa selection for <strong className="text-text-primary">{candidate ? `${candidate.passportData?.givenNames} ${candidate.passportData?.surname}` : 'this candidate'}</strong>?
                 </p>
                 <div>
                   <label className="block text-sm font-semibold text-text-primary mb-2">

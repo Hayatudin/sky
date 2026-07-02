@@ -458,6 +458,8 @@ export default function AvailableCandidatesPage() {
         if (isCancelledRef.current) throw new Error('Cancelled');
         if (!batchRes.ok) throw new Error('Failed to fetch candidate details');
         const candidatesData = await batchRes.json();
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
 
         const JSZip = (await import('jszip')).default;
         const htmlToImage = await import('html-to-image');
@@ -465,9 +467,9 @@ export default function AvailableCandidatesPage() {
         const zip = new JSZip();
 
         const CHUNK_SIZE = 5;
-        for (let i = 0; i < candidatesData.length; i += CHUNK_SIZE) {
+        for (let i = 0; i < safeCandidatesData.length; i += CHUNK_SIZE) {
           if (isCancelledRef.current) throw new Error('Cancelled');
-          const chunk = candidatesData.slice(i, i + CHUNK_SIZE);
+          const chunk = safeCandidatesData.slice(i, i + CHUNK_SIZE);
           setRenderingCandidates(chunk);
           await bgWait(60);
 

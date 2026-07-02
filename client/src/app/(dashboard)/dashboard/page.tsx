@@ -753,7 +753,7 @@ export default function DashboardPage() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-text-secondary">
-                  Are you sure you want to cancel the visa selection for <strong className="text-text-primary">{candidate ? `${candidate.passportData.givenNames} ${candidate.passportData.surname}` : 'this candidate'}</strong>?
+                  Are you sure you want to cancel the visa selection for <strong className="text-text-primary">{candidate ? `${candidate.passportData?.givenNames ?? ''} ${candidate.passportData?.surname ?? ''}`.trim() || 'this candidate' : 'this candidate'}</strong>?
                 </p>
                 <div>
                   <label className="block text-sm font-semibold text-text-primary mb-2">

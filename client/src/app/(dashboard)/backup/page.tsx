@@ -325,11 +325,12 @@ export default function BackupPage() {
       const res = await api('/api/generated-cvs', { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
-      setCvs(data.filter((c: any) => 
-        c.candidate.isRequested || 
-        c.candidate.medicalStatus === 'Unfit' || 
-        c.candidate.visaSelected ||
-        c.candidate.isLocked === true ||
+      const list = Array.isArray(data) ? data : [];
+      setCvs(list.filter((c: any) => 
+        c.candidate?.isRequested || 
+        c.candidate?.medicalStatus === 'Unfit' || 
+        c.candidate?.visaSelected ||
+        c.candidate?.isLocked === true ||
         c.candidate?.broker?.isLocked === true
       ));
     } catch {
@@ -666,6 +667,8 @@ export default function BackupPage() {
         });
         if (!batchRes.ok) throw new Error('Failed to fetch candidate details');
         const candidatesData = await batchRes.json();
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
 
         const JSZip = (await import('jszip')).default;
         const htmlToImage = await import('html-to-image');
@@ -673,8 +676,8 @@ export default function BackupPage() {
         const zip = new JSZip();
 
         const CHUNK_SIZE = 5;
-        for (let i = 0; i < candidatesData.length; i += CHUNK_SIZE) {
-          const chunk = candidatesData.slice(i, i + CHUNK_SIZE);
+        for (let i = 0; i < safeCandidatesData.length; i += CHUNK_SIZE) {
+          const chunk = safeCandidatesData.slice(i, i + CHUNK_SIZE);
           setRenderingCandidates(chunk);
           await bgWait(60);
 
@@ -720,7 +723,7 @@ export default function BackupPage() {
             }
           }));
 
-          showToast(`Processing: ${Math.min(i + CHUNK_SIZE, candidatesData.length)}/${candidatesData.length}...`, 'success', false);
+          showToast(`Processing: ${Math.min(i + CHUNK_SIZE, safeCandidatesData.length)}/${safeCandidatesData.length}...`, 'success', false);
         }
 
         setRenderingCandidates([]);

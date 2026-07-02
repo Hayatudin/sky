@@ -181,7 +181,7 @@ export default function BrokersPage() {
 
       if (e.key.length === 1 && /[a-zA-Z]/i.test(e.key)) {
         const char = e.key.toLowerCase();
-        const targetBroker = brokers.find(b => b.name.trim().toLowerCase().startsWith(char));
+        const targetBroker = safeBrokers.find(b => b.name.trim().toLowerCase().startsWith(char));
         if (targetBroker) {
           const el = document.getElementById(`broker-card-${targetBroker.id}`) || 
                      document.getElementById(`broker-item-${targetBroker.id}`);
@@ -329,7 +329,7 @@ export default function BrokersPage() {
   };
 
   const toggleSelectAllForLeader = (leaderId: string | null) => {
-    const targetBrokers = brokers.filter(b => b.leaderId === leaderId);
+    const targetBrokers = safeBrokers.filter(b => b.leaderId === leaderId);
     const targetIds = targetBrokers.map(b => b.id);
     const allSelected = targetIds.length > 0 && targetIds.every(id => selectedBrokerIds.includes(id));
 
@@ -752,7 +752,7 @@ export default function BrokersPage() {
                             onClick={() => {
                               setOpenMenuId(null);
                               setMoveTarget(broker);
-                              const firstOther = brokers.find(b => b.id !== broker.id);
+                              const firstOther = safeBrokers.find(b => b.id !== broker.id);
                               setSelectedTargetBrokerId(firstOther?.id || '');
                             }}
                             disabled={(broker._count?.candidates || 0) === 0}

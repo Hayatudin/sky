@@ -135,17 +135,17 @@ export default function AvailablePassportPage() {
   };
 
   // Filter and Category Splitting
-  const availableList = passports.filter(p => p.status === 'Available');
-  const takenList = passports.filter(p => p.status === 'PassportTaken');
+  const availableList = (Array.isArray(passports) ? passports : []).filter(p => p.status === 'Available');
+  const takenList = (Array.isArray(passports) ? passports : []).filter(p => p.status === 'PassportTaken');
 
   const getFilteredList = (list: Passport[]) => {
     if (!search) return list;
     const q = search.toLowerCase().trim();
     return list.filter(
       p =>
-        p.passportNumber.toLowerCase().includes(q) ||
-        p.fullName.toLowerCase().includes(q) ||
-        p.shelfNo.toLowerCase().includes(q)
+        (p.passportNumber?.toLowerCase() || '').includes(q) ||
+        (p.fullName?.toLowerCase() || '').includes(q) ||
+        (p.shelfNo?.toLowerCase() || '').includes(q)
     );
   };
 

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { candidate, generatedCV, notification, user } from '../db/schema';
-import { eq, and, or, sql } from 'drizzle-orm';
+import { candidate, generatedCV, notification, user, broker, invoice } from '../db/schema';
+import { eq, and, or, sql, inArray } from 'drizzle-orm';
 import { getSession } from '../lib/auth-helper';
 import { encryptPath } from '../lib/crypto';
 
@@ -167,15 +167,31 @@ router.get('/candidates', async (req: Request, res: Response) => {
     const dbCandidatesList = await db.query.candidate.findMany({
       where: and(...conditions),
       orderBy: (c, { desc }) => [desc(c.registeredAt)],
-      with: {
-        generatedCVs: { columns: { id: true, templateId: true } },
-        broker: { columns: { name: true } },
-        invoices: { columns: { id: true, lmisQrCodeUrl: true } }
-      }
     });
 
+    // Batch fetch relations — MySQL 5.7 compatible (no lateral joins)
+    const cIds1 = dbCandidatesList.map((c: any) => c.id);
+    const cvs1 = cIds1.length > 0
+      ? await db.select({ candidateId: generatedCV.candidateId, id: generatedCV.id, templateId: generatedCV.templateId })
+          .from(generatedCV).where(inArray(generatedCV.candidateId, cIds1))
+      : [];
+    const invoices1 = cIds1.length > 0
+      ? await db.select({ candidateId: invoice.candidateId, id: invoice.id, lmisQrCodeUrl: invoice.lmisQrCodeUrl })
+          .from(invoice).where(inArray(invoice.candidateId, cIds1))
+      : [];
+    const brokerIds1 = [...new Set(dbCandidatesList.map((c: any) => c.brokerId).filter(Boolean))];
+    const brokers1 = brokerIds1.length > 0
+      ? await db.select({ id: broker.id, name: broker.name }).from(broker).where(inArray(broker.id, brokerIds1 as string[]))
+      : [];
+    const cvsMap1 = new Map<string, typeof cvs1>();
+    for (const cv of cvs1) { if (!cvsMap1.has(cv.candidateId)) cvsMap1.set(cv.candidateId, []); cvsMap1.get(cv.candidateId)!.push(cv); }
+    const invMap1 = new Map<string, typeof invoices1>();
+    for (const inv of invoices1) { if (!invMap1.has(inv.candidateId)) invMap1.set(inv.candidateId, []); invMap1.get(inv.candidateId)!.push(inv); }
+    const brokerMap1 = new Map(brokers1.map((b: any) => [b.id, b]));
+
     res.json(dbCandidatesList.map((c: any) => {
-      const invoicesList = c.invoices || [];
+      const invoicesList = invMap1.get(c.id) || [];
+      const candidateCVs = cvsMap1.get(c.id) || [];
       const hasQrCode = invoicesList.some((inv: any) => inv.lmisQrCodeUrl && inv.lmisQrCodeUrl.trim() !== '');
       return {
         id: c.id,
@@ -191,8 +207,8 @@ router.get('/candidates', async (req: Request, res: Response) => {
         selectedType: c.selectedType || 'Private',
         travelDate: c.deployedDate ? new Date(c.deployedDate).toISOString() : null,
         agencyStatus: c.agencyStatus || 'Under Process',
-        latestCVTemplate: c.generatedCVs?.[0]?.templateId || null,
-        broker: c.broker,
+        latestCVTemplate: candidateCVs[0]?.templateId || null,
+        broker: c.brokerId ? (brokerMap1.get(c.brokerId) || null) : null,
         agency: c.agency,
         religion: c.religion,
         job: c.job,
@@ -258,13 +274,24 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
     const dbCandidatesList = await db.query.candidate.findMany({
       where: and(...conditions),
       orderBy: (c, { desc }) => [desc(c.registeredAt)],
-      with: {
-        generatedCVs: { columns: { id: true, templateId: true } },
-        broker: { columns: { name: true } }
-      }
     });
 
+    // Batch fetch relations — MySQL 5.7 compatible (no lateral joins)
+    const cIds2 = dbCandidatesList.map((c: any) => c.id);
+    const cvs2 = cIds2.length > 0
+      ? await db.select({ candidateId: generatedCV.candidateId, id: generatedCV.id, templateId: generatedCV.templateId })
+          .from(generatedCV).where(inArray(generatedCV.candidateId, cIds2))
+      : [];
+    const brokerIds2 = [...new Set(dbCandidatesList.map((c: any) => c.brokerId).filter(Boolean))];
+    const brokers2 = brokerIds2.length > 0
+      ? await db.select({ id: broker.id, name: broker.name }).from(broker).where(inArray(broker.id, brokerIds2 as string[]))
+      : [];
+    const cvsMap2 = new Map<string, typeof cvs2>();
+    for (const cv of cvs2) { if (!cvsMap2.has(cv.candidateId)) cvsMap2.set(cv.candidateId, []); cvsMap2.get(cv.candidateId)!.push(cv); }
+    const brokerMap2 = new Map(brokers2.map((b: any) => [b.id, b]));
+
     res.json(dbCandidatesList.map((c: any) => {
+      const candidateCVs2 = cvsMap2.get(c.id) || [];
       return {
         id: c.id,
         givenNames: c.givenNames,
@@ -279,8 +306,8 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         selectedType: c.selectedType || 'Private',
         travelDate: c.deployedDate ? new Date(c.deployedDate).toISOString() : null,
         agencyStatus: c.agencyStatus || 'Under Process',
-        latestCVTemplate: c.generatedCVs?.[0]?.templateId || null,
-        broker: c.broker,
+        latestCVTemplate: candidateCVs2[0]?.templateId || null,
+        broker: c.brokerId ? (brokerMap2.get(c.brokerId) || null) : null,
         agency: c.agency,
         religion: c.religion,
         job: c.job,

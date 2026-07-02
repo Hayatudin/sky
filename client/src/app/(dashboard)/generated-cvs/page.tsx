@@ -1013,16 +1013,7 @@ function GeneratedCVsContent() {
         if (isCancelledRef.current) throw new Error('Cancelled');
         if (!batchRes.ok) throw new Error('Failed to fetch candidate details');
         const candidatesData = await batchRes.json();
-
-        const JSZip = (await import('jszip')).default;
-        const htmlToImage = await import('html-to-image');
-        const { jsPDF } = await import('jspdf');
-        const zip = new JSZip();
-
-        const CHUNK_SIZE = 5;
-        for (let i = 0; i < candidatesData.length; i += CHUNK_SIZE) {
-          if (isCancelledRef.current) throw new Error('Cancelled');
-          const chunk = candidatesData.slice(i, i + CHUNK_SIZE);
+        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
           setRenderingCandidates(chunk);
           await bgWait(60);
 
