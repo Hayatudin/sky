@@ -59,7 +59,7 @@ export default function CandidateSelector({ candidates, selectedId, onSelect }: 
               <p className="text-xs text-text-tertiary">{passportLine(selected)}</p>
             </div>
           </div>
-        ) : <span className="text-sm text-text-tertiary">Choose a registered candidate...</span>}
+        ) : <span className="text-sm text-text-tertiary">Choose a registered candidate....</span>}
         <ChevronDown size={16} className={cn('text-text-tertiary transition-transform', isOpen && 'rotate-180')} />
       </button>
 
