@@ -668,7 +668,6 @@ export default function BackupPage() {
         if (!batchRes.ok) throw new Error('Failed to fetch candidate details');
         const candidatesData = await batchRes.json();
         const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
-        const safeCandidatesData = Array.isArray(candidatesData) ? candidatesData : [];
 
         const JSZip = (await import('jszip')).default;
         const htmlToImage = await import('html-to-image');
