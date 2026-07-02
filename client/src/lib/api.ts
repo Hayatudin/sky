@@ -1,49 +1,127 @@
 /**
  * Central API helper for the frontend to communicate with the standalone backend.
- * Attaches the better-auth session cookie via credentials:include for same-domain,
- * and also reads the token from cookie storage as a fallback Authorization header
- * for cross-domain deployments (Vercel frontend → cPanel backend).
+ *
+ * Authentication strategy for cross-domain (Vercel → cPanel):
+ * - Tries to read the session token from better-auth's cookie cache
+ * - Falls back to calling getSession() to get a fresh token if cookie read fails
+ * - In-memory token cache with 4-minute TTL (refreshes before better-auth's 5-min expiry)
+ * - On 401 response: clears token cache and retries once with a fresh token
  */
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 'http://localhost:4000').replace(/\/$/, '');
+import { getSession } from './auth-client';
 
-function getSessionToken(): string | null {
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
+  'http://localhost:4000'
+).replace(/\/$/, '');
+
+// ── In-memory token cache ─────────────────────────────────────────────────────
+const TOKEN_TTL_MS = 4 * 60 * 1000; // 4 minutes (less than better-auth's 5-min cache)
+let cachedToken: string | null = null;
+let cacheExpiry: number = 0;
+let fetchingToken: Promise<string | null> | null = null;
+
+/** Read the session token — from memory cache first, then from better-auth */
+async function getAuthToken(): Promise<string | null> {
+  // Return cached token if still fresh
+  if (cachedToken && Date.now() < cacheExpiry) {
+    return cachedToken;
+  }
+
+  // De-duplicate concurrent refresh requests
+  if (fetchingToken) return fetchingToken;
+
+  fetchingToken = (async () => {
+    try {
+      // 1. Try reading from cookie (works if not HttpOnly)
+      const cookieToken = readSessionCookie();
+      if (cookieToken) {
+        cachedToken = cookieToken;
+        cacheExpiry = Date.now() + TOKEN_TTL_MS;
+        return cookieToken;
+      }
+
+      // 2. Fall back to calling getSession() — makes an API call but gives fresh token
+      const sessionData = await getSession();
+      const token = (sessionData?.data as any)?.session?.token ?? null;
+      if (token) {
+        cachedToken = token;
+        cacheExpiry = Date.now() + TOKEN_TTL_MS;
+      }
+      return token;
+    } catch {
+      return null;
+    } finally {
+      fetchingToken = null;
+    }
+  })();
+
+  return fetchingToken;
+}
+
+/** Try to read the better-auth session token from document.cookie */
+function readSessionCookie(): string | null {
   if (typeof document === 'undefined') return null;
-  // better-auth stores the session token in a cookie named 'better-auth.session_token'
-  const match = document.cookie.match(/(?:^|;\s*)better-auth\.session_token=([^;]+)/);
-  if (match) return decodeURIComponent(match[1]);
-  // Also try without dot prefix (some versions use underscore)
-  const match2 = document.cookie.match(/(?:^|;\s*)better-auth_session_token=([^;]+)/);
-  if (match2) return decodeURIComponent(match2[1]);
+  // better-auth may use various cookie names depending on config
+  const patterns = [
+    /(?:^|;\s*)better-auth\.session_token=([^;]+)/,
+    /(?:^|;\s*)better-auth_session_token=([^;]+)/,
+    /(?:^|;\s*)__Secure-better-auth\.session_token=([^;]+)/,
+    /(?:^|;\s*)session_token=([^;]+)/,
+  ];
+  for (const re of patterns) {
+    const m = document.cookie.match(re);
+    if (m) return decodeURIComponent(m[1]);
+  }
   return null;
 }
 
-export async function api(path: string, options: RequestInit = {}) {
+/** Invalidate the token cache (called on 401 to force a fresh token on retry) */
+function invalidateTokenCache() {
+  cachedToken = null;
+  cacheExpiry = 0;
+  fetchingToken = null;
+}
+
+// ── Main API function ─────────────────────────────────────────────────────────
+export async function api(path: string, options: RequestInit = {}): Promise<Response> {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const url = `${API_BASE_URL}${cleanPath}`;
-  
   const isFormData = options.body instanceof FormData;
 
-  // Try to get session token for Authorization header (cross-domain fallback)
-  const token = getSessionToken();
-
-  const defaultOptions: RequestInit = {
-    ...options,
-    headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      // Always include Authorization header if token is available
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-    credentials: 'include',
+  const makeRequest = async (token: string | null): Promise<Response> => {
+    const opts: RequestInit = {
+      ...options,
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+      credentials: 'include',
+    };
+    return fetch(url, opts);
   };
 
-  console.log(`[API] ${options.method || 'GET'} ${url}`, token ? '(token attached)' : '(no token)');
-  const response = await fetch(url, defaultOptions);
-  
+  const token = await getAuthToken();
+  console.log(`[API] ${options.method || 'GET'} ${url}`, token ? '(token)' : '(no token)');
+
+  let response = await makeRequest(token);
+
+  // On 401: clear cache, get a fresh token, retry once
+  if (response.status === 401) {
+    console.warn(`[API] 401 on ${url} — refreshing session token and retrying...`);
+    invalidateTokenCache();
+    const freshToken = await getAuthToken();
+    if (freshToken && freshToken !== token) {
+      response = await makeRequest(freshToken);
+    }
+  }
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const message = errorData.error || errorData.message || `API error: ${response.status} ${response.statusText}`;
+    const message =
+      errorData.error || errorData.message || `API error: ${response.status} ${response.statusText}`;
     console.error(`[API] Error ${response.status} on ${options.method || 'GET'} ${url}:`, message);
     throw new Error(message);
   }
