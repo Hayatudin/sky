@@ -228,16 +228,12 @@ function RegistrationContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
       });
-      if (res.ok) {
-        const newBroker = await res.json();
-        mutateBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
-        setPersonalInfo(prev => ({ ...prev, brokerId: newBroker.id }));
-      } else {
-        alert('Failed to create broker');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error creating broker');
+      const newBroker = await res.json();
+      mutateBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
+      setPersonalInfo(prev => ({ ...prev, brokerId: newBroker.id }));
+    } catch (err: any) {
+      console.error('Broker creation error:', err);
+      alert(`Failed to create broker: ${err?.message || String(err)}`);
     }
   };
 

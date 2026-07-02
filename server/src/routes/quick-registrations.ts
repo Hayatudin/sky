@@ -224,7 +224,7 @@ router.post('/', async (req: Request, res: Response) => {
         relativeIdImageUrl: relativeIdImageUrl || null,
         relativePhones: body.relativePhones || null,
         videoUrl: videoUrl || null,
-        agency: body.agency || 'daera',
+        agency: body.agency || 'Sky',
         passportType: body.passportType || 'original',
         languages: body.languages || null,
         allowVideo: body.allowVideo ? true : false,
@@ -311,7 +311,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (relativeIdImageUrl !== undefined) updateData.relativeIdImageUrl = relativeIdImageUrl;
     if (body.relativePhones !== undefined) updateData.relativePhones = body.relativePhones || null;
     if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
-    if (body.agency !== undefined) updateData.agency = body.agency || 'daera';
+    if (body.agency !== undefined) updateData.agency = body.agency || 'Sky';
     if (body.passportType !== undefined) updateData.passportType = body.passportType || 'original';
     if (body.languages !== undefined) updateData.languages = body.languages || null;
     if (body.allowVideo !== undefined) updateData.allowVideo = body.allowVideo ? true : false;

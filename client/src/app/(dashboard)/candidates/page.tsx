@@ -313,7 +313,7 @@ export default function CandidatesPage() {
         <div className="flex flex-wrap items-center gap-2">
           {[
             { key: 'all', label: 'All Agencies', color: 'border-gray-200 text-gray-700 hover:bg-gray-50', activeColor: 'bg-gray-900 border-gray-900 text-white' },
-            { key: 'daera', label: 'Daera', color: 'border-primary-100 text-primary hover:bg-primary-50/55', activeColor: 'bg-primary border-primary text-white' },
+            { key: 'Sky', label: 'Sky', color: 'border-primary-100 text-primary hover:bg-primary-50/55', activeColor: 'bg-primary border-primary text-white' },
             { key: 'coolstaff', label: 'SKY', color: 'border-primary-100 text-primary hover:bg-primary-50/55', activeColor: 'bg-primary border-primary text-white' },
             { key: 'boss', label: 'Boss', color: 'border-primary-100 text-primary hover:bg-primary-50/55', activeColor: 'bg-primary border-primary text-white' },
           ].map((btn) => {

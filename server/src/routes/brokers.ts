@@ -123,34 +123,34 @@ router.post('/', async (req: Request, res: Response) => {
       name: name.trim()
     });
 
-    // Auto-assign new broker to 'DAERA OFFICE' leader group
+    // Auto-assign new broker to 'Sky OFFICE' leader group
     try {
       const leaderRows = await db.select({ id: leader.id })
         .from(leader)
-        .where(eq(leader.name, 'DAERA OFFICE'))
+        .where(eq(leader.name, 'Sky OFFICE'))
         .limit(1);
 
-      let daeraLeaderId = null;
+      let SkyLeaderId = null;
       if (leaderRows.length > 0) {
-        daeraLeaderId = leaderRows[0].id;
+        SkyLeaderId = leaderRows[0].id;
       } else {
-        // Auto-create leader "DAERA OFFICE" if missing
+        // Auto-create leader "Sky OFFICE" if missing
         const newLeaderId = 'cl' + Array.from({length: 23}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
         await db.insert(leader).values({
           id: newLeaderId,
-          name: 'DAERA OFFICE'
+          name: 'Sky OFFICE'
         });
-        daeraLeaderId = newLeaderId;
+        SkyLeaderId = newLeaderId;
       }
       
-      if (daeraLeaderId) {
+      if (SkyLeaderId) {
         await db.update(broker)
-          .set({ leaderId: daeraLeaderId })
+          .set({ leaderId: SkyLeaderId })
           .where(eq(broker.id, brokerId));
-        console.log(`[BROKER-CREATE] Automatically assigned new broker "${name.trim()}" to Leader "DAERA OFFICE"`);
+        console.log(`[BROKER-CREATE] Automatically assigned new broker "${name.trim()}" to Leader "Sky OFFICE"`);
       }
     } catch (e) {
-      console.warn('[BROKER-CREATE] Failed to auto-assign/create DAERA OFFICE leader:', e);
+      console.warn('[BROKER-CREATE] Failed to auto-assign/create Sky OFFICE leader:', e);
     }
     
     const createdBroker = await db.query.broker.findFirst({

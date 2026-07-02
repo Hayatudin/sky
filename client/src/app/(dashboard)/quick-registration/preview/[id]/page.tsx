@@ -235,7 +235,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       candidateIdImageUrl: undefined,
       relativeIdImageUrl: undefined,
       videoUrl: undefined,
-      agency: reg.agency || 'daera',
+      agency: reg.agency || 'Sky',
       passportType: reg.passportType || 'scan',
       languages: Array.isArray(reg.languages) ? reg.languages : [],
     });
@@ -264,7 +264,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
         numberOfChildren: editForm.numberOfChildren,
         relativePhones: editForm.relativePhones.filter(p => p.trim() !== ''),
         jobExperience: JSON.stringify(editForm.jobExperience),
-        agency: editForm.agency || 'daera',
+        agency: editForm.agency || 'Sky',
         passportType: editForm.passportType || 'scan',
         languages: editForm.languages,
       };

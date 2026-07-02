@@ -210,16 +210,12 @@ export default function BrokersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newBrokerName.trim() }),
       });
-      if (res.ok) {
-        setNewBrokerName('');
-        setShowAddForm(false);
-        fetchData();
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Failed to add broker');
-      }
+      const newBroker = await res.json();
+      setNewBrokerName('');
+      setShowAddForm(false);
+      fetchData();
     } catch (err: any) {
-      alert(err.message || 'Failed to add broker');
+      alert(`Failed to create broker: ${err?.message || String(err)}`);
     } finally {
       setIsAdding(false);
     }

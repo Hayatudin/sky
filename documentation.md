@@ -1,11 +1,11 @@
-# Technical & Functional Overview: DAERA Agency Portal
+# Technical & Functional Overview: Sky Agency Portal
 ### A High-Performance Management Ecosystem for Recruiting and Manpower Deployment
 
 ---
 
 ### 1. Introduction & Core Objective
 
-**DAERA** (also known as Coolstaff) is a robust, full-stack enterprise web application designed to digitize and automate candidate sourcing, compliance vetting (medical/biometrics), client portfolio dispatch, and invoicing for international recruitment agencies. 
+**Sky** (also known as Coolstaff) is a robust, full-stack enterprise web application designed to digitize and automate candidate sourcing, compliance vetting (medical/biometrics), client portfolio dispatch, and invoicing for international recruitment agencies. 
 
 By replacing unstructured spreadsheets and manual processes with a central, automated database, the platform guarantees data integrity, speeds up candidate processing times, and automates document-heavy tasks such as CV formatting and client invoicing.
 

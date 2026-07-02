@@ -57,7 +57,7 @@ async function main() {
       relativeIdImageUrl || null,
       relPhonesString,
       videoUrl || null,
-      'daera',
+      'Sky',
       registeredById || null,
       'original',
       languagesString,

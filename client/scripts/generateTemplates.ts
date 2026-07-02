@@ -556,7 +556,7 @@ async function generateTemplates() {
                         new Paragraph({
                           alignment: AlignmentType.CENTER,
                           children: [
-                            new TextRun({ text: "Daera Foreign Employment Agency", bold: true, size: 24, font: "Times New Roman", color: "333333" })
+                            new TextRun({ text: "Sky Foreign Employment Agency", bold: true, size: 24, font: "Times New Roman", color: "333333" })
                           ]
                         })
                       ]

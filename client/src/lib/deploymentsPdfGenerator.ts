@@ -41,7 +41,7 @@ export const generateDeploymentsPdf = (candidates: any[]) => {
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(22);
   doc.setTextColor(30, 41, 59); // Sleek charcoal/slate
-  doc.text('DAERA AGENCY', 14, 20);
+  doc.text('Sky AGENCY', 14, 20);
 
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(10);

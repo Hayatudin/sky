@@ -42,6 +42,8 @@ export const auth = betterAuth({
     defaultCookieAttributes: {
       sameSite: (process.env.BETTER_AUTH_URL?.startsWith('https://') ? "none" : "lax") as "none" | "lax",
       secure: process.env.BETTER_AUTH_URL?.startsWith('https://') ?? false,
+      // Allow cookie to be sent from frontend (skyforeignagency.com) to API (api.skyforeignagency.com)
+      domain: process.env.BETTER_AUTH_URL?.startsWith('https://') ? '.skyforeignagency.com' : undefined,
     },
   },
 

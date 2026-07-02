@@ -94,7 +94,7 @@ export default function QuickRegistrationPage() {
   const [relativeIdImageUrl, setRelativeIdImageUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [allowVideo, setAllowVideo] = useState(false);
-  const [agency, setAgency] = useState('daera');
+  const [agency, setAgency] = useState('Sky');
   const [office, setOffice] = useState('');
   const [passportType, setPassportType] = useState('original');
 
@@ -173,16 +173,12 @@ export default function QuickRegistrationPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
       });
-      if (res.ok) {
-        const newBroker = await res.json();
-        mutateBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
-        setSelectedBrokerId(newBroker.id);
-      } else {
-        alert('Failed to create broker');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error creating broker');
+      const newBroker = await res.json();
+      mutateBrokers(prev => [...prev, newBroker].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedBrokerId(newBroker.id);
+    } catch (err: any) {
+      console.error('Broker creation error:', err);
+      alert(`Failed to create broker: ${err?.message || String(err)}`);
     }
   };
 

@@ -168,7 +168,7 @@ router.get('/', async (req: Request, res: Response) => {
         registeredBy: registeredByName,
         hasInvoice: c.invoices && c.invoices.length > 0,
         isInvoiceDelivered: c.invoices?.some((i: any) => i.isDelivered) || false,
-        agency: c.agency || 'daera',
+        agency: c.agency || 'Sky',
         allowVideo: c.allowVideo ?? false,
       };
     });
@@ -418,7 +418,7 @@ router.post('/', async (req: Request, res: Response) => {
       videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
       status: body.status || 'pending',
-      agency: body.agency || 'daera',
+      agency: body.agency || 'Sky',
       salary: body.personalInfo?.salary || '1000SR',
       allowVideo: body.allowVideo ? true : false,
       registeredById,
@@ -640,7 +640,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       cvDownloaded: c.cvDownloaded ?? false,
       latestCVTemplate: c.generatedCVs?.[0]?.templateId || null,
       registeredBy: c.registeredBy?.name || 'Admin',
-      agency: c.agency || 'daera',
+      agency: c.agency || 'Sky',
       allowVideo: c.allowVideo ?? false,
       price: isSuperAdmin ? c.price : null,
     };
