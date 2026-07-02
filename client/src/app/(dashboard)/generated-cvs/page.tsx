@@ -626,7 +626,7 @@ function GeneratedCVsContent() {
       try {
         if (isCancelledRef.current) throw new Error('Cancelled');
         const htmlToImage = await import('html-to-image');
-        const safeName = (downloadingCv.candidate.surname || 'CV').replace(/[^a-zA-Z0-9]/g, '');
+        const safeName = (downloadingCv.candidate?.surname || downloadingCv.candidate?.passportData?.surname || 'CV').replace(/[^a-zA-Z0-9]/g, '');
         const fileName = `CV_${safeName}_${downloadingCv.templateId.toUpperCase()}`;
 
         const origH = el.style.height; const origO = el.style.overflow;
@@ -861,23 +861,26 @@ function GeneratedCVsContent() {
     : cvs.filter(c => c.templateId === selectedFolder && c.candidate?.isLocked !== true && c.candidate?.broker?.isLocked !== true);
 
   const activeCVs = allFolderCVs.filter(cv => {
+    // Guard: skip CVs with null/missing candidate data
+    if (!cv.candidate) return false;
+
     const matchesCvStatus = cvStatusFilter === 'cv-downloaded'
       ? cv.candidate?.cvDownloaded === true
       : cv.candidate?.cvDownloaded !== true;
     if (!matchesCvStatus) return false;
 
     if (religionFilter) {
-      const rel = (cv.candidate.personalInfo?.religion || '').toLowerCase();
+      const rel = (cv.candidate?.personalInfo?.religion || '').toLowerCase();
       if (religionFilter === 'muslim' && rel !== 'muslim') return false;
       if (religionFilter === 'non-muslim' && (rel === 'muslim' || rel === '')) return false;
     }
-    if (flagFilter === 'flagged' && !cv.candidate.isFlagged) return false;
-    if (flagFilter === 'unflagged' && cv.candidate.isFlagged) return false;
+    if (flagFilter === 'flagged' && !cv.candidate?.isFlagged) return false;
+    if (flagFilter === 'unflagged' && cv.candidate?.isFlagged) return false;
 
     const min = minAgeFilter ? parseInt(minAgeFilter) : null;
     const max = maxAgeFilter ? parseInt(maxAgeFilter) : null;
     if (min !== null || max !== null) {
-      if (!cv.candidate.passportData?.dateOfBirth) return false;
+      if (!cv.candidate?.passportData?.dateOfBirth) return false;
       const age = new Date().getFullYear() - new Date(cv.candidate.passportData.dateOfBirth).getFullYear();
       if (min !== null && age < min) return false;
       if (max !== null && age > max) return false;

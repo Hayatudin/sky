@@ -20,10 +20,11 @@ export function usePassports() {
 
   const { data: passports = [], isLoading, error, refetch } = useQuery<Passport[]>({
     queryKey: ['passports'],
-    queryFn: () => api('/api/passports').then(async (res) => {
-      if (!res.ok) throw new Error('Failed to fetch passports');
-      return res.json();
-    }),
+    queryFn: async () => {
+      const res = await api('/api/passports');
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
   });
 
   const mutate = (updater?: Passport[] | ((prev: Passport[]) => Passport[])) => {

@@ -7,10 +7,11 @@ export function useBrokers() {
 
   const { data: brokers = [], isLoading, error, refetch } = useQuery<Broker[]>({
     queryKey: ['brokers'],
-    queryFn: () => api('/api/brokers').then(async (res) => {
-      if (!res.ok) throw new Error('Failed to fetch brokers');
-      return res.json();
-    }),
+    queryFn: async () => {
+      const res = await api('/api/brokers');
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
   });
 
   const mutate = (updater?: Broker[] | ((prev: Broker[]) => Broker[])) => {

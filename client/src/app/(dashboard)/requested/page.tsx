@@ -370,9 +370,9 @@ export default function RequestedPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  const filtered = candidates.filter(c => {
-    const name = `${c.passportData.givenNames} ${c.passportData.surname}`.toLowerCase();
-    return name.includes(searchQuery.toLowerCase()) || c.passportData.passportNumber.toLowerCase().includes(searchQuery.toLowerCase());
+  const filtered = (Array.isArray(candidates) ? candidates : []).filter(c => {
+    const name = `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''}`.toLowerCase();
+    return name.includes(searchQuery.toLowerCase()) || (c.passportData?.passportNumber ?? '').toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   useEffect(() => {

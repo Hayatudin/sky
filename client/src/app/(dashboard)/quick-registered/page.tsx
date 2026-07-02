@@ -169,7 +169,7 @@ export default function QuickRegisteredPage() {
 
 
 
-  const filtered = registrations.filter(r => {
+  const filtered = (Array.isArray(registrations) ? registrations : []).filter(r => {
     if (search) {
       const q = search.toLowerCase();
       const matchesSearch =

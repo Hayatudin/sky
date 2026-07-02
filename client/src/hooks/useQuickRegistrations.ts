@@ -40,10 +40,11 @@ export function useQuickRegistrations() {
 
   const { data: registrations = [], isLoading, error, refetch } = useQuery<QuickReg[]>({
     queryKey: ['quick-registrations'],
-    queryFn: () => api('/api/quick-registrations').then(async (res) => {
-      if (!res.ok) throw new Error('Failed to fetch quick registrations');
-      return res.json();
-    }),
+    queryFn: async () => {
+      const res = await api('/api/quick-registrations');
+      const json = await res.json();
+      return Array.isArray(json) ? json : (json?.data ?? []);
+    },
   });
 
   const mutate = (updater?: QuickReg[] | ((prev: QuickReg[]) => QuickReg[])) => {

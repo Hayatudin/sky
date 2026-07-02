@@ -6,10 +6,11 @@ export function useDeployments() {
 
   const { data: deployments = [], isLoading, error, refetch } = useQuery<any[]>({
     queryKey: ['deployments'],
-    queryFn: () => api('/api/deployments').then(async (res) => {
-      if (!res.ok) throw new Error('Failed to fetch deployments');
-      return res.json();
-    }),
+    queryFn: async () => {
+      const res = await api('/api/deployments');
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
   });
 
   const mutate = (updater?: any[] | ((prev: any[]) => any[])) => {

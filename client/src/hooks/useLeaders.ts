@@ -7,10 +7,11 @@ export function useLeaders() {
 
   const { data: leaders = [], isLoading, error, refetch } = useQuery<Leader[]>({
     queryKey: ['leaders'],
-    queryFn: () => api('/api/leaders').then(async (res) => {
-      if (!res.ok) throw new Error('Failed to fetch leaders');
-      return res.json();
-    }),
+    queryFn: async () => {
+      const res = await api('/api/leaders');
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
   });
 
   const mutate = (updater?: Leader[] | ((prev: Leader[]) => Leader[])) => {

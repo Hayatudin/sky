@@ -6,10 +6,11 @@ export function useInvoices() {
 
   const { data: invoices = [], isLoading, error, refetch } = useQuery<any[]>({
     queryKey: ['invoices'],
-    queryFn: () => api('/api/invoices').then(async (res) => {
-      if (!res.ok) throw new Error('Failed to fetch invoices');
-      return res.json();
-    }),
+    queryFn: async () => {
+      const res = await api('/api/invoices');
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
   });
 
   const mutate = (updater?: any[] | ((prev: any[]) => any[])) => {

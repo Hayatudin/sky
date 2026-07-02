@@ -15,7 +15,9 @@ export function useCandidates() {
     queryFn: async () => {
       try {
         const res = await api('/api/candidates');
-        return res.json();
+        const json = await res.json();
+        // Guard: ensure the result is always an array
+        return Array.isArray(json) ? json : (json?.data ?? json?.candidates ?? []);
       } catch (err: any) {
         console.error('[useCandidates] Fetch failed:', err?.message || err);
         throw err;

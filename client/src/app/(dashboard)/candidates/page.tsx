@@ -234,25 +234,26 @@ export default function CandidatesPage() {
   };
 
   const uniqueJobs = useMemo(() => {
-    const jobs = new Set(candidates.map(c => c.personalInfo.job).filter(Boolean));
+    const jobs = new Set(candidates.map(c => c.personalInfo?.job).filter(Boolean));
     return Array.from(jobs).map(j => ({ value: j as string, label: j as string }));
   }, [candidates]);
 
   // Filter and sort
   const filtered = useMemo(() => {
-    let result = candidates.filter((c) => {
-      const name = `${c.passportData.givenNames} ${c.passportData.surname}`.toLowerCase();
-      const passport = c.passportData.passportNumber.toLowerCase();
+    const safeArr = Array.isArray(candidates) ? candidates : [];
+    let result = safeArr.filter((c) => {
+      const name = `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''}`.toLowerCase();
+      const passport = (c.passportData?.passportNumber ?? '').toLowerCase();
       const shelfId = (c.shelfId || '').toLowerCase();
       const query = searchQuery.toLowerCase();
       const matchesSearch = name.includes(query) || passport.includes(query) || shelfId.includes(query);
       const matchesStatus = statusFilter ? c.status === statusFilter : true;
       let matchesDate = true;
-      if (customDate) matchesDate = c.registeredAt.split('T')[0] === customDate;
+      if (customDate) matchesDate = (c.registeredAt || '').split('T')[0] === customDate;
 
-      const matchesJob = jobFilter ? c.personalInfo.job === jobFilter : true;
-      const matchesGender = genderFilter ? c.passportData.gender?.toLowerCase() === genderFilter.toLowerCase() : true;
-      const matchesReligion = religionFilter ? c.personalInfo.religion?.toLowerCase() === religionFilter.toLowerCase() : true;
+      const matchesJob = jobFilter ? c.personalInfo?.job === jobFilter : true;
+      const matchesGender = genderFilter ? c.passportData?.gender?.toLowerCase() === genderFilter.toLowerCase() : true;
+      const matchesReligion = religionFilter ? c.personalInfo?.religion?.toLowerCase() === religionFilter.toLowerCase() : true;
       const matchesAgency = agencyFilter === 'all' ? true : (c.agency?.toLowerCase() === agencyFilter.toLowerCase());
       const matchesCalling = callingFilter ? c.broker?.name === 'Calling' : true;
 
@@ -315,7 +316,7 @@ export default function CandidatesPage() {
             { key: 'all', label: 'All Agencies', color: 'border-gray-200 text-gray-700 hover:bg-gray-50', activeColor: 'bg-gray-900 border-gray-900 text-white' },
           ].map((btn) => {
             const isActive = agencyFilter === btn.key;
-            const count = candidates.filter(c => btn.key === 'all' ? true : c.agency?.toLowerCase() === btn.key).length;
+            const count = (Array.isArray(candidates) ? candidates : []).filter(c => btn.key === 'all' ? true : c.agency?.toLowerCase() === btn.key).length;
             return (
               <button
                 key={btn.key}
@@ -353,7 +354,7 @@ export default function CandidatesPage() {
             "inline-flex items-center justify-center min-w-5 h-5 px-1 text-[10px] font-black rounded-full",
             callingFilter ? "bg-white/20 text-white" : "bg-primary-50 text-primary border border-primary-100"
           )}>
-            {candidates.filter(c => c.broker?.name === 'Calling').length}
+            {(Array.isArray(candidates) ? candidates : []).filter(c => c.broker?.name === 'Calling').length}
           </span>
         </button>
       </div>
