@@ -25,9 +25,10 @@ export default function MazayaTemplate({ candidate, facePhoto, fullBodyPhoto }: 
   const fullName = getFullName(candidate);
   const age = calculateAge(candidate.passportData?.dateOfBirth);
   const { expPeriod, expCountry } = getExperienceSummary(candidate);
-  const phone =
-    candidate.personalInfo?.phone +
-    (candidate.personalInfo?.emergencyContactPhone ? ` | ${candidate.personalInfo.emergencyContactPhone}` : '');
+  const phone = [
+    candidate.personalInfo?.phone,
+    candidate.personalInfo?.emergencyContactPhone,
+  ].filter(Boolean).join(' | ');
 
   return (
     <div className="w-full max-w-[210mm] mx-auto bg-white text-black font-sans shadow-lg print:shadow-none" dir="ltr">

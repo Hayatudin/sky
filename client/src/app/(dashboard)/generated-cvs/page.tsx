@@ -396,17 +396,20 @@ function GeneratedCVsContent() {
   const fetchCVs = async () => {
     try {
       setIsLoading(true);
-      const res = await api('/api/generated-cvs', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed');
+      const res = await api('/api/generated-cvs', { cache: 'no-store' } as any);
       const data = await res.json();
-      setCvs(data.filter((c: any) => 
+      // Guard: ensure data is an array before calling .filter()
+      const list = Array.isArray(data) ? data : [];
+      setCvs(list.filter((c: any) => 
+        c.candidate &&
         !c.candidate.isRequested && 
         c.candidate.personalInfo?.medicalStatus !== 'Unfit' && 
         c.candidate.medicalStatus !== 'Unfit' && 
         !c.candidate.visaSelected
       ));
-      setSelectedCVIds(new Set()); // clear selection on refresh
-    } catch {
+      setSelectedCVIds(new Set());
+    } catch (err: any) {
+      console.error('[GeneratedCVs] fetchCVs error:', err?.message || err);
       showToast('Failed to load CVs', 'error');
     } finally {
       setIsLoading(false);

@@ -290,12 +290,9 @@ export default function TemplateGrid({ templates, selectedId, onSelect }: Templa
 
                 {/* Selected checkmark */}
                 {isSelected && (
-                  <div className={cn(
-                    'absolute top-2 right-2 w-[18px] h-[18px] rounded-full flex items-center justify-center shadow-md z-10',
-                    accent.ring.replace('border-', 'bg-').replace('border-[', 'bg-['),
-                    // fallback
-                    'bg-blue-600'
-                  )}>
+                  <div className="absolute top-2 right-2 w-[18px] h-[18px] rounded-full flex items-center justify-center shadow-md z-10"
+                    style={{ background: accent.ring.replace('border-[', '').replace(']', '').replace('border-', '') }}
+                  >
                     <Check size={9} className="text-white" strokeWidth={3.5} />
                   </div>
                 )}
