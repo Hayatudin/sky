@@ -1602,9 +1602,9 @@ function GeneratedCVsContent() {
                         {sampleCv && (
                           <div className="origin-top-left scale-[0.22] w-[800px] absolute top-0 left-0 pointer-events-none">
                             <TC
-                              candidate={sampleCv.candidate}
-                              facePhoto={getFileUrl(sampleCv.facePhotoUrl || sampleCv.candidate.facePhotoUrl)}
-                              fullBodyPhoto={getFileUrl(sampleCv.fullBodyPhotoUrl || sampleCv.candidate.fullBodyPhotoUrl)}
+                              candidate={sampleCv.candidate ? makeSafeCandidate(sampleCv.candidate) : sampleCv.candidate}
+                              facePhoto={getFileUrl(sampleCv.facePhotoUrl || sampleCv.candidate?.facePhotoUrl)}
+                              fullBodyPhoto={getFileUrl(sampleCv.fullBodyPhotoUrl || sampleCv.candidate?.fullBodyPhotoUrl)}
                             />
                           </div>
                         )}

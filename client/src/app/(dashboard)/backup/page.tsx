@@ -1055,8 +1055,6 @@ export default function BackupPage() {
                   />
                 )}
               </div>
-                />
-              </div>
             </div>
           );
         })()}

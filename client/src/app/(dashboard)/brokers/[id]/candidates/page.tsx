@@ -1733,8 +1733,6 @@ export default function BrokerCandidatesPage() {
                   />
                 )}
               </div>
-                />
-              </div>
             </div>
           </div>
         );
@@ -1753,8 +1751,6 @@ export default function BrokerCandidatesPage() {
                   fullBodyPhoto={getFileUrl(downloadingCv.fullBodyPhotoUrl || downloadingCv.candidate?.fullBodyPhotoUrl)}
                 />
               )}
-            </div>
-              />
             </div>
           </div>
         );

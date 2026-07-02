@@ -1153,8 +1153,6 @@ export default function FitCandidatesPage() {
                 />
               )}
             </div>
-              />
-            </div>
           </div>
         );
       })()}
@@ -1205,8 +1203,6 @@ export default function FitCandidatesPage() {
                     fullBodyPhoto={getFileUrl(previewCv.fullBodyPhotoUrl || previewCv.candidate?.fullBodyPhotoUrl)}
                   />
                 )}
-              </div>
-                />
               </div>
             </div>
           </div>
