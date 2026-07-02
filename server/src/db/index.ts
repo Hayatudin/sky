@@ -6,28 +6,43 @@ import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// DATABASE_URL from .env — password @ is percent-encoded as %40 in the URL
-let dbUrl = process.env.DATABASE_URL || 'mysql://skyforoo_un:%40Sky132435@127.0.0.1:3306/skyforoo_db';
+let dbUrl = process.env.DATABASE_URL || '';
 
-// FAIL-SAFE: When running on cPanel production, always use the local TCP connection
-// to avoid firewall blocks on remote cloud database ports.
+if (!dbUrl) {
+  console.error('❌ DATABASE_URL is not set in .env');
+}
+
+// cPanel production auto-detect: switch to local MySQL when running on the server
 const isCPanel =
   process.env.HOME?.includes('skyforoo') ||
   process.env.USER === 'skyforoo' ||
-  process.env.PWD?.includes('skyforoo') ||
-  process.env.BETTER_AUTH_URL?.includes('skyforoo') ||
-  // fallback: any URL that isn't localhost means we're remote, switch to local
-  (!!process.env.BETTER_AUTH_URL && !process.env.BETTER_AUTH_URL.includes('localhost'));
+  process.env.PWD?.includes('skyforoo');
 
-if (isCPanel && (dbUrl.includes('aivencloud.com') || dbUrl.includes('mysql.sock'))) {
-  console.log('🤖 Drizzle: cPanel detected — switching to local MySQL connection...');
+if (isCPanel && !dbUrl.includes('127.0.0.1') && !dbUrl.includes('localhost')) {
+  console.log('🤖 cPanel detected — switching to local MySQL (127.0.0.1)');
   dbUrl = 'mysql://skyforoo_un:%40Sky132435@127.0.0.1:3306/skyforoo_db';
 }
 
+// Strip ?ssl-mode=REQUIRED from URL — mysql2 doesn't support this query param.
+// SSL is handled via pool options below.
+const cleanUrl = dbUrl.replace(/[?&]ssl-mode=[^&]*/i, '').replace(/\?$/, '');
+
+// Only enable SSL for Aiven cloud — cPanel localhost does not need SSL
+const needsSsl = dbUrl.includes('aivencloud.com');
+
+console.log('🔌 DB target:', cleanUrl.replace(/:([^:@]{3})[^:@]*@/, ':***@'), needsSsl ? '[SSL]' : '[no SSL]');
+
 const poolConnection = mysql.createPool({
-  uri: dbUrl,
-  connectionLimit: 10,
+  uri: cleanUrl,
+  connectionLimit: 5,
   connectTimeout: 10000,
+  ...(needsSsl && {
+    ssl: {
+      // Aiven uses its own CA — set rejectUnauthorized to false for compatibility
+      // This still encrypts the connection, just doesn't verify the CA chain
+      rejectUnauthorized: false,
+    },
+  }),
 });
 
 export const db = drizzle(poolConnection, { schema, mode: 'default' });

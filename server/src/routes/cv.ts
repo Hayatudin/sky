@@ -10,7 +10,8 @@ const ImageModule = require('docxtemplater-image-module-free');
 import JSZip from 'jszip';
 import crypto from 'crypto';
 import QRCode from 'qrcode';
-import { chromium } from 'playwright';
+// playwright is NOT imported at the top — it is loaded lazily only when PDF/image
+// format is requested, so the server starts even without playwright installed.
 
 const router = Router();
 
@@ -126,9 +127,15 @@ router.post('/generate', async (req: Request, res: Response) => {
       return res.status(400).json({ error: `Invalid template ID: ${templateId}` });
     }
 
-    // PDF / Image formatting (Playwright logic remains intact)
+    // PDF / Image formatting (lazy playwright load — not available on cPanel)
     if (format === 'pdf' || format === 'image' || format === 'jpg') {
-      const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+      let playwrightChromium: any;
+      try {
+        playwrightChromium = require('playwright').chromium;
+      } catch {
+        return res.status(501).json({ error: 'PDF/image generation is not available on this server (playwright not installed). Use DOCX format instead.' });
+      }
+      const browser = await playwrightChromium.launch({ headless: true, args: ['--no-sandbox'] });
       try {
         const page = await browser.newPage();
         const clientTemplateRoute = (templateRef === 'CV Al-shablan.docx' ? 'al-shablan' : (templateRef === 'CV Ussus.docx' ? 'ussus' : templateRef));
@@ -662,7 +669,15 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
           }
         } else if (format === 'pdf' || format === 'jpg' || format === 'image') {
           const BATCH_SIZE = 10;
-          const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+          let bulkChromium: any;
+          try {
+            bulkChromium = require('playwright').chromium;
+          } catch {
+            bulkJobs[jobId].status = 'failed';
+            bulkJobs[jobId].error = 'PDF/image generation not available on this server. Use DOCX format.';
+            return;
+          }
+          const browser = await bulkChromium.launch({ headless: true, args: ['--no-sandbox'] });
           const errors: string[] = [];
 
           try {

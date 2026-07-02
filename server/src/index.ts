@@ -20,8 +20,8 @@ app.use(
 );
 
 // CORS Whitelist configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? ['http://localhost:3000', 'http://localhost:4000', ...process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)]
   : ['http://localhost:3000', 'http://localhost:4000'];
 
 app.use(cors({

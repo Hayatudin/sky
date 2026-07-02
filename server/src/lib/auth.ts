@@ -30,9 +30,11 @@ export const auth = betterAuth({
 
   trustedOrigins: [
     'http://localhost:3000',
-    // Production — add your actual Vercel URL and custom domain here
-    process.env.CLIENT_URL || 'http://localhost:3000',
-  ].filter(Boolean) as string[],
+    // Dynamically loaded from TRUSTED_ORIGINS env var (comma-separated)
+    ...(process.env.TRUSTED_ORIGINS
+      ? process.env.TRUSTED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+      : []),
+  ],
 
   advanced: {
     basePath: '/api/auth',

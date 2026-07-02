@@ -36,31 +36,43 @@ function LoginForm() {
     setError('');
     setIsLoading(true);
 
+    // Wraps any promise with a timeout so DB hangs don't freeze the UI forever
+    function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+      return Promise.race([
+        promise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT')), ms)
+        ),
+      ]);
+    }
+
     try {
       if (mode === 'signup') {
-        // ── Sign Up flow ──────────────────────────────────────────────────────
         if (!name.trim()) { setError('Please enter your name.'); setIsLoading(false); return; }
 
-        const { data, error: signUpError } = await signUp.email({ email, password, name: name.trim() });
+        const { data, error: signUpError } = await withTimeout(
+          signUp.email({ email, password, name: name.trim() }),
+          10000
+        );
 
-        if (!signUpError && data) {
-          router.push('/');
-          return;
-        }
+        if (!signUpError && data) { router.push('/'); return; }
 
         const msg = (signUpError as any)?.message || (signUpError as any)?.error || '';
         if (msg.toLowerCase().includes('already exists')) {
           setError('An account with this email already exists. Please sign in.');
         } else if (!msg) {
-          setError('Cannot connect to server. Please make sure the backend is running.');
+          setError('Database unreachable — server is running but Aiven MySQL is not responding. Check DATABASE_URL in server/.env and restart the server.');
         } else {
           setError(msg);
         }
         return;
       }
 
-      // ── Sign In flow ────────────────────────────────────────────────────────
-      const { data: signInData, error: signInError } = await signIn.email({ email, password });
+      // ── Sign In ──────────────────────────────────────────────────────────
+      const { data: signInData, error: signInError } = await withTimeout(
+        signIn.email({ email, password }),
+        10000
+      );
 
       if (!signInError && signInData) {
         const role = (signInData.user as any)?.role;
@@ -77,7 +89,8 @@ function LoginForm() {
       const signInMsg = (signInError as any)?.message || (signInError as any)?.error || '';
 
       if (!signInMsg) {
-        setError('Cannot connect to server. Please make sure the backend is running on port 4000.');
+        // Empty error = server responded but DB failed internally
+        setError('Database unreachable — server is up but cannot connect to Aiven MySQL. Check that DATABASE_URL is correct in server/.env and restart the server.');
       } else if (
         signInMsg.toLowerCase().includes('invalid') ||
         signInMsg.toLowerCase().includes('password') ||
@@ -89,11 +102,15 @@ function LoginForm() {
       }
 
     } catch (err: any) {
-      if (err?.message === 'Failed to fetch' || err?.cause?.code === 'ECONNREFUSED') {
-        setError('Cannot reach the server. Is the backend running on port 4000?');
+      const msg: string = err?.message || '';
+      if (msg === 'TIMEOUT') {
+        setError('Request timed out — server is running but Aiven database is not responding. Check DATABASE_URL in server/.env and restart the server.');
+      } else if (msg === 'Failed to fetch' || msg.includes('ECONNREFUSED')) {
+        setError('Cannot reach the server at http://localhost:4000 — make sure the backend is running (cd server && npm run dev).');
       } else {
-        setError(err.message || 'An unexpected error occurred.');
+        setError(msg || 'An unexpected error occurred.');
       }
+      console.error('Auth error:', err);
     } finally {
       setIsLoading(false);
     }

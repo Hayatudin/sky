@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { broker, leader, candidate, quickRegistration, generatedCV } from '../db/schema';
-import { eq, inArray, and, gte, lte, or, like } from 'drizzle-orm';
+import { eq, inArray, and, gte, lte, or, like, sql } from 'drizzle-orm';
 import { getSession } from '../lib/auth-helper';
 
 const router = Router();
@@ -45,68 +45,61 @@ async function setBrokerIsLocked(id: string, locked: boolean): Promise<void> {
 // GET /api/brokers
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const brokersList = await db.query.broker.findMany({
-      with: {
-        candidates: {
-          columns: {
-            id: true,
-            givenNames: true,
-            surname: true,
-            passportNumber: true,
-            facePhotoUrl: true,
-            fullBodyPhotoUrl: true,
-          },
-          with: {
-            generatedCVs: {
-              columns: {
-                id: true,
-                templateId: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: (b, { asc }) => [asc(b.name)]
-    });
-
-    // Fetch all leaders
+    // MySQL 5.7 compatible — no lateral joins, manual lookups
+    const brokersList = await db.select().from(broker).orderBy(broker.name);
     const leadersList = await db.select({ id: leader.id, name: leader.name }).from(leader);
-    const leaderMap = new Map<string, { id: string; name: string }>();
-    leadersList.forEach(l => leaderMap.set(l.id, l));
-
+    const leaderMap = new Map(leadersList.map(l => [l.id, l]));
     const lockMap = await getBrokerLockMap();
-    const augmented = brokersList.map((b: any) => {
-      const lead = b.leaderId ? leaderMap.get(b.leaderId) : null;
-      return {
-        id: b.id,
-        name: b.name,
-        leaderId: b.leaderId,
-        isLocked: lockMap[b.id] ?? b.isLocked ?? false,
-        createdAt: typeof b.createdAt === 'string' ? b.createdAt : b.createdAt.toISOString(),
-        candidates: b.candidates.map((c: any) => ({
-          id: c.id,
-          givenNames: c.givenNames,
-          surname: c.surname,
-          passportNumber: c.passportNumber,
-          facePhotoUrl: c.facePhotoUrl,
-          fullBodyPhotoUrl: c.fullBodyPhotoUrl,
-          generatedCVs: c.generatedCVs
-        })),
-        leader: lead,
-        _count: {
-          candidates: b.candidates?.length || 0
-        }
-      };
-    });
+
+    // Batch fetch all candidates
+    const allCandidates = await db.select({
+      id: candidate.id,
+      givenNames: candidate.givenNames,
+      surname: candidate.surname,
+      passportNumber: candidate.passportNumber,
+      facePhotoUrl: candidate.facePhotoUrl,
+      fullBodyPhotoUrl: candidate.fullBodyPhotoUrl,
+      brokerId: candidate.brokerId,
+    }).from(candidate);
+
+    // Batch fetch all generatedCVs
+    const allGeneratedCVs = await db.select({
+      id: generatedCV.id,
+      templateId: generatedCV.templateId,
+      candidateId: generatedCV.candidateId,
+    }).from(generatedCV);
+
+    const cvsByCandidateId = new Map<string, any[]>();
+    for (const cv of allGeneratedCVs) {
+      if (!cvsByCandidateId.has(cv.candidateId)) cvsByCandidateId.set(cv.candidateId, []);
+      cvsByCandidateId.get(cv.candidateId)!.push(cv);
+    }
+
+    const candidatesByBrokerId = new Map<string, any[]>();
+    for (const c of allCandidates) {
+      const bid = c.brokerId || '__none__';
+      if (!candidatesByBrokerId.has(bid)) candidatesByBrokerId.set(bid, []);
+      candidatesByBrokerId.get(bid)!.push({
+        ...c,
+        generatedCVs: cvsByCandidateId.get(c.id) || [],
+      });
+    }
+
+    const augmented = brokersList.map((b: any) => ({
+      id: b.id,
+      name: b.name,
+      leaderId: b.leaderId,
+      isLocked: lockMap[b.id] ?? b.isLocked ?? false,
+      createdAt: typeof b.createdAt === 'string' ? b.createdAt : b.createdAt.toISOString(),
+      candidates: candidatesByBrokerId.get(b.id) || [],
+      leader: b.leaderId ? (leaderMap.get(b.leaderId) || null) : null,
+      _count: { candidates: (candidatesByBrokerId.get(b.id) || []).length },
+    }));
 
     res.json(augmented);
   } catch (error: any) {
     console.error('Error fetching brokers:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch brokers',
-      message: error?.message || String(error),
-      code: error?.code,
-    });
+    res.status(500).json({ error: 'Failed to fetch brokers', message: error?.message || String(error) });
   }
 });
 
@@ -252,21 +245,21 @@ router.get('/:id/candidates', async (req: Request, res: Response) => {
 
     if (!brokerRecord) return res.status(404).json({ error: 'Broker not found' });
 
-    const candidatesList = await db.query.candidate.findMany({
-      where: and(...conditions),
-      orderBy: (c, { desc }) => [desc(c.registeredAt)],
-      with: {
-        generatedCVs: {
-          columns: {
-            id: true,
-            templateId: true,
-            facePhotoUrl: true,
-            fullBodyPhotoUrl: true,
-            createdAt: true
-          }
-        }
-      }
-    });
+    const candidatesList = await db.select().from(candidate)
+      .where(and(...conditions))
+      .orderBy(sql`${candidate.registeredAt} DESC`);
+
+    // Batch fetch generatedCVs for these candidates
+    const candidateIds = candidatesList.map(c => c.id);
+    const cvsList = candidateIds.length > 0
+      ? await db.select({ id: generatedCV.id, templateId: generatedCV.templateId, facePhotoUrl: generatedCV.facePhotoUrl, fullBodyPhotoUrl: generatedCV.fullBodyPhotoUrl, createdAt: generatedCV.createdAt, candidateId: generatedCV.candidateId })
+          .from(generatedCV).where(inArray(generatedCV.candidateId, candidateIds))
+      : [];
+    const cvsMap = new Map<string, any[]>();
+    for (const cv of cvsList) {
+      if (!cvsMap.has(cv.candidateId)) cvsMap.set(cv.candidateId, []);
+      cvsMap.get(cv.candidateId)!.push(cv);
+    }
 
     // Resolve lock status
     const isLocked = await getBrokerIsLocked(id);
@@ -282,6 +275,7 @@ router.get('/:id/candidates', async (req: Request, res: Response) => {
       candidates: candidatesList.map((c: any) => ({
         ...c,
         price: isSuperAdmin ? (c.price ?? null) : null,
+        generatedCVs: cvsMap.get(c.id) || [],
       })),
     };
 
@@ -497,35 +491,36 @@ router.post('/:id/change-template', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Template ID is required' });
     }
 
-    // Verify broker exists
-    const brokerRecord = await db.query.broker.findFirst({
-      where: eq(broker.id, id),
-      with: {
-        candidates: {
-          with: {
-            generatedCVs: true
-          }
-        }
-      }
-    });
-
+    // Verify broker exists — MySQL 5.7 compatible (no lateral joins)
+    const [brokerRecord] = await db.select().from(broker).where(eq(broker.id, id)).limit(1);
     if (!brokerRecord) {
       return res.status(404).json({ error: 'Broker not found' });
     }
 
+    const brokerCandidates = await db.select({
+      id: candidate.id,
+      facePhotoUrl: candidate.facePhotoUrl,
+      fullBodyPhotoUrl: candidate.fullBodyPhotoUrl,
+    }).from(candidate).where(eq(candidate.brokerId, id));
+
+    const candidateIdsList = brokerCandidates.map(c => c.id);
+    const existingCVs = candidateIdsList.length > 0
+      ? await db.select({ id: generatedCV.id, candidateId: generatedCV.candidateId })
+          .from(generatedCV).where(inArray(generatedCV.candidateId, candidateIdsList))
+      : [];
+    const existingCVMap = new Map(existingCVs.map(cv => [cv.candidateId, cv.id]));
+
     let updatedCount = 0;
-    for (const cand of brokerRecord.candidates) {
-      const existingCv = cand.generatedCVs?.[0];
-      if (existingCv) {
-        await db.update(generatedCV)
-          .set({ templateId })
-          .where(eq(generatedCV.id, existingCv.id));
+    for (const cand of brokerCandidates) {
+      const existingCvId = existingCVMap.get(cand.id);
+      if (existingCvId) {
+        await db.update(generatedCV).set({ templateId }).where(eq(generatedCV.id, existingCvId));
       } else {
         await db.insert(generatedCV).values({
           candidateId: cand.id,
           templateId,
           facePhotoUrl: cand.facePhotoUrl,
-          fullBodyPhotoUrl: cand.fullBodyPhotoUrl
+          fullBodyPhotoUrl: cand.fullBodyPhotoUrl,
         });
       }
       updatedCount++;

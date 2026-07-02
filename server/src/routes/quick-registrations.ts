@@ -1,11 +1,65 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { quickRegistration, candidate, user, passport } from '../db/schema';
-import { eq, or, sql } from 'drizzle-orm';
+import { quickRegistration, candidate, user, broker, passport } from '../db/schema';
+import { eq, or, sql, inArray } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
 import { createId } from '@paralleldrive/cuid2';
 import { getNextShelfNo } from './passports';
+
+// ── Helper: fetch quickRegistration without lateral joins (MySQL 5.7 compatible) ──
+async function fetchQR(id: string) {
+  const [reg] = await db.select().from(quickRegistration).where(eq(quickRegistration.id, id)).limit(1);
+  if (!reg) return null;
+  return await enrichQR(reg);
+}
+
+async function enrichQR(reg: any) {
+  let brokerData: any = null;
+  let registeredByName = 'Walk-in';
+
+  if (reg.brokerId) {
+    const [b] = await db.select({ id: broker.id, name: broker.name })
+      .from(broker).where(eq(broker.id, reg.brokerId)).limit(1);
+    if (b) brokerData = b;
+  }
+
+  if (reg.registeredById) {
+    const [u] = await db.select({ name: user.name })
+      .from(user).where(eq(user.id, reg.registeredById)).limit(1);
+    if (u) registeredByName = u.name;
+  }
+
+  return { ...reg, broker: brokerData, registeredBy: registeredByName };
+}
+
+async function enrichQRMany(regs: any[]) {
+  if (regs.length === 0) return [];
+
+  // Batch fetch brokers
+  const brokerIds = [...new Set(regs.map(r => r.brokerId).filter(Boolean))];
+  const brokerMap = new Map<string, { id: string; name: string }>();
+  if (brokerIds.length > 0) {
+    const brokers = await db.select({ id: broker.id, name: broker.name })
+      .from(broker).where(inArray(broker.id, brokerIds));
+    brokers.forEach(b => brokerMap.set(b.id, b));
+  }
+
+  // Batch fetch users
+  const userIds = [...new Set(regs.map(r => r.registeredById).filter(Boolean))];
+  const userMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const users = await db.select({ id: user.id, name: user.name })
+      .from(user).where(inArray(user.id, userIds));
+    users.forEach(u => userMap.set(u.id, u.name));
+  }
+
+  return regs.map(reg => ({
+    ...reg,
+    broker: reg.brokerId ? (brokerMap.get(reg.brokerId) || null) : null,
+    registeredBy: reg.registeredById ? (userMap.get(reg.registeredById) || 'Walk-in') : 'Walk-in',
+  }));
+}
 
 async function syncPassportFromQuickReg(tx: any, qr: {
   passportNumber: string;
@@ -75,33 +129,9 @@ router.get('/generate-client', (req: Request, res: Response) => {
 // GET /api/quick-registrations
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const registrations = await db.query.quickRegistration.findMany({
-      orderBy: (qr, { desc }) => [desc(qr.createdAt)],
-      with: {
-        broker: { columns: { id: true, name: true } },
-        registeredBy: { columns: { name: true } },
-      },
-    });
-
-    // Build a map of user names as a fail-safe fallback
-    const userMap = new Map<string, string>();
-    try {
-      const usersList = await db.select({ id: user.id, name: user.name }).from(user);
-      usersList.forEach(u => userMap.set(u.id, u.name));
-    } catch (e) {
-      console.warn('[QUICK-REG] Failed to fetch users for lookup map:', e);
-    }
-
-    const mapped = registrations.map((reg: any) => {
-      // Resolve operator name from userMap first, then relation, falling back to 'Walk-in'
-      const matchedUserId = reg.registeredById;
-      const registrarName = (matchedUserId ? userMap.get(matchedUserId) : null) || reg.registeredBy?.name || 'Walk-in';
-      return {
-        ...reg,
-        registeredBy: registrarName
-      };
-    });
-
+    const regs = await db.select().from(quickRegistration)
+      .orderBy(sql`${quickRegistration.createdAt} DESC`);
+    const mapped = await enrichQRMany(regs);
     res.json(mapped);
   } catch (error) {
     console.error('Failed to fetch quick registrations:', error);
@@ -201,19 +231,14 @@ router.post('/', async (req: Request, res: Response) => {
         registeredById
       });
 
-      const txReg = await tx.query.quickRegistration.findFirst({
-        where: eq(quickRegistration.id, generatedId),
-        with: {
-          broker: { columns: { id: true, name: true } },
-          registeredBy: { columns: { name: true } },
-        }
-      });
+      const txReg = await tx.select().from(quickRegistration)
+        .where(eq(quickRegistration.id, generatedId)).limit(1);
 
-      if (!txReg) {
+      if (!txReg[0]) {
         throw new Error('Failed to retrieve quick registration after insert inside transaction');
       }
 
-      registration = txReg;
+      registration = txReg[0];
 
       // Sync to Available Passport table
       await syncPassportFromQuickReg(tx, {
@@ -225,12 +250,8 @@ router.post('/', async (req: Request, res: Response) => {
       });
     });
 
-    const registrarName = registration?.registeredBy?.name || 'Walk-in';
-
-    res.status(201).json({
-      ...registration,
-      registeredBy: registrarName
-    });
+    const enriched = await enrichQR(registration);
+    res.status(201).json(enriched);
   } catch (error: any) {
     console.error('Error creating quick registration:', error);
     res.status(500).json({ error: error.message || String(error) });
@@ -302,26 +323,23 @@ router.put('/:id', async (req: Request, res: Response) => {
         .set(updateData)
         .where(eq(quickRegistration.id, id));
 
-      const txUpdated = await tx.query.quickRegistration.findFirst({
-        where: eq(quickRegistration.id, id),
-        with: {
-          broker: { columns: { id: true, name: true } },
-        },
-      });
+      const txUpdated = await tx.select().from(quickRegistration)
+        .where(eq(quickRegistration.id, id)).limit(1);
 
-      if (txUpdated) {
+      if (txUpdated[0]) {
         await syncPassportFromQuickReg(tx, {
-          passportNumber: txUpdated.passportNumber,
-          givenNames: txUpdated.givenNames,
-          surname: txUpdated.surname,
-          passportImageUrl: txUpdated.passportImageUrl,
-          passportType: txUpdated.passportType,
+          passportNumber: txUpdated[0].passportNumber,
+          givenNames: txUpdated[0].givenNames,
+          surname: txUpdated[0].surname,
+          passportImageUrl: txUpdated[0].passportImageUrl,
+          passportType: txUpdated[0].passportType,
         });
-        updated = txUpdated;
+        updated = txUpdated[0];
       }
     });
 
-    res.json(updated);
+    const enrichedUpdated = updated ? await enrichQR(updated) : null;
+    res.json(enrichedUpdated);
   } catch (error: any) {
     console.error('Error updating quick registration:', error);
     res.status(500).json({ error: error.message || String(error) });
@@ -334,20 +352,12 @@ router.get('/by-passport/:passportNumber', async (req: Request, res: Response) =
     const { passportNumber } = req.params;
     const passportUpper = passportNumber.trim().toUpperCase();
 
-    const registration = await db.query.quickRegistration.findFirst({
-      where: (qr, { eq }) => eq(sql`upper(${qr.passportNumber})`, passportUpper),
-      with: {
-        broker: { columns: { id: true, name: true } },
-        registeredBy: { columns: { name: true } },
-      },
-    });
+    const [reg] = await db.select().from(quickRegistration)
+      .where(eq(sql`upper(${quickRegistration.passportNumber})`, passportUpper)).limit(1);
 
-    if (!registration) return res.status(404).json({ error: 'Not found' });
+    if (!reg) return res.status(404).json({ error: 'Not found' });
 
-    res.json({
-      ...registration,
-      registeredBy: registration.registeredBy?.name || 'Walk-in'
-    });
+    res.json(await enrichQR(reg));
   } catch (error) {
     console.error('Failed to fetch quick registration by passport:', error);
     res.status(500).json({ error: 'Failed to fetch quick registration by passport' });
@@ -358,21 +368,9 @@ router.get('/by-passport/:passportNumber', async (req: Request, res: Response) =
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    const registration = await db.query.quickRegistration.findFirst({
-      where: eq(quickRegistration.id, id),
-      with: {
-        broker: { columns: { id: true, name: true } },
-        registeredBy: { columns: { name: true } },
-      },
-    });
-
-    if (!registration) return res.status(404).json({ error: 'Not found' });
-
-    res.json({
-      ...registration,
-      registeredBy: registration.registeredBy?.name || 'Walk-in'
-    });
+    const reg = await fetchQR(id);
+    if (!reg) return res.status(404).json({ error: 'Not found' });
+    res.json(reg);
   } catch (error) {
     console.error('Failed to fetch quick registration:', error);
     res.status(500).json({ error: 'Failed to fetch quick registration' });
