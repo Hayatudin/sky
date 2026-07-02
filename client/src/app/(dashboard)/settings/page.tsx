@@ -80,7 +80,7 @@ export default function SettingsPage() {
     }
   }, [activeTab]);
 
-  const filteredAndSortedAnalytics = analyticsData
+  const filteredAndSortedAnalytics = (Array.isArray(analyticsData) ? analyticsData : [])
     .filter(user => 
       (user.name || '').toLowerCase().includes(analyticsSearch.toLowerCase()) ||
       (user.email || '').toLowerCase().includes(analyticsSearch.toLowerCase())

@@ -580,7 +580,7 @@ export default function AvailableCandidatesPage() {
       const res = await api(url);
       if (!res.ok) throw new Error('Failed to fetch candidates');
       const data = await res.json();
-      setCandidates(data);
+      setCandidates(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Error occurred while loading candidates');

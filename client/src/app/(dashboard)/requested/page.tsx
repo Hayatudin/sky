@@ -282,7 +282,7 @@ export default function RequestedPage() {
     };
   }, []);
 
-  const candidates = allCandidates
+  const candidates = (Array.isArray(allCandidates) ? allCandidates : [])
     .filter(c => c.isRequested)
     .sort((a, b) => {
       const dateA = a.visaDate ? new Date(a.visaDate).getTime() : (a.registeredAt ? new Date(a.registeredAt).getTime() : 0);

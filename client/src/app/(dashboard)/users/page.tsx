@@ -222,7 +222,8 @@ export default function UsersPage() {
     try {
       const res = await api('/api/users');
       if (!res.ok) throw new Error();
-      setUsers(await res.json());
+      const json = await res.json();
+      setUsers(Array.isArray(json) ? json : []);
     } catch {
       showMsg('Failed to load users', 'error');
     } finally {
@@ -290,7 +291,7 @@ export default function UsersPage() {
     setOpenMenuId(null);
   };
 
-  const filtered = users.filter(u =>
+  const filtered = (Array.isArray(users) ? users : []).filter(u =>
     u.name.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase())
   );

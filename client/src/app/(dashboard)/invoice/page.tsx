@@ -108,7 +108,7 @@ export default function InvoicePage() {
     }
   };
 
-  const filtered = invoices.filter(inv => {
+  const filtered = (Array.isArray(invoices) ? invoices : []).filter(inv => {
     // 1. Filter by template
     if (selectedTemplateId !== 'all') {
       const cvs = inv.candidate?.generatedCVs || [];
