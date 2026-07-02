@@ -18,7 +18,7 @@ export default function CandidateSelector({ candidates, selectedId, onSelect }: 
   const selected = candidates.find(c => c.id === selectedId);
 
   const filtered = candidates.filter(c =>
-    `${c.passportData.givenNames} ${c.passportData.surname} ${c.passportData.passportNumber}`
+    `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''} ${c.passportData?.passportNumber ?? ''}`
       .toLowerCase().includes(search.toLowerCase())
   );
 
@@ -30,6 +30,19 @@ export default function CandidateSelector({ candidates, selectedId, onSelect }: 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Safe initial letter helper
+  const initials = (c: Candidate) => {
+    const first = c.passportData?.givenNames?.[0] ?? '?';
+    const last = c.passportData?.surname?.[0] ?? '?';
+    return `${first}${last}`;
+  };
+
+  const displayName = (c: Candidate) =>
+    `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''}`.trim() || 'Unknown';
+
+  const passportLine = (c: Candidate) =>
+    `${c.passportData?.passportNumber ?? ''} • ${c.passportData?.nationality ?? ''}`;
+
   return (
     <div ref={ref} className="relative">
       <label className="text-sm font-medium text-text-secondary block mb-1.5">Select Candidate</label>
@@ -39,11 +52,11 @@ export default function CandidateSelector({ candidates, selectedId, onSelect }: 
         {selected ? (
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold">
-              {selected.passportData.givenNames[0]}{selected.passportData.surname[0]}
+              {initials(selected)}
             </div>
             <div>
-              <p className="text-sm font-medium text-text-primary">{selected.passportData.givenNames} {selected.passportData.surname}</p>
-              <p className="text-xs text-text-tertiary">{selected.passportData.passportNumber} • {selected.passportData.nationality}</p>
+              <p className="text-sm font-medium text-text-primary">{displayName(selected)}</p>
+              <p className="text-xs text-text-tertiary">{passportLine(selected)}</p>
             </div>
           </div>
         ) : <span className="text-sm text-text-tertiary">Choose a registered candidate...</span>}
@@ -65,11 +78,11 @@ export default function CandidateSelector({ candidates, selectedId, onSelect }: 
                   selectedId === c.id && 'bg-primary-50')}>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-light to-accent flex items-center justify-center text-white text-xs font-bold">
-                    {c.passportData.givenNames[0]}{c.passportData.surname[0]}
+                    {initials(c)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-text-primary">{c.passportData.givenNames} {c.passportData.surname}</p>
-                    <p className="text-xs text-text-tertiary">{c.passportData.passportNumber}</p>
+                    <p className="text-sm font-medium text-text-primary">{displayName(c)}</p>
+                    <p className="text-xs text-text-tertiary">{c.passportData?.passportNumber ?? ''}</p>
                   </div>
                 </div>
                 {selectedId === c.id && <Check size={14} className="text-primary" />}
