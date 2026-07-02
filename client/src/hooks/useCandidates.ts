@@ -12,10 +12,15 @@ export function useCandidates() {
 
   const { data: candidates = [], isLoading, error, refetch } = useQuery<Candidate[]>({
     queryKey: ['candidates'],
-    queryFn: () => api('/api/candidates').then(async (res) => {
-      if (!res.ok) throw new Error('Failed to fetch candidates');
-      return res.json();
-    }),
+    queryFn: async () => {
+      try {
+        const res = await api('/api/candidates');
+        return res.json();
+      } catch (err: any) {
+        console.error('[useCandidates] Fetch failed:', err?.message || err);
+        throw err;
+      }
+    },
   });
 
   const mutate = (updater?: Candidate[] | ((prev: Candidate[]) => Candidate[])) => {
