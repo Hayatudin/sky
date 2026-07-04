@@ -49,7 +49,8 @@ async function fetchFreshToken(): Promise<string | null> {
     const sessionData = await getSession({
       fetchOptions: { cache: 'no-store' } as any,
     });
-    return (sessionData?.data as any)?.session?.token ?? null;
+    const s = sessionData as any;
+    return s?.data?.session?.token ?? s?.session?.token ?? null;
   } catch {
     return null;
   }

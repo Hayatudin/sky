@@ -242,7 +242,20 @@ function RegistrationContent() {
     const c = candidates.find((x: any) => x.id === editId);
     if (c) {
       setPassportData(c.passportData);
-      setPersonalInfo(c.personalInfo);
+      // Ensure JSON fields are always arrays when loading for edit
+      const pi = c.personalInfo || {};
+      const parseJsonArray = (v: any): any[] => {
+        if (Array.isArray(v)) return v;
+        if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+        return [];
+      };
+      setPersonalInfo({
+        ...pi,
+        additionalPhones: parseJsonArray(pi.additionalPhones),
+        languages:         parseJsonArray(pi.languages),
+        workExperience:    parseJsonArray(pi.workExperience),
+        skills:            parseJsonArray(pi.skills),
+      });
       setPassportImage(c.passportImageUrl || null);
       setFacePhoto(c.facePhotoUrl || null);
       setFullBodyPhoto(c.fullBodyPhotoUrl || null);

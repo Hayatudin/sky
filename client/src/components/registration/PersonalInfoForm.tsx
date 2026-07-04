@@ -68,7 +68,7 @@ export default function PersonalInfoForm({ data, onChange, passportData, onPassp
   };
 
   // Ensure there's at least one empty experience object to render the fields
-  const experiences = data.workExperience?.length > 0 ? data.workExperience : [{ experienceStatus: 'New', country: '', yearsOfExperience: '' }];
+  const experiences = Array.isArray(data.workExperience) && data.workExperience.length > 0 ? data.workExperience : [{ experienceStatus: 'New', country: '', yearsOfExperience: '' }];
 
   // Helper for capitalization
   const handleChangeUpper = (field: keyof CandidatePersonalInfo, value: string) => {
@@ -93,19 +93,26 @@ export default function PersonalInfoForm({ data, onChange, passportData, onPassp
   const selectedEducation = data.educationLevel ? data.educationLevel.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   // Multiple Phone Handlers
+  // Guard: additionalPhones may arrive as a JSON string from the API
+  const safeParseArray = (v: any): string[] => {
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+    return [];
+  };
+  const additionalPhonesList = safeParseArray(data.additionalPhones);
+
   const addPhone = () => {
-    const updated = [...(data.additionalPhones || []), ''];
-    onChange('additionalPhones', updated);
+    onChange('additionalPhones', [...additionalPhonesList, '']);
   };
 
   const updatePhone = (index: number, value: string) => {
-    const updated = [...(data.additionalPhones || [])];
+    const updated = [...additionalPhonesList];
     updated[index] = value;
     onChange('additionalPhones', updated);
   };
 
   const removePhone = (index: number) => {
-    const updated = [...(data.additionalPhones || [])];
+    const updated = [...additionalPhonesList];
     updated.splice(index, 1);
     onChange('additionalPhones', updated);
   };
@@ -187,10 +194,10 @@ export default function PersonalInfoForm({ data, onChange, passportData, onPassp
           {/* Row 3 */}
           <Select label="Job" required options={jobOptions.map(j => ({ value: j.toUpperCase(), label: j.toUpperCase() }))} value={data.job} onChange={v => onChange('job', v)} placeholder="Select job" />
           <MultiSelect label="Education level" options={educationLevels.map(e => ({ value: e.toUpperCase(), label: e.toUpperCase() }))} value={selectedEducation} onChange={handleEducationChange} placeholder="Select education" />
-          <MultiSelect label="Skills" options={skillOptions.map(s => ({ value: s.toUpperCase(), label: s.toUpperCase() }))} value={data.skills || []} onChange={v => onChange('skills', v)} placeholder="Select skills" />
+          <MultiSelect label="Skills" options={skillOptions.map(s => ({ value: s.toUpperCase(), label: s.toUpperCase() }))} value={Array.isArray(data.skills) ? data.skills : []} onChange={v => onChange('skills', v)} placeholder="Select skills" />
 
           {/* Row 4 */}
-          <MultiSelect label="Languages" options={languageOptions.map(l => ({ value: l.toUpperCase(), label: l.toUpperCase() }))} value={data.languages || []} onChange={v => onChange('languages', v)} placeholder="Select languages" searchable allowAddCustom customStorageKey="custom_languages" />
+          <MultiSelect label="Languages" options={languageOptions.map(l => ({ value: l.toUpperCase(), label: l.toUpperCase() }))} value={Array.isArray(data.languages) ? data.languages : []} onChange={v => onChange('languages', v)} placeholder="Select languages" searchable allowAddCustom customStorageKey="custom_languages" />
           <Input label="ID Number" value={data.idNumber || passportData.passportNumber} onChange={e => handleChangeUpper('idNumber', e.target.value)} required />
 
           {/* Main Mobile Number */}
@@ -198,7 +205,7 @@ export default function PersonalInfoForm({ data, onChange, passportData, onPassp
             <Input label="Mobile Number" type="tel" value={data.phone} onChange={e => onChange('phone', e.target.value)} placeholder="+251 9..." required />
 
             {/* Additional Mobile Numbers */}
-            {(data.additionalPhones || []).map((phone, idx) => (
+            {additionalPhonesList.map((phone, idx) => (
               <div key={idx} className="flex gap-2 animate-slide-in-right">
                 <div className="flex-1">
                   <Input

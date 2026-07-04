@@ -40,13 +40,18 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
     <div className="w-full max-w-[210mm] mx-auto bg-white text-black font-sans shadow-lg print:shadow-none" dir="ltr">
       <div className="p-[10mm] min-h-[297mm] box-border relative page-break-after-always">
         {/* Agency Header */}
-        <div className="text-center mb-2">
-          <h1 className="text-[15px] font-bold tracking-wide uppercase">{branding.agencyName}</h1>
-          <div className="border-t border-black mt-1 mb-1" />
-          <div className="flex justify-between text-[11px] font-bold italic px-1">
+        <div className="text-center mb-1">
+          <h1 className="text-[14px] font-bold tracking-wide uppercase">{branding.agencyName}</h1>
+          <div className="flex justify-between text-[16px] font-black px-1 mt-1">
             <span>EMAIL:-{branding.email}</span>
             <span>tel :{branding.tel}</span>
           </div>
+          <div className="border-t-[3.5px] border-[#800000] mt-1.5 mb-1" />
+        </div>
+
+        {/* Broker Name */}
+        <div className="text-left text-[14px] font-bold italic px-1 mb-1.5 uppercase">
+          {candidate.broker?.name || ''}
         </div>
 
         {/* Face + Application Table */}
@@ -131,34 +136,60 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
                 </tr>
               </thead>
               <tbody>
-                {[
-                  ['Nationality', candidate.passportData?.nationality, 'الجنسيه'],
-                  ['Passport No.', candidate.passportData?.passportNumber, 'رقم جواز السفر', true],
-                  ['Religion', candidate.personalInfo?.religion, 'الديانة'],
-                  ['Date of Birth', formatPassportDate(candidate.passportData?.dateOfBirth), 'تاريخ الولادة'],
-                  ['Place of Birth', candidate.passportData?.placeOfBirth, 'مكان الولادة'],
-                  [
-                    'Complete Address',
-                    candidate.personalInfo?.city || candidate.personalInfo?.address || '',
-                    'العنوان الكامل',
-                  ],
-                  ['Marital Status', candidate.personalInfo?.maritalStatus, 'الحاله الزوجية'],
-                  ['No. of Children', String(candidate.personalInfo?.numberOfChildren ?? ''), 'عدد الاطفال'],
-                  ['Height', candidate.personalInfo?.height ? `${candidate.personalInfo.height}CM` : '', 'ارتفاع'],
-                  ['Weight', candidate.personalInfo?.weight ? `${candidate.personalInfo.weight}KG` : '', 'وزن'],
-                ].map(([label, value, ar, bold]) => (
-                  <tr key={label as string}>
-                    <td className={`${cellBorder} px-2 py-1.5 ${labelClass} w-[30%]`}>{label}</td>
-                    <td
-                      className={`${cellBorder} px-2 py-1.5 text-center w-[45%] uppercase ${bold ? 'font-bold' : 'font-medium'}`}
-                    >
-                      {value}
-                    </td>
-                    <td className={`${cellBorder} px-2 py-1.5 text-right font-bold w-[25%]`} dir="rtl">
-                      {ar}
-                    </td>
-                  </tr>
-                ))}
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[30%]`}>Nationality</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-semibold w-[40%] uppercase`}>{candidate.passportData?.nationality}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[30%]`} dir="rtl">الجنسية</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Passport No.</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-bold uppercase`}>{candidate.passportData?.passportNumber}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">رقم جواز السفر</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Religion</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium uppercase`}>{candidate.personalInfo?.religion}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">الديانة</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Date of Birth</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>
+                    {formatPassportDate(candidate.passportData?.dateOfBirth)}
+                  </td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">تاريخ الولادة</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Place of Birth</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium uppercase`}>{candidate.passportData?.placeOfBirth}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">مكان الولادة</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Complete Address</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium uppercase`}>
+                    {[candidate.personalInfo?.address, candidate.personalInfo?.city].filter(Boolean).join(', ')}
+                  </td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">العنوان الكامل</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Marital Status</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium uppercase`}>{candidate.personalInfo?.maritalStatus}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">الحالة الزوجية</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>No. of Children</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>{candidate.personalInfo?.numberOfChildren}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">عدد الاطفال</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Height</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>{candidate.personalInfo?.height ? `${candidate.personalInfo.height}CM` : '—'}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">الارتفاع</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Weight</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>{candidate.personalInfo?.weight ? `${candidate.personalInfo.weight}KG` : '—'}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">الوزن</td>
+                </tr>
               </tbody>
             </table>
 
@@ -172,21 +203,25 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
               </thead>
               <tbody>
                 <tr>
-                  <td className={`${cellBorder} px-2 py-1.5 ${labelClass} w-[30%]`}>English</td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-center w-[45%]`}>{hasLang(candidate, 'ENGLISH')}</td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-right font-bold w-[25%]`} dir="rtl">الإنجليزيه</td>
-                </tr>
-                <tr>
-                  <td className={`${cellBorder} px-2 py-1.5 ${labelClass}`}>Arabic</td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-center`}>{hasLang(candidate, 'ARABIC')}</td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-right font-bold`} dir="rtl">العربيه</td>
-                </tr>
-                <tr>
-                  <td className={`${cellBorder} px-2 py-1.5 ${labelClass}`}>Education</td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-center uppercase text-[11px]`}>
-                    {candidate.personalInfo?.educationLevel}
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[30%]`}>English</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-bold w-[40%]`}>
+                    {hasLang(candidate, 'ENGLISH') ? 'YES' : 'NO'}
                   </td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-right font-bold`} dir="rtl">المستوي</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[30%]`} dir="rtl">الإنجليزية</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Arabic</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-bold`}>
+                    {hasLang(candidate, 'ARABIC') ? 'YES' : 'NO'}
+                  </td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">العربية</td>
+                </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Education</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-semibold uppercase`}>
+                    {candidate.personalInfo?.educationLevel || 'PRIMARY'}
+                  </td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">المستوي المهني</td>
                 </tr>
               </tbody>
             </table>
@@ -201,62 +236,64 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
               </thead>
               <tbody>
                 <tr>
-                  <td className={`${cellBorder} px-2 py-1.5 ${labelClass} w-[30%]`}>Period</td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-center w-[45%] uppercase text-red-600 font-bold`}>
-                    {expPeriod}
-                  </td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-right font-bold w-[25%]`} dir="rtl">المده</td>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[30%]`}>Period</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium w-[40%]`}>{expPeriod}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[30%]`} dir="rtl">المده</td>
                 </tr>
                 <tr>
-                  <td className={`${cellBorder} px-2 py-1.5 ${labelClass}`}>Country</td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-center uppercase text-red-600 font-bold`}>
-                    {expCountry}
-                  </td>
-                  <td className={`${cellBorder} px-2 py-1.5 text-right font-bold`} dir="rtl">البلد</td>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Country</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-bold w-[40%] uppercase`}>{expCountry}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">البلد</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Skills */}
-        <table className={`w-full border-collapse ${cellBorder} text-[12px] mt-2`}>
-          <thead>
-            <tr className={headerBg}>
-              <th colSpan={6} className={`${cellBorder} text-center font-bold py-1`}>
-                Skills & Experience <span dir="rtl" className="ml-2 font-bold">خبرة العمل</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              ['Ironing', 'IRONING', 'الكوي', 'Baby Sitting', 'BABY SITTING', 'عناية الرضيع'],
-              ['Cooking', 'COOKING', 'الطبخ', 'Children Care', 'CHILDREN CARE', 'عناية الاطفال'],
-              ['Arabic Cooking', 'ARABIC COOKING', 'الطبخ العربي', 'Tutoring', 'TUTORING', 'تعليم الأطفال'],
-              ['Sewing', 'SEWING', 'خياطة', 'Cleaning', 'CLEANING', 'التنظيف'],
-              ['Computer', 'COMPUTER', 'استخدام الكمبيوتر', 'Washing', 'WASHING', 'الغسيل'],
-            ].map(([l1, s1, a1, l2, s2, a2]) => (
-              <tr key={l1}>
-                <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[16.6%]`}>{l1}</td>
-                <td className={`${cellBorder} px-1.5 py-1 text-center w-[16.6%]`}>{hasSkill(candidate, s1)}</td>
-                <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[16.6%]`} dir="rtl">{a1}</td>
-                <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[16.6%]`}>{l2}</td>
-                <td className={`${cellBorder} px-1.5 py-1 text-center w-[16.6%]`}>{hasSkill(candidate, s2)}</td>
-                <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[16.6%]`} dir="rtl">{a2}</td>
+        {/* Skills Section */}
+        <div className="mt-2">
+          <div className="text-center font-bold text-[14px] mb-1">
+            Skills & Experience <span dir="rtl" className="ml-1 font-bold">خبرة العمل</span>
+          </div>
+          <table className={`w-full border-collapse ${cellBorder} text-[12px] leading-tight`}>
+            <thead>
+              <tr className="hidden">
+                <th className="w-[16.6%]" />
+                <th className="w-[16.6%]" />
+                <th className="w-[16.6%]" />
+                <th className="w-[16.6%]" />
+                <th className="w-[16.6%]" />
+                <th className="w-[16.6%]" />
               </tr>
-            ))}
-            <tr>
-              <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Other skills</td>
-              <td className={`${cellBorder} px-1.5 py-1 text-center`}>NO</td>
-              <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">خبرات أخري</td>
-              <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Remarks</td>
-              <td className={`${cellBorder} px-1.5 py-1 text-center`} colSpan={2}></td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {[
+                ['Ironing', 'IRONING', 'الكوي', 'Baby Sitting', 'BABY SITTING', 'عناية الرضيع'],
+                ['Cooking', 'COOKING', 'الطبخ', 'Children Care', 'CHILDREN CARE', 'عناية الاطفال'],
+                ['Arabic Cooking', 'ARABIC COOKING', 'الطبخ العربي', 'Tutoring', 'TUTORING', 'تعليم الأطفال'],
+                ['Sewing', 'SEWING', 'خياطة', 'Cleaning', 'CLEANING', 'التنظيف'],
+                ['Computer', 'COMPUTER', 'استخدام الكمبيوتر', 'Washing', 'WASHING', 'الغسيل'],
+              ].map(([l1, s1, a1, l2, s2, a2]) => (
+                <tr key={l1}>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[16.6%]`}>{l1}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center w-[16.6%]`}>{hasSkill(candidate, s1)}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[16.6%]`} dir="rtl">{a1}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[16.6%]`}>{l2}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center w-[16.6%]`}>{hasSkill(candidate, s2)}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[16.6%]`} dir="rtl">{a2}</td>
+                </tr>
+              ))}
+              <tr>
+                <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Other skills</td>
+                <td className={`${cellBorder} px-1.5 py-1 text-center`}>NO</td>
+                <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">خبرات أخري</td>
+                <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Remarks</td>
+                <td className={`${cellBorder} px-1.5 py-1 text-center`} colSpan={2}></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <PassportPage candidate={candidate} />
     </div>
   );
 }

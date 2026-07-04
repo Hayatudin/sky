@@ -11,6 +11,7 @@ import {
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import { getFileUrl, getDownloadUrl } from '@/lib/utils';
+import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 
@@ -169,7 +170,7 @@ export default function CandidateDetailPage() {
     );
   }
 
-  const c = candidate;
+  const c = makeSafeCandidate(candidate);
   const pd = c.passportData;
   const pi = c.personalInfo;
 
@@ -410,7 +411,7 @@ export default function CandidateDetailPage() {
                 </div>
                 <div className="space-y-1 pl-5">
                   <p className="text-[15px] text-text-primary font-semibold">{pi.phone || '—'}</p>
-                  {pi.additionalPhones && pi.additionalPhones.length > 0 && pi.additionalPhones.map((p, i) => (
+                  {Array.isArray(pi.additionalPhones) && pi.additionalPhones.length > 0 && pi.additionalPhones.map((p, i) => (
                     <p key={i} className="text-[15px] text-text-primary font-semibold">{p}</p>
                   ))}
                 </div>

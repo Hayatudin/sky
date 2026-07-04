@@ -250,8 +250,6 @@ export default function MazayaTemplate({ candidate, facePhoto, fullBodyPhoto }: 
             </tbody>
           </table>
       </div>
-
-      <PassportPage candidate={candidate} />
     </div>
   );
 }

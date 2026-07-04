@@ -146,7 +146,7 @@ router.get('/', async (req: Request, res: Response) => {
           emergencyContactRelation: c.emergencyContactRelation,
           emergencyContactPhone: c.emergencyContactPhone,
           emergencyContactAddress: c.emergencyContactAddress,
-          additionalPhones: c.additionalPhones,
+          additionalPhones: Array.isArray(c.additionalPhones) ? c.additionalPhones : (typeof c.additionalPhones === 'string' ? (() => { try { const p = JSON.parse(c.additionalPhones as string); return Array.isArray(p) ? p : []; } catch { return []; } })() : []),
           brokerId: c.brokerId || '',
           cocDocumentUrl: encryptPath(c.cocDocumentUrl),
           medicalDocumentUrl: encryptPath(c.medicalDocumentUrl),
@@ -579,20 +579,26 @@ router.get('/:id', async (req: Request, res: Response) => {
     });
     const entryVideoUrl = linkedQr?.videoUrl ?? null;
 
+    const formatDate = (date: Date | string | null | undefined) => {
+      if (!date) return '';
+      const d = new Date(date);
+      return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+    };
+
     const formatted = {
       id: c.id,
       shelfId: c.shelfId,
-      cvDeadline: c.cvDeadline?.toISOString().split('T')[0],
+      cvDeadline: formatDate(c.cvDeadline),
       passportData: {
         passportNumber: c.passportNumber,
         surname: c.surname,
         givenNames: c.givenNames,
-        dateOfBirth: c.dateOfBirth.toISOString().split('T')[0],
+        dateOfBirth: formatDate(c.dateOfBirth),
         gender: c.gender,
         nationality: c.nationality,
         issuingCountry: c.issuingCountry,
-        dateOfIssue: c.dateOfIssue.toISOString().split('T')[0],
-        dateOfExpiry: c.dateOfExpiry.toISOString().split('T')[0],
+        dateOfIssue: formatDate(c.dateOfIssue),
+        dateOfExpiry: formatDate(c.dateOfExpiry),
         placeOfBirth: c.placeOfBirth,
       },
       personalInfo: {
@@ -616,14 +622,14 @@ router.get('/:id', async (req: Request, res: Response) => {
         skills: c.skills,
         medicalStatus: c.medicalStatus,
         biometricStatus: c.biometricStatus,
-        medicalDate: c.medicalDate?.toISOString().split('T')[0],
-        biometricDate: c.biometricDate?.toISOString().split('T')[0],
+        medicalDate: formatDate(c.medicalDate),
+        biometricDate: formatDate(c.biometricDate),
         knownConditions: c.knownConditions,
         emergencyContactName: c.emergencyContactName,
         emergencyContactRelation: c.emergencyContactRelation,
         emergencyContactPhone: c.emergencyContactPhone,
         emergencyContactAddress: c.emergencyContactAddress,
-        additionalPhones: c.additionalPhones,
+        additionalPhones: Array.isArray(c.additionalPhones) ? c.additionalPhones : (typeof c.additionalPhones === 'string' ? (() => { try { const p = JSON.parse(c.additionalPhones as any); return Array.isArray(p) ? p : []; } catch { return []; } })() : []),
         brokerId: c.brokerId || '',
         cocDocumentUrl: encryptPath(c.cocDocumentUrl),
         medicalDocumentUrl: encryptPath(c.medicalDocumentUrl),
@@ -647,11 +653,11 @@ router.get('/:id', async (req: Request, res: Response) => {
       Youtube_URL: c.videoUrl,
       // Fall back to the Entry video if the candidate's own quickVideoUrl is absent
       quickVideoUrl: encryptPath(c.quickVideoUrl ?? entryVideoUrl),
-      deployedDate: c.deployedDate ? c.deployedDate.toISOString() : null,
-      registeredAt: c.registeredAt.toISOString(),
+      deployedDate: c.deployedDate ? formatDate(c.deployedDate) : null,
+      registeredAt: c.registeredAt instanceof Date ? c.registeredAt.toISOString() : String(c.registeredAt),
       broker: brokerData || null,
       visaSelected: c.visaSelected,
-      visaDate: c.visaDate ? c.visaDate.toISOString() : null,
+      visaDate: c.visaDate ? formatDate(c.visaDate) : null,
       salary: c.salary || '1000SR',
       isLocked: c.isLocked ?? false,
       cvDownloaded: c.cvDownloaded ?? false,
