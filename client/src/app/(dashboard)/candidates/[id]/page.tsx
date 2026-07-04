@@ -421,6 +421,7 @@ export default function CandidateDetailPage() {
               <InfoItem icon={GraduationCap} label="Education" value={pi.educationLevel} />
               <InfoItem icon={Briefcase} label="Job" value={pi.job} />
               <InfoItem icon={FileText} label="ID Number" value={pi.idNumber} />
+              <InfoItem icon={FileText} label="Labour ID" value={c.labourIdUrl || ''} />
             </div>
           </div>
 
@@ -555,7 +556,6 @@ export default function CandidateDetailPage() {
                 { label: 'Passport Scan', url: c.passportImageUrl, field: 'passportImageUrl', color: 'primary', accept: 'image/*,application/pdf' },
                 { label: 'Candidate ID', url: c.candidateIdImageUrl, field: 'candidateIdImageUrl', color: 'blue', accept: 'image/*,application/pdf' },
                 { label: 'Relative ID', url: c.relativeIdImageUrl, field: 'relativeIdImageUrl', color: 'amber', accept: 'image/*,application/pdf' },
-                { label: 'Labour ID', url: c.labourIdUrl, field: 'labourIdUrl', color: 'violet', accept: 'image/*,application/pdf' },
                 { label: 'Candidate Video', url: c.quickVideoUrl, field: 'quickVideoUrl', color: 'pink', accept: 'video/*' },
               ].map((doc) => (
                 <div key={doc.field} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50/80 rounded-[1.25rem] border border-transparent hover:border-gray-200/50 transition-colors gap-3">

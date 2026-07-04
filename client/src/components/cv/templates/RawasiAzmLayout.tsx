@@ -190,6 +190,11 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
                   <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>{candidate.personalInfo?.weight ? `${candidate.personalInfo.weight}KG` : '—'}</td>
                   <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">الوزن</td>
                 </tr>
+                <tr>
+                  <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Labour ID</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>{candidate.labourIdUrl || '—'}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">هوية العمل</td>
+                </tr>
               </tbody>
             </table>
 

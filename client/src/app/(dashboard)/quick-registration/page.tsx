@@ -18,6 +18,7 @@ import FileUpload from '@/components/ui/FileUpload';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { languageOptions } from '@/data/mockData';
 import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
+import { compressImage } from '@/lib/utils';
 
 const emptyPassportData: PassportData = {
   passportNumber: '', surname: '', givenNames: '', dateOfBirth: '',
@@ -366,6 +367,13 @@ export default function QuickRegistrationPage() {
     setError(null);
 
     try {
+      const compPassport = passportImage ? await compressImage(passportImage, 900, 0.5) : null;
+      const compFace = facePhotoUrl ? await compressImage(facePhotoUrl, 400, 0.5) : null;
+      const compCoc = cocDocumentUrl ? await compressImage(cocDocumentUrl, 900, 0.5) : null;
+      const compLabour = (labourIdUrl && labourIdUrl.startsWith('data:image')) ? await compressImage(labourIdUrl, 900, 0.5) : labourIdUrl;
+      const compCandId = candidateIdImageUrl ? await compressImage(candidateIdImageUrl, 900, 0.5) : null;
+      const compRelId = relativeIdImageUrl ? await compressImage(relativeIdImageUrl, 900, 0.5) : null;
+
       const url = isCalling ? '/api/candidates' : '/api/quick-registrations';
       const bodyPayload = isCalling
         ? {
@@ -390,10 +398,10 @@ export default function QuickRegistrationPage() {
               additionalPhones: additionalPhones.filter(Boolean),
               languages: selectedLanguages,
               brokerId: 'calling-broker', // Backend handles auto-connecting to 'Calling' broker
-              cocDocumentUrl,
-              labourIdUrl,
-              candidateIdImageUrl,
-              relativeIdImageUrl,
+              cocDocumentUrl: compCoc,
+              labourIdUrl: compLabour,
+              candidateIdImageUrl: compCandId,
+              relativeIdImageUrl: compRelId,
               medicalStatus: 'Pending',
               biometricStatus: 'Pending',
               job: 'Calling',
@@ -411,8 +419,8 @@ export default function QuickRegistrationPage() {
                     yearsOfExperience: '0'
                   }],
             },
-            passportImageUrl: passportImage,
-            facePhotoUrl: facePhotoUrl,
+            passportImageUrl: compPassport,
+            facePhotoUrl: compFace,
             videoUrl: null,
             allowVideo,
             agency,
@@ -447,14 +455,14 @@ export default function QuickRegistrationPage() {
             ),
             maritalStatus,
             numberOfChildren,
-            passportImageUrl: passportImage,
+            passportImageUrl: compPassport,
             religion,
             brokerId: selectedBrokerId || null,
             relativePhones: null,
-            cocDocumentUrl,
-            labourIdUrl,
-            candidateIdImageUrl,
-            relativeIdImageUrl,
+            cocDocumentUrl: compCoc,
+            labourIdUrl: compLabour,
+            candidateIdImageUrl: compCandId,
+            relativeIdImageUrl: compRelId,
             videoUrl,
             allowVideo,
             agency,
@@ -882,14 +890,11 @@ export default function QuickRegistrationPage() {
               helperText="COC Document — Max 50MB"
               required={false}
             />
-            <FileUpload
-              label="Labour ID"
-              shape="rect"
-              compact
-              preview={labourIdUrl}
-              onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setLabourIdUrl(base64))}
-              onClear={() => setLabourIdUrl(null)}
-              helperText="Labour ID Image — Max 50MB"
+            <Input
+              label="Labour ID Number"
+              placeholder="Enter Labour ID Number"
+              value={labourIdUrl || ''}
+              onChange={(e) => setLabourIdUrl(e.target.value)}
               required={!isCalling}
             />
             <FileUpload

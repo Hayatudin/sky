@@ -237,7 +237,19 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       videoUrl: undefined,
       agency: reg.agency || 'Sky',
       passportType: reg.passportType || 'scan',
-      languages: Array.isArray(reg.languages) ? reg.languages : [],
+      languages: (() => {
+        if (!reg.languages) return [];
+        const val = reg.languages as any;
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string') {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) return parsed;
+          } catch {}
+          return val.split(/[,&\/;]|\band\b/gi).map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+        }
+        return [];
+      })(),
     });
   };
 
@@ -519,49 +531,30 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
             </div>
           </div>
 
-          {/* Labour ID Image */}
+          {/* Labour ID Number */}
           <div className="border border-border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all hover:border-primary/20 hover:bg-gray-100/50">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Labour ID Image</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Labour ID Number</p>
                 {labourId && (
-                  <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Check size={10} /> Uploaded
+                  <span className="text-[10px] font-semibold text-primary bg-primary-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Check size={10} /> Saved
                   </span>
                 )}
               </div>
-              <div className="h-32 bg-slate-100/80 rounded-xl overflow-hidden relative border border-dashed border-border/80 flex items-center justify-center">
+              <div className="h-32 bg-slate-50 rounded-xl border border-dashed border-border/80 flex items-center justify-center p-3 text-center">
                 {labourId ? (
-                  labourId.startsWith('data:image') || labourId.startsWith('http') || labourId.startsWith('/uploads') ? (
-                    <img src={getFileUrl(labourId)} alt="Labour ID" className="w-full h-full object-contain" />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-1 text-xs text-text-secondary p-2 text-center">
-                      <FileText className="text-primary/40" size={24} />
-                      <span>Document (PDF/Binary)</span>
-                    </div>
-                  )
+                  <span className="text-sm font-mono font-bold text-text-primary bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm max-w-full truncate">{labourId}</span>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-1.5 text-center p-4">
                     <AlertCircle className="text-amber-500/80" size={20} />
-                    <span className="text-xs font-semibold text-text-tertiary">Not uploaded</span>
+                    <span className="text-xs font-semibold text-text-tertiary">Not provided</span>
                   </div>
                 )}
               </div>
             </div>
-            <div className="mt-3">
-              <label className="flex items-center justify-center gap-1.5 w-full px-3 py-2 text-xs font-bold rounded-lg bg-white border border-border text-text-secondary hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer shadow-sm">
-                <Upload size={14} />
-                {labourId ? 'Change File' : 'Upload Document'}
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileChange('labour', file);
-                  }}
-                />
-              </label>
+            <div className="mt-3 h-[38px] flex items-center justify-center">
+              <span className="text-[10px] text-text-tertiary italic">Text format</span>
             </div>
           </div>
 
@@ -890,6 +883,20 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
                       </select>
                     </div>
 
+                    {/* Labour ID Number */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
+                        Labour ID Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter Labour ID Number"
+                        value={editForm.labourIdUrl || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, labourIdUrl: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-text-primary"
+                      />
+                    </div>
+
                     {/* Languages Section */}
                     <div className="md:col-span-2 pt-4 border-t border-border/60">
                       <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">Languages</label>
@@ -944,7 +951,6 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
                     {[
                       { label: 'Passport Image', field: 'passportImageUrl', current: editTarget?.passportImageUrl, accept: 'image/*' },
                       { label: 'COC Document', field: 'cocDocumentUrl', current: editTarget?.cocDocumentUrl, accept: 'application/pdf,image/*' },
-                      { label: 'Labour ID', field: 'labourIdUrl', current: editTarget?.labourIdUrl, accept: 'application/pdf,image/*' },
                       { label: 'Candidate ID Image', field: 'candidateIdImageUrl', current: editTarget?.candidateIdImageUrl, accept: 'image/*' },
                       { label: 'Relative ID Image', field: 'relativeIdImageUrl', current: editTarget?.relativeIdImageUrl, accept: 'image/*' },
                       { label: 'Candidate Video', field: 'videoUrl', current: editTarget?.videoUrl, accept: 'video/*' },

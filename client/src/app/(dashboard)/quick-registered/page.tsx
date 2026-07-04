@@ -380,7 +380,19 @@ export default function QuickRegisteredPage() {
       videoUrl: undefined,
       agency: reg.agency || 'Sky',
       passportType: reg.passportType || 'scan',
-      languages: Array.isArray(reg.languages) ? reg.languages : [],
+      languages: (() => {
+        if (!reg.languages) return [];
+        const val = reg.languages as any;
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string') {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) return parsed;
+          } catch {}
+          return val.split(/[,&\/;]|\band\b/gi).map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+        }
+        return [];
+      })(),
     });
   };
 
@@ -1077,6 +1089,20 @@ export default function QuickRegisteredPage() {
                       </select>
                     </div>
 
+                    {/* Labour ID Number */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
+                        Labour ID Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter Labour ID Number"
+                        value={editForm.labourIdUrl || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, labourIdUrl: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-text-primary"
+                      />
+                    </div>
+
                     {/* Broker Connection */}
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
@@ -1171,7 +1197,6 @@ export default function QuickRegisteredPage() {
                     {[
                       { label: 'Passport Image', field: 'passportImageUrl', current: editTarget?.passportImageUrl, accept: 'image/*' },
                       { label: 'COC Document', field: 'cocDocumentUrl', current: editTarget?.cocDocumentUrl, accept: 'application/pdf,image/*' },
-                      { label: 'Labour ID', field: 'labourIdUrl', current: editTarget?.labourIdUrl, accept: 'application/pdf,image/*' },
                       { label: 'Candidate ID Image', field: 'candidateIdImageUrl', current: editTarget?.candidateIdImageUrl, accept: 'image/*' },
                       { label: 'Relative ID Image', field: 'relativeIdImageUrl', current: editTarget?.relativeIdImageUrl, accept: 'image/*' },
                       { label: 'Candidate Video', field: 'videoUrl', current: editTarget?.videoUrl, accept: 'video/*' },

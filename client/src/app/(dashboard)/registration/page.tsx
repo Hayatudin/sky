@@ -513,9 +513,19 @@ function RegistrationContent() {
         const cvLangs = data.languages
           ? data.languages.split(/[,&\/;]|\band\b/gi).map((s: string) => s.trim().toUpperCase()).filter(Boolean)
           : [];
-        const quickLangs = quickReg && Array.isArray(quickReg.languages)
-          ? quickReg.languages.map((s: string) => s.toUpperCase())
-          : [];
+        const quickLangs = (() => {
+          if (!quickReg || !quickReg.languages) return [];
+          const val = quickReg.languages;
+          if (Array.isArray(val)) return val.map((s: string) => s.toUpperCase());
+          if (typeof val === 'string') {
+            try {
+              const parsed = JSON.parse(val);
+              if (Array.isArray(parsed)) return parsed.map((s: string) => s.toUpperCase());
+            } catch {}
+            return val.split(/[,&\/;]|\band\b/gi).map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+          }
+          return [];
+        })();
         const combinedLangs = Array.from(new Set([...cvLangs, ...quickLangs])).filter(lang => {
           const l = lang.toUpperCase();
           return l !== 'NONE' && l !== 'N/A' && l !== 'NIL' && l !== 'NULL' && l !== 'UNDEFINED';
@@ -584,13 +594,13 @@ function RegistrationContent() {
         return;
       }
 
-      const compressedPassport = passportImage ? await compressImage(passportImage, 1200, 0.7) : null;
-      const compressedFace = facePhoto ? await compressImage(facePhoto, 800, 0.7) : null;
-      const compressedFullBody = fullBodyPhoto ? await compressImage(fullBodyPhoto, 1200, 0.7) : null;
-      const compressedCoc = personalInfo.cocDocumentUrl ? await compressImage(personalInfo.cocDocumentUrl, 1200, 0.7) : null;
-      const compressedMedical = personalInfo.medicalDocumentUrl ? await compressImage(personalInfo.medicalDocumentUrl, 1200, 0.7) : null;
-      const compressedCandidateId = personalInfo.candidateIdImageUrl ? await compressImage(personalInfo.candidateIdImageUrl, 1200, 0.7) : null;
-      const compressedRelativeId = personalInfo.relativeIdImageUrl ? await compressImage(personalInfo.relativeIdImageUrl, 1200, 0.7) : null;
+      const compressedPassport = passportImage ? await compressImage(passportImage, 900, 0.5) : null;
+      const compressedFace = facePhoto ? await compressImage(facePhoto, 400, 0.5) : null;
+      const compressedFullBody = fullBodyPhoto ? await compressImage(fullBodyPhoto, 900, 0.5) : null;
+      const compressedCoc = personalInfo.cocDocumentUrl ? await compressImage(personalInfo.cocDocumentUrl, 900, 0.5) : null;
+      const compressedMedical = personalInfo.medicalDocumentUrl ? await compressImage(personalInfo.medicalDocumentUrl, 900, 0.5) : null;
+      const compressedCandidateId = personalInfo.candidateIdImageUrl ? await compressImage(personalInfo.candidateIdImageUrl, 900, 0.5) : null;
+      const compressedRelativeId = personalInfo.relativeIdImageUrl ? await compressImage(personalInfo.relativeIdImageUrl, 900, 0.5) : null;
 
       const { cocDocumentUrl, medicalDocumentUrl, candidateIdImageUrl, relativeIdImageUrl, labourIdUrl, ...cleanPersonalInfo } = personalInfo;
 

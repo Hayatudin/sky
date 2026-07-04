@@ -81,9 +81,9 @@ export default function AvailablePassportPage() {
         const data = await res.json();
         alert(data.error || 'Failed to update passport');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error updating passport status');
+      alert(err.message || 'Error updating passport status');
     } finally {
       setIsUpdating(null);
       setSelectedPassport(null);
@@ -125,9 +125,9 @@ export default function AvailablePassportPage() {
         const data = await res.json();
         alert(data.error || 'Failed to return passport');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error returning passport');
+      alert(err.message || 'Error returning passport');
     } finally {
       setIsUpdating(null);
       setReturnPassport(null);
