@@ -2,6 +2,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { decryptPath } from './crypto';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -21,8 +22,32 @@ const isLocal = process.env.STORAGE_MODE === 'local';
 export async function uploadToLocal(fileString: string | null | undefined, folder: string) {
   if (!fileString) return null;
 
-  // If it's already a URL, just return it
-  if (fileString.startsWith('http') || fileString.startsWith('/uploads')) return fileString;
+  let cleanString = fileString;
+  if (cleanString.includes('/api/assets/')) {
+    cleanString = cleanString.split('/api/assets/')[1] || cleanString;
+  }
+  
+  if (cleanString.startsWith('ENC-')) {
+    try {
+      cleanString = decryptPath(cleanString);
+    } catch (e) {
+      console.error('Failed to decrypt path in uploadToLocal:', e);
+    }
+  }
+
+  // If it's already a URL or a server-relative path, just return it
+  if (
+    cleanString.startsWith('http') || 
+    cleanString.startsWith('/uploads') || 
+    cleanString.startsWith('uploads/')
+  ) {
+    return cleanString.startsWith('uploads/') ? `/${cleanString}` : cleanString;
+  }
+
+  // If it's not a base64 data url and doesn't look like base64, don't try to write it
+  if (!fileString.startsWith('data:') && fileString.length < 500 && !fileString.includes(';base64,')) {
+    return fileString;
+  }
 
   // Route to the correct storage backend
   if (isLocal) {

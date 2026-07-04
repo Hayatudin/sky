@@ -176,7 +176,7 @@ export default function CandidateDetailPage() {
 
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in pb-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-6 animate-fade-in pb-10">
       {/* Top Bar */}
       <div className="flex items-center justify-between">
         <button onClick={() => router.back()} className="flex items-center gap-2 text-text-secondary hover:text-primary transition-colors font-bold text-[13px] uppercase tracking-wider">
@@ -558,19 +558,19 @@ export default function CandidateDetailPage() {
                 { label: 'Labour ID', url: c.labourIdUrl, field: 'labourIdUrl', color: 'violet', accept: 'image/*,application/pdf' },
                 { label: 'Candidate Video', url: c.quickVideoUrl, field: 'quickVideoUrl', color: 'pink', accept: 'video/*' },
               ].map((doc) => (
-                <div key={doc.field} className="flex items-center justify-between p-4 bg-gray-50/80 rounded-[1.25rem] border border-transparent hover:border-gray-200/50 transition-colors">
-                  <span className="text-[14px] font-bold text-text-primary">{doc.label}</span>
+                <div key={doc.field} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50/80 rounded-[1.25rem] border border-transparent hover:border-gray-200/50 transition-colors gap-3">
+                  <span className="text-[14px] font-bold text-text-primary shrink-0">{doc.label}</span>
                   {doc.url ? (
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => setViewDoc(getFileUrl(doc.url!))} className={`text-[11px] uppercase tracking-[0.1em] text-${doc.color}-600 hover:text-${doc.color}-800 font-black px-3 py-1.5 bg-${doc.color}-100 hover:bg-${doc.color}-200 rounded-lg transition-colors flex items-center gap-1.5`}><Eye size={12} /> View</button>
-                      <a href={getDownloadUrl(doc.url!)} download rel="noreferrer" className="text-[11px] uppercase tracking-[0.1em] text-gray-600 hover:text-gray-800 font-black px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1.5"><Download size={12} /> Save</a>
-                      <label className="text-[11px] uppercase tracking-[0.1em] text-primary/75 hover:text-primary font-black px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <button onClick={() => setViewDoc(getFileUrl(doc.url!))} className={`text-[11px] uppercase tracking-[0.05em] text-${doc.color}-600 hover:text-${doc.color}-800 font-black px-2 py-1 bg-${doc.color}-100 hover:bg-${doc.color}-200 rounded-lg transition-colors flex items-center gap-1`}><Eye size={11} /> View</button>
+                      <a href={getDownloadUrl(doc.url!)} download rel="noreferrer" className="text-[11px] uppercase tracking-[0.05em] text-gray-600 hover:text-gray-800 font-black px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1"><Download size={11} /> Save</a>
+                      <label className="text-[11px] uppercase tracking-[0.05em] text-primary/75 hover:text-primary font-black px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer">
                         {isImporting === doc.field ? 'Importing...' : 'Replace'}
                         <input type="file" accept={doc.accept} className="hidden" disabled={isImporting !== null} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImportFile(doc.field, file); }} />
                       </label>
                     </div>
                   ) : (
-                    <label className="text-[11px] uppercase tracking-[0.1em] text-emerald-600 hover:text-emerald-800 font-black px-3 py-1.5 bg-emerald-100/70 hover:bg-emerald-200/70 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer">
+                    <label className="text-[11px] uppercase tracking-[0.05em] text-emerald-600 hover:text-emerald-800 font-black px-3 py-1 bg-emerald-100/70 hover:bg-emerald-200/70 rounded-lg transition-colors flex items-center gap-1 cursor-pointer animate-pulse">
                       {isImporting === doc.field ? 'Importing...' : 'Import'}
                       <input type="file" accept={doc.accept} className="hidden" disabled={isImporting !== null} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImportFile(doc.field, file); }} />
                     </label>

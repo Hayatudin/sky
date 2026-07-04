@@ -719,10 +719,6 @@ function GeneratedCVsContent() {
   }, [downloadingCv, downloadFormat]);
 
   const startDownload = (cv: any, format: 'pdf' | 'jpg' | 'doc') => {
-    if (cv.candidate?.personalInfo?.medicalStatus?.toLowerCase() === 'fit') {
-      showToast('Fit candidates can only be downloaded from the Fit Candidates page', 'error');
-      return;
-    }
     isCancelledRef.current = false;
     setDownloadTask({
       type: 'single',
@@ -902,11 +898,8 @@ function GeneratedCVsContent() {
       ? activeCVs.filter(c => selectedCVIds.has(c.id)) 
       : activeCVs;
 
-    // Filter out candidates whose medical status is Fit
-    cvsToDownload = cvsToDownload.filter(c => c.candidate?.personalInfo?.medicalStatus?.toLowerCase() !== 'fit');
-
     if (cvsToDownload.length === 0) {
-      showToast('No downloadable candidates found (Fit candidates can only be downloaded from the Fit Candidates page)', 'error');
+      showToast('No downloadable candidates found', 'error');
       return;
     }
     

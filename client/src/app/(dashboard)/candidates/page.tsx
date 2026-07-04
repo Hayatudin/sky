@@ -87,7 +87,7 @@ export default function CandidatesPage() {
     setIsSettingAgency(true);
     try {
       const cand = candidates.find(c => c.id === candidateId);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/generated-cvs`, {
+      const res = await api('/api/generated-cvs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -263,6 +263,9 @@ export default function CandidatesPage() {
       else if (missingFileFilter === 'Passport') matchesMissingFile = !c.passportImageUrl;
       else if (missingFileFilter === 'FacePhoto') matchesMissingFile = !c.facePhotoUrl;
       else if (missingFileFilter === 'FullBody') matchesMissingFile = !c.fullBodyPhotoUrl;
+      else if (missingFileFilter === 'LabourID') matchesMissingFile = !c.labourIdUrl;
+      else if (missingFileFilter === 'CandidateID') matchesMissingFile = !c.candidateIdImageUrl;
+      else if (missingFileFilter === 'RelativeID') matchesMissingFile = !c.relativeIdImageUrl;
 
       return matchesSearch && matchesStatus && matchesDate && matchesJob && matchesGender && matchesReligion && matchesMissingFile && matchesAgency && matchesCalling;
     });
@@ -405,7 +408,10 @@ export default function CandidatesPage() {
                 { value: 'Medical', label: 'Missing Medical' },
                 { value: 'Passport', label: 'Missing Passport' },
                 { value: 'FacePhoto', label: 'Missing Face Photo' },
-                { value: 'FullBody', label: 'Missing Full Body' }
+                { value: 'FullBody', label: 'Missing Full Body' },
+                { value: 'LabourID', label: 'Missing Labour ID' },
+                { value: 'CandidateID', label: 'Missing Candidate ID' },
+                { value: 'RelativeID', label: 'Missing Relative ID' }
               ]} 
             />
           </div>

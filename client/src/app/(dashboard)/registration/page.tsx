@@ -184,9 +184,19 @@ function RegistrationContent() {
           const cvLangs = extractedData.languages
             ? extractedData.languages.split(/[,&\/;]|\band\b/gi).map((s: string) => s.trim().toUpperCase()).filter(Boolean)
             : [];
-          const quickLangs = quickRegistration && Array.isArray(quickRegistration.languages)
-            ? quickRegistration.languages.map((s: string) => s.toUpperCase())
-            : [];
+          const quickLangs = (() => {
+            if (!quickRegistration || !quickRegistration.languages) return [];
+            const val = quickRegistration.languages;
+            if (Array.isArray(val)) return val.map((s: string) => s.toUpperCase());
+            if (typeof val === 'string') {
+              try {
+                const parsed = JSON.parse(val);
+                if (Array.isArray(parsed)) return parsed.map((s: string) => s.toUpperCase());
+              } catch {}
+              return val.split(/[,&\/;]|\band\b/gi).map((s: string) => s.trim().toUpperCase()).filter(Boolean);
+            }
+            return [];
+          })();
           const combined = Array.from(new Set([...cvLangs, ...quickLangs])).filter(lang => {
             const l = lang.toUpperCase();
             return l !== 'NONE' && l !== 'N/A' && l !== 'NIL' && l !== 'NULL' && l !== 'UNDEFINED';
@@ -206,7 +216,18 @@ function RegistrationContent() {
         candidateIdImageUrl: quickRegistration.candidateIdImageUrl || '',
         relativeIdImageUrl: quickRegistration.relativeIdImageUrl || '',
         additionalPhones: prev.additionalPhones,
-        workExperience: prev.workExperience,
+        workExperience: (() => {
+          if (!quickRegistration || !quickRegistration.jobExperience) return prev.workExperience;
+          const val = quickRegistration.jobExperience;
+          if (Array.isArray(val)) return val;
+          if (typeof val === 'string') {
+            try {
+              const parsed = JSON.parse(val);
+              if (Array.isArray(parsed)) return parsed;
+            } catch {}
+          }
+          return prev.workExperience;
+        })(),
       }));
 
       setPassportImage(quickRegistration.passportImageUrl || null);

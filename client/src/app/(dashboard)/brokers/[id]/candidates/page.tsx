@@ -517,10 +517,6 @@ export default function BrokerCandidatesPage() {
 
   // Single CV download handler
   const startDownload = (cv: any, format: 'pdf' | 'jpg' | 'doc') => {
-    if (cv.candidate?.personalInfo?.medicalStatus?.toLowerCase() === 'fit') {
-      showToast('Fit candidates can only be downloaded from the Fit Candidates page', 'error');
-      return;
-    }
     isCancelledRef.current = false;
     setDownloadTask({
       type: 'single',
@@ -649,14 +645,12 @@ export default function BrokerCandidatesPage() {
       if (!c) return false;
       // Block locked candidates
       if (c.isLocked) return false;
-      // Do not download candidates whose medical status is fit
-      if (c.medicalStatus?.toLowerCase() === 'fit') return false;
       if (visaFilter === 'visa-selected') return c.visaSelected === true;
       return c.visaSelected !== true;
     });
 
     if (candidatesToDownload.length === 0) {
-      showToast('No downloadable candidates selected (Fit candidates can only be downloaded from the Fit Candidates page)', 'error', true);
+      showToast('No downloadable candidates selected', 'error', true);
       return;
     }
 

@@ -311,7 +311,7 @@ export default function QuickRegistrationPage() {
       return;
     }
 
-    if (isCalling && hasExperience === 'yes') {
+    if (hasExperience === 'yes') {
       if (!experienceCountry) {
         setError('Country of experience is required.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -349,8 +349,8 @@ export default function QuickRegistrationPage() {
     }
 
     if (!isCalling) {
-      if (!cocDocumentUrl || !labourIdUrl || !candidateIdImageUrl || !relativeIdImageUrl) {
-        setError('All documents (COC, Labour ID, Candidate ID, and Relative ID) are required.');
+      if (!labourIdUrl) {
+        setError('Labour ID document is required.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -432,7 +432,19 @@ export default function QuickRegistrationPage() {
             issuingCountry: passportData.issuingCountry,
             placeOfBirth: passportData.placeOfBirth,
             educationLevel: null,
-            jobExperience: null,
+            jobExperience: JSON.stringify(
+              hasExperience === 'yes'
+                ? [{
+                    experienceStatus: 'Have experience',
+                    country: experienceCountry.toUpperCase(),
+                    yearsOfExperience: experienceYears.trim()
+                  }]
+                : [{
+                    experienceStatus: 'No experience',
+                    country: '',
+                    yearsOfExperience: '0'
+                  }]
+            ),
             maritalStatus,
             numberOfChildren,
             passportImageUrl: passportImage,
@@ -768,65 +780,63 @@ export default function QuickRegistrationPage() {
               </div>
             )}
 
-            {/* Experience Section (only for Calling role) */}
-            {isCalling && (
-              <div className="sm:col-span-2 space-y-4 pt-4 border-t border-border/60">
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
-                    Do you have Work Experience? <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={hasExperience}
-                    onChange={e => {
-                      setHasExperience(e.target.value);
-                      if (e.target.value === 'no') {
-                        setExperienceCountry('');
-                        setExperienceYears('');
-                      }
-                    }}
-                    className="w-full h-12 px-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all cursor-pointer"
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
-                </div>
-
-                {hasExperience === 'yes' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
-                        Country of Experience <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={experienceCountry}
-                        onChange={e => setExperienceCountry(e.target.value)}
-                        className="w-full h-12 px-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all cursor-pointer"
-                        required
-                      >
-                        <option value="" disabled>Select country...</option>
-                        {allCountries.map(c => (
-                          <option key={c} value={c.toUpperCase()}>
-                            {c.toUpperCase()}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <Input
-                        label="Years of Experience"
-                        type="number"
-                        min="1"
-                        value={experienceYears}
-                        onChange={e => setExperienceYears(e.target.value)}
-                        placeholder="e.g. 2"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
+            {/* Experience Section */}
+            <div className="sm:col-span-2 space-y-4 pt-4 border-t border-border/60">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
+                  Do you have Work Experience? <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={hasExperience}
+                  onChange={e => {
+                    setHasExperience(e.target.value);
+                    if (e.target.value === 'no') {
+                      setExperienceCountry('');
+                      setExperienceYears('');
+                    }
+                  }}
+                  className="w-full h-12 px-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all cursor-pointer"
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
               </div>
-            )}
+
+              {hasExperience === 'yes' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
+                      Country of Experience <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={experienceCountry}
+                      onChange={e => setExperienceCountry(e.target.value)}
+                      className="w-full h-12 px-4 py-2.5 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all cursor-pointer"
+                      required
+                    >
+                      <option value="" disabled>Select country...</option>
+                      {allCountries.map(c => (
+                        <option key={c} value={c.toUpperCase()}>
+                          {c.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Input
+                      label="Years of Experience"
+                      type="number"
+                      min="1"
+                      value={experienceYears}
+                      onChange={e => setExperienceYears(e.target.value)}
+                      placeholder="e.g. 2"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -870,7 +880,7 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCocDocumentUrl(base64))}
               onClear={() => setCocDocumentUrl(null)}
               helperText="COC Document — Max 50MB"
-              required={!isCalling}
+              required={false}
             />
             <FileUpload
               label="Labour ID"
@@ -890,7 +900,7 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCandidateIdImageUrl(base64))}
               onClear={() => setCandidateIdImageUrl(null)}
               helperText="Candidate ID Image — Max 50MB"
-              required={!isCalling}
+              required={false}
             />
             <FileUpload
               label="Relative ID"
@@ -900,7 +910,7 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setRelativeIdImageUrl(base64))}
               onClear={() => setRelativeIdImageUrl(null)}
               helperText="Relative ID Image — Max 50MB"
-              required={!isCalling}
+              required={false}
             />
             {!isCalling && (
               <div className="space-y-2">
