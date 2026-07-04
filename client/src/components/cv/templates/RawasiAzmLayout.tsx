@@ -42,11 +42,11 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
         {/* Agency Header */}
         <div className="text-center mb-1">
           <h1 className="text-[14px] font-bold tracking-wide uppercase">{branding.agencyName}</h1>
+          <div className="border-t-[3.5px] border-[#800000] mt-1.5 mb-1" />
           <div className="flex justify-between text-[16px] font-black px-1 mt-1">
             <span>EMAIL:-{branding.email}</span>
             <span>tel :{branding.tel}</span>
           </div>
-          <div className="border-t-[3.5px] border-[#800000] mt-1.5 mb-1" />
         </div>
 
         {/* Broker Name */}
