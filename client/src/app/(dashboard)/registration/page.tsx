@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PassportData, CandidatePersonalInfo, RegistrationStep, Broker } from '@/types';
-import { cn, compressImage } from '@/lib/utils';
+import { cn, compressImage, cleanLabourId } from '@/lib/utils';
 import { api } from '@/lib/api';
 import StepIndicator from '@/components/registration/StepIndicator';
 import PassportUploader from '@/components/registration/PassportUploader';
@@ -212,7 +212,7 @@ function RegistrationContent() {
         // Broker and Quick Registration files:
         brokerId: quickRegistration.brokerId || quickRegistration.broker?.id || prev.brokerId,
         cocDocumentUrl: quickRegistration.cocDocumentUrl || '',
-        labourIdUrl: quickRegistration.labourIdUrl || '',
+        labourIdUrl: cleanLabourId(quickRegistration.labourIdUrl) || '',
         candidateIdImageUrl: quickRegistration.candidateIdImageUrl || '',
         relativeIdImageUrl: quickRegistration.relativeIdImageUrl || '',
         additionalPhones: prev.additionalPhones,
@@ -320,7 +320,7 @@ function RegistrationContent() {
           additionalPhones: [],
           workExperience: [],
           cocDocumentUrl: data.cocDocumentUrl || '',
-          labourIdUrl: data.labourIdUrl || '',
+          labourIdUrl: cleanLabourId(data.labourIdUrl) || '',
           candidateIdImageUrl: data.candidateIdImageUrl || '',
           relativeIdImageUrl: data.relativeIdImageUrl || '',
           languages: Array.isArray(data.languages) ? data.languages : [],
@@ -557,7 +557,7 @@ function RegistrationContent() {
           // Merge from Quick Registration if found:
           brokerId: (quickReg ? (quickReg.brokerId || quickReg.broker?.id) : '') || prev.brokerId,
           cocDocumentUrl: (quickReg ? quickReg.cocDocumentUrl : '') || prev.cocDocumentUrl || '',
-          labourIdUrl: (quickReg ? quickReg.labourIdUrl : '') || prev.labourIdUrl || '',
+          labourIdUrl: cleanLabourId((quickReg ? quickReg.labourIdUrl : '') || prev.labourIdUrl || ''),
           candidateIdImageUrl: (quickReg ? quickReg.candidateIdImageUrl : '') || prev.candidateIdImageUrl || '',
           relativeIdImageUrl: (quickReg ? quickReg.relativeIdImageUrl : '') || prev.relativeIdImageUrl || '',
         };

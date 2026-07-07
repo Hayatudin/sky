@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
-import { getFileUrl, getDownloadUrl } from '@/lib/utils';
+import { getFileUrl, getDownloadUrl, cleanLabourId } from '@/lib/utils';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
@@ -421,7 +421,7 @@ export default function CandidateDetailPage() {
               <InfoItem icon={GraduationCap} label="Education" value={pi.educationLevel} />
               <InfoItem icon={Briefcase} label="Job" value={pi.job} />
               <InfoItem icon={FileText} label="ID Number" value={pi.idNumber} />
-              <InfoItem icon={FileText} label="Labour ID" value={c.labourIdUrl || ''} />
+              <InfoItem icon={FileText} label="Labour ID" value={cleanLabourId(c.labourIdUrl)} />
             </div>
           </div>
 

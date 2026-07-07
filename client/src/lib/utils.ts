@@ -77,3 +77,18 @@ export async function compressImage(dataUrl: string, maxWidth = 1200, quality = 
     img.src = dataUrl;
   });
 }
+
+export function cleanLabourId(val: string | null | undefined): string {
+  if (!val) return '';
+  const clean = val.trim();
+  if (
+    clean.includes('/') ||
+    clean.includes('\\') ||
+    clean.startsWith('ENC-') ||
+    clean.startsWith('http') ||
+    /\.(jpg|jpeg|png|gif|pdf|webp)$/i.test(clean)
+  ) {
+    return '';
+  }
+  return clean;
+}

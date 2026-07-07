@@ -28,7 +28,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { getFileUrl, getDownloadUrl } from '@/lib/utils';
+import { getFileUrl, getDownloadUrl, cleanLabourId } from '@/lib/utils';
 import { Candidate } from '@/types';
 import { useSession } from '@/lib/auth-client';
 
@@ -1341,6 +1341,7 @@ export default function AgencyContractsPage() {
                               <DetailItem icon={Phone} label="Phone Line" value={pi.phone} />
                               <DetailItem icon={GraduationCap} label="Education Level" value={pi.educationLevel} />
                               <DetailItem icon={MapPin} label="Full Address" value={[pi.address, pi.city, pi.state, pi.country].filter(Boolean).join(', ')} />
+                              <DetailItem icon={FileText} label="Labour ID" value={cleanLabourId(cd.labourIdUrl)} />
                               
                               {/* Emergency contact info */}
                               <div className="col-span-2 mt-2 border-t border-border/50 pt-4">
@@ -1376,7 +1377,6 @@ export default function AgencyContractsPage() {
                                 { label: 'Passport Document Scan', url: cd.passportImageUrl, color: 'blue' },
                                 { label: 'Candidate National ID Scan', url: cd.candidateIdImageUrl, color: 'indigo' },
                                 { label: 'Relative National ID Scan', url: cd.relativeIdImageUrl, color: 'amber' },
-                                { label: 'Labour ID Scan', url: cd.labourIdUrl, color: 'violet' },
                               ].map((doc, i) => (
                                 <div key={i} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-transparent hover:border-gray-200/40 transition-colors">
                                   <span className="text-xs font-bold text-text-primary">{doc.label}</span>

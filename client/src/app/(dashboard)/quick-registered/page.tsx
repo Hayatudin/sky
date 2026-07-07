@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 import { useQuickRegistrations } from '@/hooks/useQuickRegistrations';
 import { useBrokers } from '@/hooks/useBrokers';
-import { getFileUrl } from '@/lib/utils';
+import { getFileUrl, cleanLabourId } from '@/lib/utils';
 import { Loader2, ClipboardList, Search, Eye, Calendar, User, ShieldCheck, X, Upload, CheckCircle2, XCircle, ArrowRight, FileText, Trash2, MoreVertical, Edit2, Plus, Phone, Briefcase, GraduationCap, Heart, Baby, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -145,7 +145,7 @@ export default function QuickRegisteredPage() {
     jobExperience: [] as { experienceStatus: string; country: string; yearsOfExperience: string }[],
     passportImageUrl: undefined as string | undefined,
     cocDocumentUrl: undefined as string | undefined,
-    labourIdUrl: undefined as string | undefined,
+    labourIdUrl: '',
     candidateIdImageUrl: undefined as string | undefined,
     relativeIdImageUrl: undefined as string | undefined,
     videoUrl: undefined as string | undefined,
@@ -374,7 +374,7 @@ export default function QuickRegisteredPage() {
       jobExperience: parsedExperience,
       passportImageUrl: undefined,
       cocDocumentUrl: undefined,
-      labourIdUrl: undefined,
+      labourIdUrl: cleanLabourId(reg.labourIdUrl) || '',
       candidateIdImageUrl: undefined,
       relativeIdImageUrl: undefined,
       videoUrl: undefined,

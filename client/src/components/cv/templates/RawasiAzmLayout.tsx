@@ -1,5 +1,6 @@
 import React from 'react';
 import { Candidate } from '@/types';
+import { cleanLabourId } from '@/lib/utils';
 import PassportPage from '../shared/PassportPage';
 import {
   calculateAge,
@@ -192,7 +193,7 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
                 </tr>
                 <tr>
                   <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Labour ID</td>
-                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>{candidate.labourIdUrl || '—'}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-medium`}>{cleanLabourId(candidate.labourIdUrl) || '—'}</td>
                   <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">هوية العمل</td>
                 </tr>
               </tbody>

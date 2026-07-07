@@ -4,7 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Copy, Check, ArrowLeft, Loader2, User, Calendar, Globe, Briefcase, GraduationCap, Heart, Baby, Phone, BookOpen, Users, Upload, Image as ImageIcon, FileText, Save, RefreshCw, AlertCircle, Trash2, Video, Edit2, Plus, X, CheckCircle2 } from 'lucide-react';
-import { getFileUrl } from '@/lib/utils';
+import { getFileUrl, cleanLabourId } from '@/lib/utils';
 import { useBrokers } from '@/hooks/useBrokers';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -110,7 +110,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
     jobExperience: [] as { experienceStatus: string; country: string; yearsOfExperience: string }[],
     passportImageUrl: undefined as string | undefined,
     cocDocumentUrl: undefined as string | undefined,
-    labourIdUrl: undefined as string | undefined,
+    labourIdUrl: '',
     candidateIdImageUrl: undefined as string | undefined,
     relativeIdImageUrl: undefined as string | undefined,
     videoUrl: undefined as string | undefined,
@@ -231,7 +231,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       jobExperience: parsedExperience,
       passportImageUrl: undefined,
       cocDocumentUrl: undefined,
-      labourIdUrl: undefined,
+      labourIdUrl: cleanLabourId(reg.labourIdUrl) || '',
       candidateIdImageUrl: undefined,
       relativeIdImageUrl: undefined,
       videoUrl: undefined,
@@ -536,15 +536,15 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Labour ID Number</p>
-                {labourId && (
+                {cleanLabourId(labourId) && (
                   <span className="text-[10px] font-semibold text-primary bg-primary-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Check size={10} /> Saved
                   </span>
                 )}
               </div>
               <div className="h-32 bg-slate-50 rounded-xl border border-dashed border-border/80 flex items-center justify-center p-3 text-center">
-                {labourId ? (
-                  <span className="text-sm font-mono font-bold text-text-primary bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm max-w-full truncate">{labourId}</span>
+                {cleanLabourId(labourId) ? (
+                  <span className="text-sm font-mono font-bold text-text-primary bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm max-w-full truncate">{cleanLabourId(labourId)}</span>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-1.5 text-center p-4">
                     <AlertCircle className="text-amber-500/80" size={20} />
