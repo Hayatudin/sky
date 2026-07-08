@@ -1,16 +1,9 @@
-import { db } from './src/db';
+import { candidate } from './src/db/schema';
 
-async function main() {
-  const invs = await db.query.invoice.findMany({
-    with: {
-      candidate: {
-        with: {
-          generatedCVs: true
-        }
-      }
-    }
-  });
-  console.log(JSON.stringify(invs, null, 2));
+try {
+  console.log("Candidate keys:", Object.keys(candidate));
+  console.log("Test passed!");
+} catch (err: any) {
+  console.error("Test failed:", err.message || err);
 }
-
-main().finally(() => process.exit(0));
+process.exit(0);

@@ -357,6 +357,14 @@ app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'SKY Agency API is running' });
 });
 
+app.get('/test-status', (req: Request, res: Response) => {
+  res.json({
+    status: 'online',
+    timestamp: '2026-07-08T07:31:00Z',
+    schemaColumns: Object.keys(candidate)
+  });
+});
+
 // --- GLOBAL ERROR HANDLER ---
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('SERVER ERROR:', err);
