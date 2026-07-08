@@ -90,7 +90,7 @@ export default function QuickRegistrationPage() {
 
   // Document states
   const [cocDocumentUrl, setCocDocumentUrl] = useState<string | null>(null);
-  const [labourIdUrl, setLabourIdUrl] = useState<string | null>(null);
+  const [labourId, setLabourId] = useState<string | null>(null);
   const [candidateIdImageUrl, setCandidateIdImageUrl] = useState<string | null>(null);
   const [relativeIdImageUrl, setRelativeIdImageUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -350,7 +350,7 @@ export default function QuickRegistrationPage() {
     }
 
     if (!isCalling) {
-      if (!labourIdUrl) {
+      if (!labourId) {
         setError('Labour ID document is required.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
@@ -370,7 +370,7 @@ export default function QuickRegistrationPage() {
       const compPassport = passportImage ? await compressImage(passportImage, 900, 0.5) : null;
       const compFace = facePhotoUrl ? await compressImage(facePhotoUrl, 400, 0.5) : null;
       const compCoc = cocDocumentUrl ? await compressImage(cocDocumentUrl, 900, 0.5) : null;
-      const compLabour = (labourIdUrl && labourIdUrl.startsWith('data:image')) ? await compressImage(labourIdUrl, 900, 0.5) : labourIdUrl;
+      const compLabour = labourId;
       const compCandId = candidateIdImageUrl ? await compressImage(candidateIdImageUrl, 900, 0.5) : null;
       const compRelId = relativeIdImageUrl ? await compressImage(relativeIdImageUrl, 900, 0.5) : null;
 
@@ -399,7 +399,6 @@ export default function QuickRegistrationPage() {
               languages: selectedLanguages,
               brokerId: 'calling-broker', // Backend handles auto-connecting to 'Calling' broker
               cocDocumentUrl: compCoc,
-              labourIdUrl: compLabour,
               labourId: compLabour,
               candidateIdImageUrl: compCandId,
               relativeIdImageUrl: compRelId,
@@ -461,7 +460,6 @@ export default function QuickRegistrationPage() {
             brokerId: selectedBrokerId || null,
             relativePhones: null,
             cocDocumentUrl: compCoc,
-            labourIdUrl: compLabour,
             labourId: compLabour,
             candidateIdImageUrl: compCandId,
             relativeIdImageUrl: compRelId,
@@ -895,8 +893,8 @@ export default function QuickRegistrationPage() {
             <Input
               label="Labour ID Number"
               placeholder="Enter Labour ID Number"
-              value={labourIdUrl || ''}
-              onChange={(e) => setLabourIdUrl(e.target.value)}
+              value={labourId || ''}
+              onChange={(e) => setLabourId(e.target.value)}
               required={!isCalling}
             />
             <FileUpload

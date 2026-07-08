@@ -146,7 +146,7 @@ export default function MazayaTemplate({ candidate, facePhoto, fullBodyPhoto }: 
                     ['No. of Children', String(candidate.personalInfo?.numberOfChildren ?? ''), 'عدد الاطفال'],
                     ['Height', candidate.personalInfo?.height ? `${candidate.personalInfo.height}CM` : '', 'ارتفاع'],
                     ['Weight', candidate.personalInfo?.weight ? `${candidate.personalInfo.weight}KG` : '', 'وزن'],
-                    ['Labour ID', candidate.labourId || cleanLabourId(candidate.labourIdUrl), 'هوية العمل'],
+                    ['Labour ID', candidate.labourId || '', 'هوية العمل'],
                   ].map(([label, value, ar, bold]) => (
                     <tr key={label as string}>
                       <td className={`${cellBorder} px-2 py-1.5 ${labelClass} w-[30%]`}>{label}</td>

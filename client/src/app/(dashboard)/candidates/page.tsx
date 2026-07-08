@@ -263,7 +263,7 @@ export default function CandidatesPage() {
       else if (missingFileFilter === 'Passport') matchesMissingFile = !c.passportImageUrl;
       else if (missingFileFilter === 'FacePhoto') matchesMissingFile = !c.facePhotoUrl;
       else if (missingFileFilter === 'FullBody') matchesMissingFile = !c.fullBodyPhotoUrl;
-      else if (missingFileFilter === 'LabourID') matchesMissingFile = !(c.labourId || cleanLabourId(c.labourIdUrl));
+      else if (missingFileFilter === 'LabourID') matchesMissingFile = !c.labourId;
       else if (missingFileFilter === 'CandidateID') matchesMissingFile = !c.candidateIdImageUrl;
       else if (missingFileFilter === 'RelativeID') matchesMissingFile = !c.relativeIdImageUrl;
 

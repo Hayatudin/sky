@@ -61,7 +61,7 @@ export function makeSafeCandidate(c: Candidate): Candidate {
       ...(pi.medicalDocumentUrl !== undefined ? { medicalDocumentUrl: pi.medicalDocumentUrl } : {}),
       ...(pi.candidateIdImageUrl !== undefined ? { candidateIdImageUrl: pi.candidateIdImageUrl } : {}),
       ...(pi.relativeIdImageUrl !== undefined ? { relativeIdImageUrl: pi.relativeIdImageUrl } : {}),
-      ...(pi.labourIdUrl !== undefined    ? { labourIdUrl: pi.labourIdUrl }     : {}),
+      ...(pi.labourId !== undefined    ? { labourId: pi.labourId }     : {}),
       ...(pi.biometricStatus !== undefined ? { biometricStatus: pi.biometricStatus } : {}),
       ...(pi.medicalDate !== undefined    ? { medicalDate: pi.medicalDate }     : {}),
       ...(pi.biometricDate !== undefined  ? { biometricDate: pi.biometricDate } : {}),

@@ -152,7 +152,6 @@ router.get('/', async (req: Request, res: Response) => {
           medicalDocumentUrl: encryptPath(c.medicalDocumentUrl),
           candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
           relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
-          labourIdUrl: c.labourIdUrl || '',
           labourId: c.labourId || '',
           salary: c.salary || '1000SR',
         },
@@ -165,7 +164,6 @@ router.get('/', async (req: Request, res: Response) => {
         medicalDocumentUrl: encryptPath(c.medicalDocumentUrl),
         candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
         relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
-        labourIdUrl: c.labourIdUrl || '',
         labourId: c.labourId || '',
         isRequested: c.isRequested || false,
         visaOrContractNumber: c.visaOrContractNumber || null,
@@ -230,7 +228,6 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
     };
 
     if (qr.cocDocumentUrl) updateData.cocDocumentUrl = qr.cocDocumentUrl;
-    if (qr.labourIdUrl) updateData.labourIdUrl = qr.labourIdUrl;
     if (qr.labourId) updateData.labourId = qr.labourId;
     if (qr.candidateIdImageUrl) updateData.candidateIdImageUrl = qr.candidateIdImageUrl;
     if (qr.relativeIdImageUrl) updateData.relativeIdImageUrl = qr.relativeIdImageUrl;
@@ -306,7 +303,6 @@ router.post('/', async (req: Request, res: Response) => {
       medicalDocumentUrl,
       candidateIdImageUrl,
       relativeIdImageUrl,
-      labourIdUrl,
       videoUrl
     ] = await Promise.all([
       uploadToLocal(body.passportImageUrl, 'passports'),
@@ -316,7 +312,6 @@ router.post('/', async (req: Request, res: Response) => {
       uploadToLocal(body.personalInfo.medicalDocumentUrl, 'medical'),
       uploadToLocal(body.personalInfo.candidateIdImageUrl, 'candidate-id'),
       uploadToLocal(body.personalInfo.relativeIdImageUrl, 'relative-id'),
-      uploadToLocal(body.personalInfo.labourIdUrl, 'labour-id'),
       uploadToLocal(body.videoUrl, 'videos')
     ]);
 
@@ -433,7 +428,6 @@ router.post('/', async (req: Request, res: Response) => {
       medicalDocumentUrl,
       candidateIdImageUrl,
       relativeIdImageUrl,
-      labourIdUrl,
       labourId: body.personalInfo?.labourId || null,
       videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
@@ -639,7 +633,6 @@ router.get('/:id', async (req: Request, res: Response) => {
         medicalDocumentUrl: encryptPath(c.medicalDocumentUrl),
         candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
         relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
-        labourIdUrl: c.labourIdUrl || '',
         labourId: c.labourId || '',
         salary: c.salary || '1000SR',
       },
@@ -650,7 +643,6 @@ router.get('/:id', async (req: Request, res: Response) => {
       medicalDocumentUrl: encryptPath(c.medicalDocumentUrl),
       candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
       relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
-      labourIdUrl: c.labourIdUrl || '',
       labourId: c.labourId || '',
       status: c.status,
       isRequested: c.isRequested,
@@ -718,7 +710,6 @@ router.put('/:id', async (req: Request, res: Response) => {
       medicalDocumentUrl,
       candidateIdImageUrl,
       relativeIdImageUrl,
-      labourIdUrl,
       videoUrl
     ] = await Promise.all([
       uploadToLocal(body.passportImageUrl, 'passports'),
@@ -728,7 +719,6 @@ router.put('/:id', async (req: Request, res: Response) => {
       uploadToLocal(body.personalInfo.medicalDocumentUrl, 'medical'),
       uploadToLocal(body.personalInfo.candidateIdImageUrl, 'candidate-id'),
       uploadToLocal(body.personalInfo.relativeIdImageUrl, 'relative-id'),
-      uploadToLocal(body.personalInfo.labourIdUrl, 'labour-id'),
       uploadToLocal(body.videoUrl, 'videos')
     ]);
 
@@ -801,7 +791,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (medicalDocumentUrl) updateData.medicalDocumentUrl = medicalDocumentUrl;
     if (candidateIdImageUrl) updateData.candidateIdImageUrl = candidateIdImageUrl;
     if (relativeIdImageUrl) updateData.relativeIdImageUrl = relativeIdImageUrl;
-    if (labourIdUrl) updateData.labourIdUrl = labourIdUrl;
     if (body.personalInfo?.labourId !== undefined) updateData.labourId = body.personalInfo.labourId;
     
     if (videoUrl) {
@@ -905,8 +894,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       { key: 'cocDocumentUrl', dir: 'coc' },
       { key: 'medicalDocumentUrl', dir: 'medical' },
       { key: 'candidateIdImageUrl', dir: 'candidate-id' },
-      { key: 'relativeIdImageUrl', dir: 'relative-id' },
-      { key: 'labourIdUrl', dir: 'labour-id' }
+      { key: 'relativeIdImageUrl', dir: 'relative-id' }
     ];
 
     for (const field of docFields) {
@@ -955,7 +943,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       'emergencyContactName', 'emergencyContactRelation', 'emergencyContactPhone',
       'emergencyContactAddress', 'passportImageUrl', 'facePhotoUrl', 'fullBodyPhotoUrl',
       'cocDocumentUrl', 'medicalDocumentUrl', 'candidateIdImageUrl', 'relativeIdImageUrl',
-      'labourIdUrl', 'status', 'agency', 'salary', 'price'
+      'labourId', 'status', 'agency', 'salary', 'price'
     ];
 
     stringFields.forEach(f => {

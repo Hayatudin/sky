@@ -27,7 +27,6 @@ interface QuickRegistration {
   relativePhones: string[] | null;
   broker: { id: string; name: string } | null;
   cocDocumentUrl: string | null;
-  labourIdUrl: string | null;
   labourId: string | null;
   candidateIdImageUrl: string | null;
   relativeIdImageUrl: string | null;
@@ -111,7 +110,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
     jobExperience: [] as { experienceStatus: string; country: string; yearsOfExperience: string }[],
     passportImageUrl: undefined as string | undefined,
     cocDocumentUrl: undefined as string | undefined,
-    labourIdUrl: '',
+    labourId: '',
     candidateIdImageUrl: undefined as string | undefined,
     relativeIdImageUrl: undefined as string | undefined,
     videoUrl: undefined as string | undefined,
@@ -147,7 +146,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
         const json = await res.json();
         setData(json);
         setCocDoc(json.cocDocumentUrl);
-        setLabourId(json.labourId || json.labourIdUrl);
+        setLabourId(json.labourId);
         setCandidateIdImg(json.candidateIdImageUrl);
         setRelativeIdImg(json.relativeIdImageUrl);
         setVideoFile(json.videoUrl);
@@ -232,7 +231,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       jobExperience: parsedExperience,
       passportImageUrl: undefined,
       cocDocumentUrl: undefined,
-      labourIdUrl: reg.labourId || cleanLabourId(reg.labourIdUrl) || '',
+      labourId: reg.labourId || '',
       candidateIdImageUrl: undefined,
       relativeIdImageUrl: undefined,
       videoUrl: undefined,
@@ -284,9 +283,8 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
 
       if (editForm.passportImageUrl !== undefined) payload.passportImageUrl = editForm.passportImageUrl;
       if (editForm.cocDocumentUrl !== undefined) payload.cocDocumentUrl = editForm.cocDocumentUrl;
-      if (editForm.labourIdUrl !== undefined) {
-        payload.labourIdUrl = editForm.labourIdUrl;
-        payload.labourId = editForm.labourIdUrl;
+      if (editForm.labourId !== undefined) {
+        payload.labourId = editForm.labourId;
       }
       if (editForm.candidateIdImageUrl !== undefined) payload.candidateIdImageUrl = editForm.candidateIdImageUrl;
       if (editForm.relativeIdImageUrl !== undefined) payload.relativeIdImageUrl = editForm.relativeIdImageUrl;
@@ -304,7 +302,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       setData(updated);
       queryClient.invalidateQueries({ queryKey: ['passports'] });
       setCocDoc(updated.cocDocumentUrl);
-      setLabourId(updated.labourIdUrl);
+      setLabourId(updated.labourId);
       setCandidateIdImg(updated.candidateIdImageUrl);
       setRelativeIdImg(updated.relativeIdImageUrl);
       setVideoFile(updated.videoUrl);
@@ -345,7 +343,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cocDocumentUrl: cocDoc,
-          labourIdUrl: labourId,
+          labourId: labourId,
           candidateIdImageUrl: candidateIdImg,
           relativeIdImageUrl: relativeIdImg,
           videoUrl: videoFile,
@@ -358,7 +356,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       const updated = await res.json();
       setData(updated);
       setCocDoc(updated.cocDocumentUrl);
-      setLabourId(updated.labourIdUrl);
+      setLabourId(updated.labourId);
       setCandidateIdImg(updated.candidateIdImageUrl);
       setRelativeIdImg(updated.relativeIdImageUrl);
       setVideoFile(updated.videoUrl);
@@ -374,7 +372,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
   const hasUnsavedChanges =
     data && (
       cocDoc !== data.cocDocumentUrl ||
-      labourId !== data.labourIdUrl ||
+      labourId !== data.labourId ||
       candidateIdImg !== data.candidateIdImageUrl ||
       relativeIdImg !== data.relativeIdImageUrl ||
       videoFile !== data.videoUrl
@@ -540,15 +538,15 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Labour ID Number</p>
-                {cleanLabourId(labourId) && (
+                {labourId && (
                   <span className="text-[10px] font-semibold text-primary bg-primary-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Check size={10} /> Saved
                   </span>
                 )}
               </div>
               <div className="h-32 bg-slate-50 rounded-xl border border-dashed border-border/80 flex items-center justify-center p-3 text-center">
-                {cleanLabourId(labourId) ? (
-                  <span className="text-sm font-mono font-bold text-text-primary bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm max-w-full truncate">{cleanLabourId(labourId)}</span>
+                {labourId ? (
+                  <span className="text-sm font-mono font-bold text-text-primary bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm max-w-full truncate">{labourId}</span>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-1.5 text-center p-4">
                     <AlertCircle className="text-amber-500/80" size={20} />
@@ -895,8 +893,8 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
                       <input
                         type="text"
                         placeholder="Enter Labour ID Number"
-                        value={editForm.labourIdUrl || ''}
-                        onChange={e => setEditForm(prev => ({ ...prev, labourIdUrl: e.target.value }))}
+                        value={editForm.labourId || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, labourId: e.target.value }))}
                         className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-text-primary"
                       />
                     </div>

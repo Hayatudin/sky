@@ -421,7 +421,7 @@ export default function CandidateDetailPage() {
               <InfoItem icon={GraduationCap} label="Education" value={pi.educationLevel} />
               <InfoItem icon={Briefcase} label="Job" value={pi.job} />
               <InfoItem icon={FileText} label="ID Number" value={pi.idNumber} />
-              <InfoItem icon={FileText} label="Labour ID" value={c.labourId || cleanLabourId(c.labourIdUrl)} />
+              <InfoItem icon={FileText} label="Labour ID" value={c.labourId || ''} />
             </div>
           </div>
 

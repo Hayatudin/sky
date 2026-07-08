@@ -51,7 +51,6 @@ export interface CandidatePersonalInfo {
   medicalDocumentUrl?: string;
   candidateIdImageUrl?: string;
   relativeIdImageUrl?: string;
-  labourIdUrl?: string;
   labourId?: string;
   brokerId?: string;
   salary?: string;
@@ -69,7 +68,6 @@ export interface Candidate {
   medicalDocumentUrl?: string;
   candidateIdImageUrl?: string;
   relativeIdImageUrl?: string;
-  labourIdUrl?: string;
   labourId?: string;
   isRequested?: boolean;
   visaSelected?: boolean;

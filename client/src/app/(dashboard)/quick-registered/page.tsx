@@ -43,7 +43,6 @@ interface QuickReg {
   promotedCandidateId: string | null;
   createdAt: string;
   cocDocumentUrl?: string | null;
-  labourIdUrl?: string | null;
   labourId?: string | null;
   candidateIdImageUrl?: string | null;
   relativeIdImageUrl?: string | null;
@@ -146,7 +145,7 @@ export default function QuickRegisteredPage() {
     jobExperience: [] as { experienceStatus: string; country: string; yearsOfExperience: string }[],
     passportImageUrl: undefined as string | undefined,
     cocDocumentUrl: undefined as string | undefined,
-    labourIdUrl: '',
+    labourId: '',
     candidateIdImageUrl: undefined as string | undefined,
     relativeIdImageUrl: undefined as string | undefined,
     videoUrl: undefined as string | undefined,
@@ -375,7 +374,7 @@ export default function QuickRegisteredPage() {
       jobExperience: parsedExperience,
       passportImageUrl: undefined,
       cocDocumentUrl: undefined,
-      labourIdUrl: reg.labourId || cleanLabourId(reg.labourIdUrl) || '',
+      labourId: reg.labourId || '',
       candidateIdImageUrl: undefined,
       relativeIdImageUrl: undefined,
       videoUrl: undefined,
@@ -427,9 +426,8 @@ export default function QuickRegisteredPage() {
 
       if (editForm.passportImageUrl !== undefined) payload.passportImageUrl = editForm.passportImageUrl;
       if (editForm.cocDocumentUrl !== undefined) payload.cocDocumentUrl = editForm.cocDocumentUrl;
-      if (editForm.labourIdUrl !== undefined) {
-        payload.labourIdUrl = editForm.labourIdUrl;
-        payload.labourId = editForm.labourIdUrl;
+      if (editForm.labourId !== undefined) {
+        payload.labourId = editForm.labourId;
       }
       if (editForm.candidateIdImageUrl !== undefined) payload.candidateIdImageUrl = editForm.candidateIdImageUrl;
       if (editForm.relativeIdImageUrl !== undefined) payload.relativeIdImageUrl = editForm.relativeIdImageUrl;
@@ -1101,8 +1099,8 @@ export default function QuickRegisteredPage() {
                       <input
                         type="text"
                         placeholder="Enter Labour ID Number"
-                        value={editForm.labourIdUrl || ''}
-                        onChange={e => setEditForm(prev => ({ ...prev, labourIdUrl: e.target.value }))}
+                        value={editForm.labourId || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, labourId: e.target.value }))}
                         className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-text-primary"
                       />
                     </div>

@@ -183,14 +183,12 @@ router.post('/', async (req: Request, res: Response) => {
     const [
       passportImageUrl,
       cocDocumentUrl,
-      labourIdUrl,
       candidateIdImageUrl,
       relativeIdImageUrl,
       videoUrl
     ] = await Promise.all([
       uploadToLocal(body.passportImageUrl, 'passports'),
       uploadToLocal(body.cocDocumentUrl, 'coc'),
-      uploadToLocal(body.labourIdUrl, 'labour-id'),
       uploadToLocal(body.candidateIdImageUrl, 'candidate-id'),
       uploadToLocal(body.relativeIdImageUrl, 'relative-id'),
       uploadToLocal(body.videoUrl, 'videos'),
@@ -219,7 +217,6 @@ router.post('/', async (req: Request, res: Response) => {
         religion: body.religion || null,
         brokerId: body.brokerId || null,
         cocDocumentUrl: cocDocumentUrl || null,
-        labourIdUrl: labourIdUrl || null,
         labourId: body.labourId || null,
         candidateIdImageUrl: candidateIdImageUrl || null,
         relativeIdImageUrl: relativeIdImageUrl || null,
@@ -275,14 +272,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     const [
       passportImageUrl,
       cocDocumentUrl,
-      labourIdUrl,
       candidateIdImageUrl,
       relativeIdImageUrl,
       videoUrl
     ] = await Promise.all([
       body.passportImageUrl !== undefined ? uploadToLocal(body.passportImageUrl, 'passports') : undefined,
       body.cocDocumentUrl !== undefined ? uploadToLocal(body.cocDocumentUrl, 'coc') : undefined,
-      body.labourIdUrl !== undefined ? uploadToLocal(body.labourIdUrl, 'labour-id') : undefined,
       body.candidateIdImageUrl !== undefined ? uploadToLocal(body.candidateIdImageUrl, 'candidate-id') : undefined,
       body.relativeIdImageUrl !== undefined ? uploadToLocal(body.relativeIdImageUrl, 'relative-id') : undefined,
       body.videoUrl !== undefined ? uploadToLocal(body.videoUrl, 'videos') : undefined,
@@ -307,7 +302,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (body.brokerId !== undefined) updateData.brokerId = body.brokerId || null;
     
     if (cocDocumentUrl !== undefined) updateData.cocDocumentUrl = cocDocumentUrl;
-    if (labourIdUrl !== undefined) updateData.labourIdUrl = labourIdUrl;
     if (body.labourId !== undefined) updateData.labourId = body.labourId;
     if (candidateIdImageUrl !== undefined) updateData.candidateIdImageUrl = candidateIdImageUrl;
     if (relativeIdImageUrl !== undefined) updateData.relativeIdImageUrl = relativeIdImageUrl;

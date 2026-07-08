@@ -1341,7 +1341,7 @@ export default function AgencyContractsPage() {
                               <DetailItem icon={Phone} label="Phone Line" value={pi.phone} />
                               <DetailItem icon={GraduationCap} label="Education Level" value={pi.educationLevel} />
                               <DetailItem icon={MapPin} label="Full Address" value={[pi.address, pi.city, pi.state, pi.country].filter(Boolean).join(', ')} />
-                              <DetailItem icon={FileText} label="Labour ID" value={cd.labourId || cleanLabourId(cd.labourIdUrl)} />
+                              <DetailItem icon={FileText} label="Labour ID" value={cd.labourId || ''} />
                               
                               {/* Emergency contact info */}
                               <div className="col-span-2 mt-2 border-t border-border/50 pt-4">

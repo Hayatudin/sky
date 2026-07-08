@@ -212,7 +212,7 @@ function RegistrationContent() {
         // Broker and Quick Registration files:
         brokerId: quickRegistration.brokerId || quickRegistration.broker?.id || prev.brokerId,
         cocDocumentUrl: quickRegistration.cocDocumentUrl || '',
-        labourIdUrl: cleanLabourId(quickRegistration.labourIdUrl) || '',
+        labourId: quickRegistration.labourId || '',
         candidateIdImageUrl: quickRegistration.candidateIdImageUrl || '',
         relativeIdImageUrl: quickRegistration.relativeIdImageUrl || '',
         additionalPhones: prev.additionalPhones,
@@ -320,7 +320,7 @@ function RegistrationContent() {
           additionalPhones: [],
           workExperience: [],
           cocDocumentUrl: data.cocDocumentUrl || '',
-          labourIdUrl: cleanLabourId(data.labourIdUrl) || '',
+          labourId: data.labourId || '',
           candidateIdImageUrl: data.candidateIdImageUrl || '',
           relativeIdImageUrl: data.relativeIdImageUrl || '',
           languages: Array.isArray(data.languages) ? data.languages : [],
@@ -557,7 +557,7 @@ function RegistrationContent() {
           // Merge from Quick Registration if found:
           brokerId: (quickReg ? (quickReg.brokerId || quickReg.broker?.id) : '') || prev.brokerId,
           cocDocumentUrl: (quickReg ? quickReg.cocDocumentUrl : '') || prev.cocDocumentUrl || '',
-          labourIdUrl: cleanLabourId((quickReg ? quickReg.labourIdUrl : '') || prev.labourIdUrl || ''),
+          labourId: (quickReg ? quickReg.labourId : '') || prev.labourId || '',
           candidateIdImageUrl: (quickReg ? quickReg.candidateIdImageUrl : '') || prev.candidateIdImageUrl || '',
           relativeIdImageUrl: (quickReg ? quickReg.relativeIdImageUrl : '') || prev.relativeIdImageUrl || '',
         };
@@ -602,7 +602,7 @@ function RegistrationContent() {
       const compressedCandidateId = personalInfo.candidateIdImageUrl ? await compressImage(personalInfo.candidateIdImageUrl, 900, 0.5) : null;
       const compressedRelativeId = personalInfo.relativeIdImageUrl ? await compressImage(personalInfo.relativeIdImageUrl, 900, 0.5) : null;
 
-      const { cocDocumentUrl, medicalDocumentUrl, candidateIdImageUrl, relativeIdImageUrl, labourIdUrl, ...cleanPersonalInfo } = personalInfo;
+      const { cocDocumentUrl, medicalDocumentUrl, candidateIdImageUrl, relativeIdImageUrl, labourId, ...cleanPersonalInfo } = personalInfo;
 
       const url = isEditMode ? `/api/candidates/${editId}` : '/api/candidates';
       const method = isEditMode ? 'PUT' : 'POST';
@@ -621,7 +621,7 @@ function RegistrationContent() {
             medicalDocumentUrl: compressedMedical,
             candidateIdImageUrl: compressedCandidateId,
             relativeIdImageUrl: compressedRelativeId,
-            labourIdUrl: labourIdUrl || null,
+            labourId: labourId || null,
           },
           passportImageUrl: compressedPassport,
           facePhotoUrl: compressedFace,
