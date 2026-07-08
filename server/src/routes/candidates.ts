@@ -153,6 +153,7 @@ router.get('/', async (req: Request, res: Response) => {
           candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
           relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
           labourIdUrl: c.labourIdUrl || '',
+          labourId: c.labourId || '',
           salary: c.salary || '1000SR',
         },
         brokerId: c.brokerId,
@@ -165,6 +166,7 @@ router.get('/', async (req: Request, res: Response) => {
         candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
         relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
         labourIdUrl: c.labourIdUrl || '',
+        labourId: c.labourId || '',
         isRequested: c.isRequested || false,
         visaOrContractNumber: c.visaOrContractNumber || null,
         isFlagged: c.isFlagged || false,
@@ -229,6 +231,7 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
 
     if (qr.cocDocumentUrl) updateData.cocDocumentUrl = qr.cocDocumentUrl;
     if (qr.labourIdUrl) updateData.labourIdUrl = qr.labourIdUrl;
+    if (qr.labourId) updateData.labourId = qr.labourId;
     if (qr.candidateIdImageUrl) updateData.candidateIdImageUrl = qr.candidateIdImageUrl;
     if (qr.relativeIdImageUrl) updateData.relativeIdImageUrl = qr.relativeIdImageUrl;
     
@@ -431,6 +434,7 @@ router.post('/', async (req: Request, res: Response) => {
       candidateIdImageUrl,
       relativeIdImageUrl,
       labourIdUrl,
+      labourId: body.personalInfo?.labourId || null,
       videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
       status: body.status || 'pending',
@@ -636,6 +640,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
         relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
         labourIdUrl: c.labourIdUrl || '',
+        labourId: c.labourId || '',
         salary: c.salary || '1000SR',
       },
       passportImageUrl: encryptPath(c.passportImageUrl),
@@ -646,6 +651,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       candidateIdImageUrl: encryptPath(c.candidateIdImageUrl),
       relativeIdImageUrl: encryptPath(c.relativeIdImageUrl),
       labourIdUrl: c.labourIdUrl || '',
+      labourId: c.labourId || '',
       status: c.status,
       isRequested: c.isRequested,
       visaOrContractNumber: c.visaOrContractNumber || null,
@@ -796,6 +802,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (candidateIdImageUrl) updateData.candidateIdImageUrl = candidateIdImageUrl;
     if (relativeIdImageUrl) updateData.relativeIdImageUrl = relativeIdImageUrl;
     if (labourIdUrl) updateData.labourIdUrl = labourIdUrl;
+    if (body.personalInfo?.labourId !== undefined) updateData.labourId = body.personalInfo.labourId;
     
     if (videoUrl) {
       if (videoUrl.startsWith('http')) {

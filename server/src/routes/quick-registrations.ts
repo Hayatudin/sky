@@ -220,6 +220,7 @@ router.post('/', async (req: Request, res: Response) => {
         brokerId: body.brokerId || null,
         cocDocumentUrl: cocDocumentUrl || null,
         labourIdUrl: labourIdUrl || null,
+        labourId: body.labourId || null,
         candidateIdImageUrl: candidateIdImageUrl || null,
         relativeIdImageUrl: relativeIdImageUrl || null,
         relativePhones: body.relativePhones || null,
@@ -307,6 +308,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     
     if (cocDocumentUrl !== undefined) updateData.cocDocumentUrl = cocDocumentUrl;
     if (labourIdUrl !== undefined) updateData.labourIdUrl = labourIdUrl;
+    if (body.labourId !== undefined) updateData.labourId = body.labourId;
     if (candidateIdImageUrl !== undefined) updateData.candidateIdImageUrl = candidateIdImageUrl;
     if (relativeIdImageUrl !== undefined) updateData.relativeIdImageUrl = relativeIdImageUrl;
     if (body.relativePhones !== undefined) updateData.relativePhones = body.relativePhones || null;

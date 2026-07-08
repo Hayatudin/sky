@@ -44,6 +44,7 @@ interface QuickReg {
   createdAt: string;
   cocDocumentUrl?: string | null;
   labourIdUrl?: string | null;
+  labourId?: string | null;
   candidateIdImageUrl?: string | null;
   relativeIdImageUrl?: string | null;
   videoUrl?: string | null;
@@ -374,7 +375,7 @@ export default function QuickRegisteredPage() {
       jobExperience: parsedExperience,
       passportImageUrl: undefined,
       cocDocumentUrl: undefined,
-      labourIdUrl: cleanLabourId(reg.labourIdUrl) || '',
+      labourIdUrl: reg.labourId || cleanLabourId(reg.labourIdUrl) || '',
       candidateIdImageUrl: undefined,
       relativeIdImageUrl: undefined,
       videoUrl: undefined,
@@ -426,7 +427,10 @@ export default function QuickRegisteredPage() {
 
       if (editForm.passportImageUrl !== undefined) payload.passportImageUrl = editForm.passportImageUrl;
       if (editForm.cocDocumentUrl !== undefined) payload.cocDocumentUrl = editForm.cocDocumentUrl;
-      if (editForm.labourIdUrl !== undefined) payload.labourIdUrl = editForm.labourIdUrl;
+      if (editForm.labourIdUrl !== undefined) {
+        payload.labourIdUrl = editForm.labourIdUrl;
+        payload.labourId = editForm.labourIdUrl;
+      }
       if (editForm.candidateIdImageUrl !== undefined) payload.candidateIdImageUrl = editForm.candidateIdImageUrl;
       if (editForm.relativeIdImageUrl !== undefined) payload.relativeIdImageUrl = editForm.relativeIdImageUrl;
       if (editForm.videoUrl !== undefined) payload.videoUrl = editForm.videoUrl;

@@ -16,6 +16,7 @@ export interface QuickReg {
   createdAt: string;
   cocDocumentUrl?: string | null;
   labourIdUrl?: string | null;
+  labourId?: string | null;
   candidateIdImageUrl?: string | null;
   relativeIdImageUrl?: string | null;
   videoUrl?: string | null;

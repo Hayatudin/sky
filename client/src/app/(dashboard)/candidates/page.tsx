@@ -8,7 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Candidate } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, cleanLabourId } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { authClient } from '@/lib/auth-client';
@@ -263,7 +263,7 @@ export default function CandidatesPage() {
       else if (missingFileFilter === 'Passport') matchesMissingFile = !c.passportImageUrl;
       else if (missingFileFilter === 'FacePhoto') matchesMissingFile = !c.facePhotoUrl;
       else if (missingFileFilter === 'FullBody') matchesMissingFile = !c.fullBodyPhotoUrl;
-      else if (missingFileFilter === 'LabourID') matchesMissingFile = !c.labourIdUrl;
+      else if (missingFileFilter === 'LabourID') matchesMissingFile = !(c.labourId || cleanLabourId(c.labourIdUrl));
       else if (missingFileFilter === 'CandidateID') matchesMissingFile = !c.candidateIdImageUrl;
       else if (missingFileFilter === 'RelativeID') matchesMissingFile = !c.relativeIdImageUrl;
 

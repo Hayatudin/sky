@@ -400,6 +400,7 @@ export default function QuickRegistrationPage() {
               brokerId: 'calling-broker', // Backend handles auto-connecting to 'Calling' broker
               cocDocumentUrl: compCoc,
               labourIdUrl: compLabour,
+              labourId: compLabour,
               candidateIdImageUrl: compCandId,
               relativeIdImageUrl: compRelId,
               medicalStatus: 'Pending',
@@ -461,6 +462,7 @@ export default function QuickRegistrationPage() {
             relativePhones: null,
             cocDocumentUrl: compCoc,
             labourIdUrl: compLabour,
+            labourId: compLabour,
             candidateIdImageUrl: compCandId,
             relativeIdImageUrl: compRelId,
             videoUrl,
