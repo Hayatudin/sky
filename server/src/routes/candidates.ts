@@ -24,6 +24,14 @@ const candidateBodySchema = z.object({
 
 const router = Router();
 
+router.get('/test-status', (req: Request, res: Response) => {
+  res.json({
+    status: 'online',
+    timestamp: '2026-07-08T06:18:00Z',
+    schemaColumns: Object.keys(candidate)
+  });
+});
+
 async function getBrokerLockMap(): Promise<Record<string, boolean>> {
   try {
     const rows = await db.select({ id: broker.id, isLocked: broker.isLocked }).from(broker);
@@ -192,9 +200,11 @@ router.get('/', async (req: Request, res: Response) => {
     res.json(candidates);
   } catch (error: any) {
     console.error('Failed to fetch candidates:', error);
+    const sqlError = error?.sqlMessage || error?.cause?.sqlMessage || error?.cause?.message;
+    const finalMessage = sqlError ? `${error.message} (Database Error: ${sqlError})` : error?.message || String(error);
     res.status(500).json({ 
       error: 'Failed to fetch candidates', 
-      message: error?.message || String(error)
+      message: finalMessage
     });
   }
 });
