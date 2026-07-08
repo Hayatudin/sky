@@ -157,8 +157,10 @@ export async function api(path: string, options: RequestInit = {}): Promise<Resp
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const message =
-      errorData.error || errorData.message || `API error: ${response.status} ${response.statusText}`;
+    const detail = errorData.message || errorData.error || `API error: ${response.status} ${response.statusText}`;
+    const message = errorData.error && errorData.message && errorData.error !== errorData.message
+      ? `${errorData.error}: ${errorData.message}`
+      : detail;
     console.error(`[API] Error ${response.status} on ${options.method || 'GET'} ${url}:`, message);
     throw new Error(message);
   }
