@@ -267,7 +267,7 @@ export default function CandidatesPage() {
       else if (missingFileFilter === 'CandidateID') matchesMissingFile = !c.candidateIdImageUrl;
       else if (missingFileFilter === 'RelativeID') matchesMissingFile = !c.relativeIdImageUrl;
 
-      return matchesSearch && matchesStatus && matchesDate && matchesJob && matchesGender && matchesReligion && matchesMissingFile && matchesAgency && matchesCalling;
+      return matchesSearch && matchesStatus && matchesDate && matchesJob && matchesGender && matchesReligion && matchesMissingFile && matchesAgency && matchesCalling && !c.isRequested;
     });
     result.sort((a, b) => {
       const dA = new Date(a.registeredAt).getTime(), dB = new Date(b.registeredAt).getTime();

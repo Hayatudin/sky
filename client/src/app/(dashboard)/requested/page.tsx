@@ -1,15 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { ClipboardList, Loader2, MoreVertical, CheckCircle, Trash2, Edit3, Eye, Search, Flag, CalendarDays, X, Upload, Plus } from 'lucide-react';
+import { ClipboardList, Loader2, MoreVertical, CheckCircle, Trash2, Edit3, Eye, Search, Flag, CalendarDays, X, Plus } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { api } from '@/lib/api';
 import Input from '@/components/ui/Input';
 import { Candidate } from '@/types';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
-import { cn, compressImage } from '@/lib/utils';
 
 import { useCandidates } from '@/hooks/useCandidates';
 import { useBrokers } from '@/hooks/useBrokers';
@@ -18,66 +16,22 @@ import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
 const TEMPLATES = CV_TEMPLATE_OPTIONS;
 
-const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return resolve(dataUrl);
-      const maxDim = 1600;
-      let width = img.width;
-      let height = img.height;
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-      }
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-};
-
 function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () => void, onSuccess: () => void, brokers: any[] }) {
-  const [activeTab, setActiveTab] = React.useState<'basic' | 'personal' | 'skills'>('basic');
-  const [passportImage, setPassportImage] = React.useState<string | null>(null);
-  const [facePhoto, setFacePhoto] = React.useState<string | null>(null);
-  const [fullBodyPhoto, setFullBodyPhoto] = React.useState<string | null>(null);
-  
   // Basic & Visa Info
   const [fullName, setFullName] = React.useState('');
   const [passportNumber, setPassportNumber] = React.useState('');
   const [agency, setAgency] = React.useState('rawasi');
   const [visaOrContractNumber, setVisaOrContractNumber] = React.useState('');
   const [visaDate, setVisaDate] = React.useState('');
-  const [salary, setSalary] = React.useState('1000SR');
   const [job, setJob] = React.useState('HOUSE MAID');
-  const [price, setPrice] = React.useState('1000');
   const [brokerId, setBrokerId] = React.useState('');
-  const [shelfId, setShelfId] = React.useState('');
 
-  // Personal Info
-  const [dateOfBirth, setDateOfBirth] = React.useState('');
+  // Personal Info (needed for contracts)
   const [gender, setGender] = React.useState('Female');
-  const [nationality, setNationality] = React.useState('ETHIOPIAN');
   const [religion, setReligion] = React.useState('Muslim');
   const [maritalStatus, setMaritalStatus] = React.useState('Single');
   const [numberOfChildren, setNumberOfChildren] = React.useState(0);
-  const [height, setHeight] = React.useState('');
-  const [weight, setWeight] = React.useState('');
   const [phone, setPhone] = React.useState('');
-  const [email, setEmail] = React.useState('');
-  const [address, setAddress] = React.useState('');
   const [city, setCity] = React.useState('');
   const [educationLevel, setEducationLevel] = React.useState('SECONDARY SCHOOL');
 
@@ -85,84 +39,8 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
   const [selectedLanguages, setSelectedLanguages] = React.useState<string[]>([]);
   const [selectedSkills, setSelectedSkills] = React.useState<string[]>([]);
 
-  const [isProcessing, setIsProcessing] = React.useState(false);
-  const [ocrProgress, setOcrProgress] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const faceInputRef = React.useRef<HTMLInputElement>(null);
-  const fullBodyInputRef = React.useRef<HTMLInputElement>(null);
-
-  const performOCR = async (imageUrl: string) => {
-    setPassportImage(imageUrl);
-    setIsProcessing(true);
-    setError(null);
-    setOcrProgress(0);
-    try {
-      const preprocessedUrl = await preprocessImageForOcr(imageUrl);
-      setPassportImage(preprocessedUrl);
-      const Tesseract = await import('tesseract.js');
-      setOcrProgress(10);
-      const result = await Tesseract.recognize(preprocessedUrl, 'eng', {
-        logger: (m: { status: string; progress: number }) => {
-          if (m.status === 'recognizing text') setOcrProgress(10 + m.progress * 80);
-        },
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789< '
-      } as any);
-      setOcrProgress(90);
-      const ocrText = result.data.text;
-      
-      const { api } = await import('@/lib/api');
-      const response = await api('/api/ocr/passport', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ocrText }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to parse passport data');
-      setOcrProgress(100);
-      
-      if (data.passportNumber) setPassportNumber(data.passportNumber);
-      if (data.surname || data.givenNames) {
-        setFullName(`${data.givenNames || ''} ${data.surname || ''}`.trim().toUpperCase());
-      }
-      if (data.dateOfBirth) {
-        // Convert to YYYY-MM-DD
-        const parsedDob = new Date(data.dateOfBirth);
-        if (!isNaN(parsedDob.getTime())) {
-          setDateOfBirth(parsedDob.toISOString().split('T')[0]);
-        }
-      }
-      if (data.nationality) setNationality(data.nationality.toUpperCase());
-      if (data.gender) setGender(data.gender);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to scan passport');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void, runOcr = false) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      alert('Please upload an image with Max 50MB');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      if (ev.target?.result) {
-        const base64 = ev.target.result as string;
-        if (runOcr) {
-          performOCR(base64);
-        } else {
-          setter(base64);
-        }
-      }
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handleCheckboxChange = (val: string, list: string[], setter: (val: string[]) => void) => {
     if (list.includes(val)) {
@@ -176,12 +54,6 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
     e.preventDefault();
     if (!fullName || !passportNumber) {
       setError("Full Name and Passport Number are required.");
-      setActiveTab('basic');
-      return;
-    }
-    if (!dateOfBirth) {
-      setError("Date of Birth is required.");
-      setActiveTab('personal');
       return;
     }
     setIsSubmitting(true);
@@ -201,13 +73,9 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
     }
 
     try {
-      const compressedPassport = passportImage ? await compressImage(passportImage, 900, 0.5) : null;
-      const compressedFace = facePhoto ? await compressImage(facePhoto, 400, 0.5) : null;
-      const compressedFullBody = fullBodyPhoto ? await compressImage(fullBodyPhoto, 900, 0.5) : null;
-
       const { api } = await import('@/lib/api');
       
-      // 1. Create candidate
+      // Create candidate — shelfId, salary, price are auto-handled by server
       const response = await api('/api/candidates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -216,27 +84,27 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
             passportNumber,
             surname,
             givenNames,
-            dateOfBirth: new Date(dateOfBirth).toISOString(),
+            dateOfBirth: new Date('1995-01-01').toISOString(),
             gender,
-            nationality,
-            issuingCountry: nationality,
-            dateOfIssue: new Date().toISOString(), // Fallback
-            dateOfExpiry: new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString(), // Fallback +5y
+            nationality: 'ETHIOPIAN',
+            issuingCountry: 'ETHIOPIA',
+            dateOfIssue: new Date().toISOString(),
+            dateOfExpiry: new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString(),
             placeOfBirth: city || 'N/A'
           },
           personalInfo: {
             job,
-            salary,
+            salary: '1000SR',
             medicalStatus: 'Pending',
             biometricStatus: 'Pending',
             religion,
             maritalStatus,
             numberOfChildren,
-            height,
-            weight,
+            height: '160',
+            weight: '55',
             phone,
-            email: email || `${passportNumber.toLowerCase()}@sky-agency.com`,
-            address: address || city,
+            email: `${passportNumber.toLowerCase()}@sky-agency.com`,
+            address: city,
             city,
             educationLevel,
             languages: selectedLanguages,
@@ -246,14 +114,9 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
           agency,
           visaOrContractNumber: visaOrContractNumber || null,
           visaDate: visaDate ? new Date(visaDate).toISOString() : null,
-          passportImageUrl: compressedPassport,
-          facePhotoUrl: compressedFace,
-          fullBodyPhotoUrl: compressedFullBody,
           isRequested: true,
           visaSelected: true,
-          agencyStatus: 'Under Process',
-          shelfId: shelfId || null,
-          price
+          agencyStatus: 'Under Process'
         }),
       });
 
@@ -263,19 +126,17 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
       }
 
       const createdCandidate = await response.json();
-      const createdCandidateId = createdCandidate.id;
 
-      // 2. Automatically generate CV record for the selected agency template
+      // Automatically generate CV record for the selected agency template
       if (agency) {
-        const templateId = agency.toLowerCase();
         await api('/api/generated-cvs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            candidateId: createdCandidateId,
-            templateId,
-            facePhotoUrl: compressedFace || null,
-            fullBodyPhotoUrl: compressedFullBody || null
+            candidateId: createdCandidate.id,
+            templateId: agency.toLowerCase(),
+            facePhotoUrl: null,
+            fullBodyPhotoUrl: null
           })
         });
       }
@@ -301,326 +162,148 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
-      <div className="bg-surface w-full max-w-3xl rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
+      <div className="bg-surface w-full max-w-2xl rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center p-5 border-b border-border">
           <div>
-            <h2 className="text-xl font-bold text-text-primary">Direct Visa Registration</h2>
-            <p className="text-xs text-text-tertiary mt-0.5">Skip initial stages for already selected candidates</p>
+            <h2 className="text-xl font-bold text-text-primary">Add Visa Selected Candidate</h2>
+            <p className="text-xs text-text-tertiary mt-0.5">For candidates already selected — skip registration, go straight to contracts & invoices</p>
           </div>
           <button onClick={onClose} className="p-2 text-text-tertiary hover:text-text-primary rounded-xl hover:bg-gray-100"><X size={20} /></button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-border bg-gray-50/50 px-4">
-          {[
-            { id: 'basic', label: '1. Basic & Visa' },
-            { id: 'personal', label: '2. Personal Info' },
-            { id: 'skills', label: '3. Skills & Photos' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={cn(
-                "px-5 py-3 text-sm font-semibold border-b-2 transition-colors relative cursor-pointer",
-                activeTab === tab.id 
-                  ? "border-primary text-primary" 
-                  : "border-transparent text-text-secondary hover:text-text-primary"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="overflow-y-auto p-6 space-y-6 flex-1">
+        <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-1">
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-xl border border-red-100 text-sm">{error}</div>}
 
-          {/* TAB 1: BASIC & VISA INFO */}
-          {activeTab === 'basic' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Full Name *</label>
-                  <input required type="text" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. JOHN DOE" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Passport Number *</label>
-                  <input required type="text" value={passportNumber} onChange={e => setPassportNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. A1234567" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">CV Agency (CV Template) *</label>
-                  <select required value={agency} onChange={e => setAgency(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
-                    <option value="rawasi">Rawasi (RAWASI ALIMTIAZ AGENCY)</option>
-                    <option value="azm">Azm (AZM ALINJAZ RECRUITMENT)</option>
-                    <option value="mazaya">Mazaya (MAZAYA RECRUITMENT AGENT)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Job / Profession *</label>
-                  <select required value={job} onChange={e => setJob(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
-                    {jobOptions.map(j => (
-                      <option key={j} value={j}>{j}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Visa/Contract Number</label>
-                  <input type="text" value={visaOrContractNumber} onChange={e => setVisaOrContractNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. 4001234567" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Visa Date</label>
-                  <input type="date" value={visaDate} onChange={e => setVisaDate(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Salary</label>
-                  <input type="text" value={salary} onChange={e => setSalary(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. 1000SR" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Invoice Amount (USD) *</label>
-                  <input required type="number" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="1000" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Broker / Source *</label>
-                  <select required value={brokerId} onChange={e => setBrokerId(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
-                    <option value="">Direct Registration (No Broker)</option>
-                    {brokers.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Shelf ID</label>
-                  <input type="text" value={shelfId} onChange={e => setShelfId(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. A-12" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: PERSONAL DETAILS */}
-          {activeTab === 'personal' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Date of Birth *</label>
-                  <input required type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Gender *</label>
-                  <select value={gender} onChange={e => setGender(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Nationality *</label>
-                  <input required type="text" value={nationality} onChange={e => setNationality(e.target.value.toUpperCase())} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Religion *</label>
-                  <select value={religion} onChange={e => setReligion(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
-                    {religionOptions.map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Marital Status *</label>
-                  <select value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
-                    {maritalOptions.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Number of Children</label>
-                  <input type="number" value={numberOfChildren} onChange={e => setNumberOfChildren(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Height (cm)</label>
-                  <input type="text" value={height} onChange={e => setHeight(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. 165" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Weight (kg)</label>
-                  <input type="text" value={weight} onChange={e => setWeight(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. 55" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Phone Number *</label>
-                  <input required type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. +251 9..." />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">E-Mail</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. candidate@example.com" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">City *</label>
-                  <input required type="text" value={city} onChange={e => setCity(e.target.value.toUpperCase())} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. ADDIS ABABA" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Address</label>
-                  <input type="text" value={address} onChange={e => setAddress(e.target.value.toUpperCase())} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. BOLE AREA" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Education Level *</label>
-                  <select value={educationLevel} onChange={e => setEducationLevel(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
-                    {educationOptions.map(e => (
-                      <option key={e} value={e}>{e}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: SKILLS, LANGUAGES & PHOTOS */}
-          {activeTab === 'skills' && (
-            <div className="space-y-6">
-              {/* Languages Checklist */}
+          {/* ── SECTION 1: IDENTITY & VISA ── */}
+          <div>
+            <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-widest mb-3">Identity & Visa Details</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Languages *</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-xl border border-border">
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Full Name *</label>
+                <input required type="text" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. ABEBE TADESSE YOHANNES" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Passport Number *</label>
+                <input required type="text" value={passportNumber} onChange={e => setPassportNumber(e.target.value.toUpperCase())} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. EP1234567" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">CV Agency (Template) *</label>
+                <select required value={agency} onChange={e => setAgency(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  <option value="rawasi">Rawasi (RAWASI ALIMTIAZ)</option>
+                  <option value="azm">Azm (AZM ALINJAZ)</option>
+                  <option value="mazaya">Mazaya (MAZAYA RECRUITMENT)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Job / Profession *</label>
+                <select required value={job} onChange={e => setJob(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  {jobOptions.map(j => <option key={j} value={j}>{j}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Visa / Contract Number</label>
+                <input type="text" value={visaOrContractNumber} onChange={e => setVisaOrContractNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. 4001234567" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Visa Date</label>
+                <input type="date" value={visaDate} onChange={e => setVisaDate(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Broker / Source</label>
+                <select value={brokerId} onChange={e => setBrokerId(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  <option value="">Direct Registration (No Broker)</option>
+                  {brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ── SECTION 2: PERSONAL (for contract tracking) ── */}
+          <div>
+            <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-widest mb-3">Personal Details (for contracts)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Gender *</label>
+                <select value={gender} onChange={e => setGender(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Religion *</label>
+                <select value={religion} onChange={e => setReligion(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  {religionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Marital Status *</label>
+                <select value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  {maritalOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Number of Children</label>
+                <input type="number" value={numberOfChildren} onChange={e => setNumberOfChildren(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Phone Number *</label>
+                <input required type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. +251 9..." />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">City *</label>
+                <input required type="text" value={city} onChange={e => setCity(e.target.value.toUpperCase())} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. ADDIS ABABA" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Education Level *</label>
+                <select value={educationLevel} onChange={e => setEducationLevel(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  {educationOptions.map(e => <option key={e} value={e}>{e}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ── SECTION 3: LANGUAGES & SKILLS ── */}
+          <div>
+            <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-widest mb-3">Languages & Skills</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Languages</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-50 p-3 rounded-xl border border-border">
                   {langOptions.map(lang => (
                     <label key={lang} className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedLanguages.includes(lang)}
-                        onChange={() => handleCheckboxChange(lang, selectedLanguages, setSelectedLanguages)}
-                        className="accent-primary rounded"
-                      />
+                      <input type="checkbox" checked={selectedLanguages.includes(lang)} onChange={() => handleCheckboxChange(lang, selectedLanguages, setSelectedLanguages)} className="accent-primary rounded" />
                       <span>{lang}</span>
                     </label>
                   ))}
                 </div>
               </div>
-
-              {/* Skills Checklist */}
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Skills *</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50 p-4 rounded-xl border border-border">
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Skills</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-gray-50 p-3 rounded-xl border border-border">
                   {skillOptions.map(skill => (
                     <label key={skill} className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedSkills.includes(skill)}
-                        onChange={() => handleCheckboxChange(skill, selectedSkills, setSelectedSkills)}
-                        className="accent-primary rounded"
-                      />
+                      <input type="checkbox" checked={selectedSkills.includes(skill)} onChange={() => handleCheckboxChange(skill, selectedSkills, setSelectedSkills)} className="accent-primary rounded" />
                       <span>{skill}</span>
                     </label>
                   ))}
                 </div>
               </div>
-
-              {/* Photo Uploads Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-border">
-                {/* 1. Passport Image OCR Upload */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Passport Image (with OCR) *</label>
-                  <div className="bg-gray-50 p-3 rounded-xl border border-dashed border-gray-300 text-center flex flex-col justify-center min-h-[140px]">
-                    {passportImage ? (
-                      <div className="relative inline-block mx-auto">
-                        <img src={passportImage} alt="Passport" className="h-24 object-contain rounded shadow-sm" />
-                        <button type="button" onClick={() => setPassportImage(null)} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"><X size={12}/></button>
-                      </div>
-                    ) : (
-                      <div>
-                        <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={e => handleFileChange(e, setPassportImage, true)} />
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-white border border-gray-300 text-text-secondary rounded-lg text-xs font-medium hover:bg-gray-50 flex items-center gap-1.5 mx-auto">
-                          <Upload size={14} /> Upload Passport
-                        </button>
-                      </div>
-                    )}
-                    {isProcessing && (
-                      <div className="mt-2">
-                        <div className="text-[10px] text-text-secondary mb-1 flex items-center justify-center gap-1">
-                          <Loader2 size={12} className="animate-spin" /> Scanning... {Math.round(ocrProgress)}%
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1 overflow-hidden"><div className="bg-primary h-1 transition-all duration-300" style={{ width: `${ocrProgress}%` }}></div></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 2. Face Photo Upload */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Face Photo *</label>
-                  <div className="bg-gray-50 p-3 rounded-xl border border-dashed border-gray-300 text-center flex flex-col justify-center min-h-[140px]">
-                    {facePhoto ? (
-                      <div className="relative inline-block mx-auto">
-                        <img src={facePhoto} alt="Face" className="w-20 h-20 object-cover rounded-full shadow-sm border border-border" />
-                        <button type="button" onClick={() => setFacePhoto(null)} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full"><X size={12}/></button>
-                      </div>
-                    ) : (
-                      <div>
-                        <input type="file" accept="image/*" className="hidden" ref={faceInputRef} onChange={e => handleFileChange(e, setFacePhoto)} />
-                        <button type="button" onClick={() => faceInputRef.current?.click()} className="px-3 py-1.5 bg-white border border-gray-300 text-text-secondary rounded-lg text-xs font-medium hover:bg-gray-50 flex items-center gap-1.5 mx-auto">
-                          <Upload size={14} /> Upload Face Photo
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 3. Full Body Photo Upload */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Full Body Photo *</label>
-                  <div className="bg-gray-50 p-3 rounded-xl border border-dashed border-gray-300 text-center flex flex-col justify-center min-h-[140px]">
-                    {fullBodyPhoto ? (
-                      <div className="relative inline-block mx-auto">
-                        <img src={fullBodyPhoto} alt="Full Body" className="h-24 object-contain rounded shadow-sm" />
-                        <button type="button" onClick={() => setFullBodyPhoto(null)} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"><X size={12}/></button>
-                      </div>
-                    ) : (
-                      <div>
-                        <input type="file" accept="image/*" className="hidden" ref={fullBodyInputRef} onChange={e => handleFileChange(e, setFullBodyPhoto)} />
-                        <button type="button" onClick={() => fullBodyInputRef.current?.click()} className="px-3 py-1.5 bg-white border border-gray-300 text-text-secondary rounded-lg text-xs font-medium hover:bg-gray-50 flex items-center gap-1.5 mx-auto">
-                          <Upload size={14} /> Upload Full Body
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
-          )}
-        </div>
-
-        {/* Modal Footer / Navigation Controls */}
-        <div className="p-5 border-t border-border bg-gray-50 flex justify-between items-center rounded-b-2xl">
-          <div>
-            {activeTab !== 'basic' && (
-              <button
-                type="button"
-                onClick={() => setActiveTab(activeTab === 'skills' ? 'personal' : 'basic')}
-                className="px-4 py-2 border border-gray-300 text-text-secondary rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                Back
-              </button>
-            )}
           </div>
+        </form>
 
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-white border border-gray-300 text-text-secondary rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer">Cancel</button>
-            
-            {activeTab !== 'skills' ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab(activeTab === 'basic' ? 'personal' : 'skills')}
-                className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/95 transition-colors cursor-pointer"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="submit"
-                onClick={handleSubmit}
-                disabled={isSubmitting || !passportImage || !facePhoto || !fullBodyPhoto}
-                className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-              >
-                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ClipboardList size={16} />}
-                Register Candidate
-              </button>
-            )}
-          </div>
+        {/* Footer */}
+        <div className="p-5 border-t border-border bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
+          <button type="button" onClick={onClose} className="px-4 py-2 bg-white border border-gray-300 text-text-secondary rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer">Cancel</button>
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+          >
+            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ClipboardList size={16} />}
+            Add Candidate
+          </button>
         </div>
       </div>
     </div>
