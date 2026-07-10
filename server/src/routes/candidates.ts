@@ -446,7 +446,14 @@ router.post('/', async (req: Request, res: Response) => {
       salary: body.personalInfo?.salary || '1000SR',
       allowVideo: body.allowVideo ? true : false,
       registeredById,
-      price: body.price || null
+      price: body.price || null,
+      
+      // Visa Selected Direct Registration fields
+      isRequested: body.isRequested ? true : false,
+      visaSelected: body.visaSelected ? true : false,
+      agencyStatus: body.agencyStatus || 'Under Process',
+      visaOrContractNumber: body.visaOrContractNumber || null,
+      visaDate: body.visaDate ? new Date(body.visaDate) : null
     };
 
     await db.insert(candidate).values(candidateValues);
