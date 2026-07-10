@@ -118,6 +118,7 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
           visaDate: visaDate ? new Date(visaDate).toISOString() : null,
           isRequested: true,
           visaSelected: true,
+          status: 'visa selected',
           agencyStatus: 'Under Process'
         }),
       });
