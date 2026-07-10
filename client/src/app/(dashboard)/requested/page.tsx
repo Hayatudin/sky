@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { ClipboardList, Loader2, MoreVertical, CheckCircle, Trash2, Edit3, Eye, Search, Flag, CalendarDays } from 'lucide-react';
+import { ClipboardList, Loader2, MoreVertical, CheckCircle, Trash2, Edit3, Eye, Search, Flag, CalendarDays, X, Upload, Plus } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { api } from '@/lib/api';
 import Input from '@/components/ui/Input';
@@ -16,6 +16,256 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
 const TEMPLATES = CV_TEMPLATE_OPTIONS;
+
+const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(dataUrl);
+      const maxDim = 1600;
+      let width = img.width;
+      let height = img.height;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
+function DirectRegistrationModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
+  const [passportImage, setPassportImage] = React.useState<string | null>(null);
+  const [fullName, setFullName] = React.useState('');
+  const [passportNumber, setPassportNumber] = React.useState('');
+  const [agency, setAgency] = React.useState('Sky');
+  const [visaOrContractNumber, setVisaOrContractNumber] = React.useState('');
+  const [visaDate, setVisaDate] = React.useState('');
+  const [salary, setSalary] = React.useState('1000SR');
+  const [job, setJob] = React.useState('Housemaid');
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [ocrProgress, setOcrProgress] = React.useState(0);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const performOCR = async (imageUrl: string) => {
+    setPassportImage(imageUrl);
+    setIsProcessing(true);
+    setError(null);
+    setOcrProgress(0);
+    try {
+      const preprocessedUrl = await preprocessImageForOcr(imageUrl);
+      setPassportImage(preprocessedUrl);
+      const Tesseract = await import('tesseract.js');
+      setOcrProgress(10);
+      const result = await Tesseract.recognize(preprocessedUrl, 'eng', {
+        logger: (m: { status: string; progress: number }) => {
+          if (m.status === 'recognizing text') setOcrProgress(10 + m.progress * 80);
+        },
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789< '
+      } as any);
+      setOcrProgress(90);
+      const ocrText = result.data.text;
+      
+      const { api } = await import('@/lib/api');
+      const response = await api('/api/ocr/passport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ocrText }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to parse passport data');
+      setOcrProgress(100);
+      
+      if (data.passportNumber) setPassportNumber(data.passportNumber);
+      if (data.surname || data.givenNames) {
+        setFullName(`${data.givenNames || ''} ${data.surname || ''}`.trim().toUpperCase());
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to scan passport');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Please upload an image with Max 50MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) performOCR(ev.target.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName || !passportNumber) {
+      setError("Full Name and Passport Number are required.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+
+    const nameParts = fullName.trim().split(/\s+/);
+    let givenNames = '';
+    let surname = '';
+    if (nameParts.length >= 3) {
+      givenNames = nameParts.slice(0, 2).join(' ');
+      surname = nameParts.slice(2).join(' ');
+    } else if (nameParts.length === 2) {
+      givenNames = nameParts[0];
+      surname = nameParts[1];
+    } else {
+      givenNames = nameParts[0] || '';
+    }
+
+    try {
+      const { api } = await import('@/lib/api');
+      const response = await api('/api/candidates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passportData: {
+            passportNumber,
+            surname,
+            givenNames
+          },
+          personalInfo: {
+            job,
+            salary,
+            medicalStatus: 'Pending',
+            biometricStatus: 'Pending',
+          },
+          agency,
+          visaOrContractNumber: visaOrContractNumber || null,
+          visaDate: visaDate || null,
+          passportImageUrl: passportImage,
+          isRequested: true,
+          visaSelected: true,
+          agencyStatus: 'Under Process'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save candidate');
+      }
+
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+      <div className="bg-surface w-full max-w-2xl rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-center p-5 border-b border-border">
+          <h2 className="text-xl font-bold text-text-primary">Direct Visa Registration</h2>
+          <button onClick={onClose} className="p-2 text-text-tertiary hover:text-text-primary rounded-xl hover:bg-gray-100"><X size={20} /></button>
+        </div>
+        <div className="overflow-y-auto p-5 space-y-6">
+          {error && <div className="p-3 bg-red-50 text-red-600 rounded-xl border border-red-100 text-sm">{error}</div>}
+          
+          <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300 text-center">
+            {passportImage ? (
+              <div className="relative inline-block">
+                <img src={passportImage} alt="Passport" className="h-32 object-contain rounded shadow-sm" />
+                <button type="button" onClick={() => setPassportImage(null)} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
+              </div>
+            ) : (
+              <div>
+                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-white border border-gray-300 text-text-secondary rounded-xl text-sm font-medium hover:bg-gray-50 flex items-center gap-2 mx-auto">
+                  <Upload size={16} /> Upload Passport Image (Auto-fills below)
+                </button>
+              </div>
+            )}
+            {isProcessing && (
+              <div className="mt-3">
+                <div className="text-sm text-text-secondary mb-1 flex items-center justify-center gap-2">
+                  <Loader2 size={14} className="animate-spin" /> Scanning Passport... {Math.round(ocrProgress)}%
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden"><div className="bg-primary h-1.5 transition-all duration-300" style={{ width: `${ocrProgress}%` }}></div></div>
+              </div>
+            )}
+          </div>
+
+          <form id="direct-form" onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Full Name *</label>
+                <input required type="text" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. JOHN DOE" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Passport Number *</label>
+                <input required type="text" value={passportNumber} onChange={e => setPassportNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="e.g. A1234567" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Agency *</label>
+                <select required value={agency} onChange={e => setAgency(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary">
+                  <option value="Sky">Sky</option>
+                  <option value="USSUS">USSUS</option>
+                  <option value="KHUZAM">KHUZAM</option>
+                  <option value="AL-Shablan">AL-Shablan</option>
+                  <option value="ALAALAM">ALAALAM</option>
+                  <option value="KAAFAAT">KAAFAAT</option>
+                  <option value="MA Standard">MA Standard</option>
+                  <option value="RAYAAT">RAYAAT</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Visa/Contract Number</label>
+                <input type="text" value={visaOrContractNumber} onChange={e => setVisaOrContractNumber(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" placeholder="Optional" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Visa Date</label>
+                <input type="date" value={visaDate} onChange={e => setVisaDate(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Salary</label>
+                <input type="text" value={salary} onChange={e => setSalary(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">Job / Profession</label>
+                <input type="text" value={job} onChange={e => setJob(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-border bg-white text-sm focus:outline-none focus:border-primary" />
+              </div>
+            </div>
+          </form>
+        </div>
+        <div className="p-5 border-t border-border bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
+          <button type="button" onClick={onClose} className="px-4 py-2 bg-white border border-gray-300 text-text-secondary rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+          <button type="submit" form="direct-form" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
+            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ClipboardList size={16} />}
+            Register Candidate
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function RequestedPage() {
   const router = useRouter();
@@ -35,6 +285,7 @@ export default function RequestedPage() {
 
   const [selectedCandidateForAgency, setSelectedCandidateForAgency] = useState<string | null>(null);
   const [isSettingAgency, setIsSettingAgency] = useState(false);
+  const [showDirectRegistrationModal, setShowDirectRegistrationModal] = useState(false);
 
   const handleSetAgency = async (candidateId: string, templateId: string) => {
     setIsSettingAgency(true);
@@ -393,24 +644,35 @@ export default function RequestedPage() {
           <p className="text-text-secondary mt-1 ml-12">Candidates marked as requested — remove to unrequest</p>
         </div>
 
-        {/* Generate Report Button */}
-        <button
-          disabled={isGenerating}
-          onClick={handleGenerateReport}
-          className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark disabled:bg-primary/60 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:cursor-not-allowed shrink-0"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 size={18} className="animate-spin" />
-              <span>Generating PDF...</span>
-            </>
-          ) : (
-            <>
-              <ClipboardList size={18} />
-              <span>Generate Report</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Add Candidate Button */}
+          <button
+            onClick={() => setShowDirectRegistrationModal(true)}
+            className="flex items-center justify-center gap-2 bg-white border border-border text-text-primary hover:border-primary/50 font-bold px-5 py-3 rounded-2xl shadow-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0"
+          >
+            <Plus size={18} />
+            <span>Add Candidate</span>
+          </button>
+
+          {/* Generate Report Button */}
+          <button
+            disabled={isGenerating}
+            onClick={handleGenerateReport}
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark disabled:bg-primary/60 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:cursor-not-allowed shrink-0"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>Generating PDF...</span>
+              </>
+            ) : (
+              <>
+                <ClipboardList size={18} />
+                <span>Generate Report</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Stats Counter Box */}
@@ -841,6 +1103,18 @@ export default function RequestedPage() {
           </div>
         );
       })()}
+      {showDirectRegistrationModal && (
+        createPortal(
+          <DirectRegistrationModal 
+            onClose={() => setShowDirectRegistrationModal(false)}
+            onSuccess={() => {
+              mutate();
+              setShowDirectRegistrationModal(false);
+            }}
+          />,
+          document.body
+        )
+      )}
     </div>
   );
 }
