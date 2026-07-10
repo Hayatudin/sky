@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ClipboardList, Loader2, MoreVertical, CheckCircle, Trash2, Edit3, Eye, Search, Flag, CalendarDays, X, Plus } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
@@ -8,6 +9,7 @@ import { api } from '@/lib/api';
 import Input from '@/components/ui/Input';
 import { Candidate } from '@/types';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import { cn } from '@/lib/utils';
 
 import { useCandidates } from '@/hooks/useCandidates';
 import { useBrokers } from '@/hooks/useBrokers';
