@@ -349,12 +349,34 @@ export default function QuickRegistrationPage() {
       return;
     }
 
-    if (!isCalling) {
-      if (!labourId) {
-        setError('Labour ID document is required.');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
+    if (!cocDocumentUrl) {
+      setError('COC (Certificate of Competence) document is required.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!labourId || !labourId.trim()) {
+      setError('Labour ID Number is required.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!candidateIdImageUrl) {
+      setError('Candidate ID image is required.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!relativeIdImageUrl) {
+      setError('Relative ID image is required.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!isCalling && !videoUrl) {
+      setError('Candidate Video is required.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
 
     if (isCalling && !office) {
@@ -888,14 +910,14 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCocDocumentUrl(base64))}
               onClear={() => setCocDocumentUrl(null)}
               helperText="COC Document — Max 50MB"
-              required={false}
+              required={true}
             />
             <Input
               label="Labour ID Number"
               placeholder="Enter Labour ID Number"
               value={labourId || ''}
               onChange={(e) => setLabourId(e.target.value)}
-              required={!isCalling}
+              required={true}
             />
             <FileUpload
               label="Candidate ID"
@@ -905,7 +927,7 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCandidateIdImageUrl(base64))}
               onClear={() => setCandidateIdImageUrl(null)}
               helperText="Candidate ID Image — Max 50MB"
-              required={false}
+              required={true}
             />
             <FileUpload
               label="Relative ID"
@@ -915,11 +937,11 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setRelativeIdImageUrl(base64))}
               onClear={() => setRelativeIdImageUrl(null)}
               helperText="Relative ID Image — Max 50MB"
-              required={false}
+              required={true}
             />
             {!isCalling && (
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video</label>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video <span className="text-red-500">*</span></label>
                 {videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) ? (
                   <div className="space-y-2">
                     <div className="relative">
@@ -928,6 +950,7 @@ export default function QuickRegistrationPage() {
                         value={videoUrl}
                         onChange={e => setVideoUrl(e.target.value)}
                         className="pr-10"
+                        required
                       />
                       <Video className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                     </div>
@@ -958,6 +981,7 @@ export default function QuickRegistrationPage() {
                       onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setVideoUrl(base64), 50 * 1024 * 1024)}
                       onClear={() => setVideoUrl(null)}
                       helperText="MP4, WebM or MOV — Max 50MB"
+                      required={true}
                     />
                   </div>
                 )}

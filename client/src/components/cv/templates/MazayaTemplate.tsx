@@ -33,7 +33,7 @@ export default function MazayaTemplate({ candidate, facePhoto, fullBodyPhoto }: 
 
   return (
     <div className="w-full max-w-[210mm] mx-auto bg-white text-black font-sans shadow-lg print:shadow-none" dir="ltr">
-      <div className="p-[10mm] min-h-[297mm] box-border relative page-break-after-always">
+      <div className="p-[10mm] min-h-[297mm] box-border relative page-break-after-always break-after-page">
         {/* Header: logo left + agency title centered */}
         <div className="flex items-center mb-3 relative min-h-[52px]">
           <img
@@ -252,6 +252,7 @@ export default function MazayaTemplate({ candidate, facePhoto, fullBodyPhoto }: 
             </tbody>
           </table>
       </div>
+      <PassportPage candidate={candidate} />
     </div>
   );
 }
