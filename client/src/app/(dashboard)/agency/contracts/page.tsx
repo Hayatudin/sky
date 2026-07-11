@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Search, 
   RotateCcw, 
@@ -106,6 +107,38 @@ export default function AgencyContractsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [activeTab, setActiveTab] = useState<string>('All');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownCoords, setDropdownCoords] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    alignUp: boolean;
+  } | null>(null);
+
+  const toggleDropdown = (dropdownType: string, candidateId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const id = `${dropdownType}-${candidateId}`;
+    if (openDropdownId === id) {
+      setOpenDropdownId(null);
+      setDropdownCoords(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      let estimatedHeight = 160;
+      if (dropdownType === 'status') estimatedHeight = 240;
+      if (dropdownType === 'embassy') estimatedHeight = 160;
+      if (dropdownType === 'lmis') estimatedHeight = 160;
+      
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const alignUp = spaceBelow < estimatedHeight && rect.top > estimatedHeight;
+      
+      setDropdownCoords({
+        top: alignUp ? rect.top : rect.bottom,
+        left: rect.left + rect.width / 2,
+        width: Math.max(rect.width, dropdownType === 'status' || dropdownType === 'embassy' ? 176 : 144),
+        alignUp
+      });
+      setOpenDropdownId(id);
+    }
+  };
 
   const { data: session } = useSession();
   const userRole = ((session?.user as any)?.role ?? 'user') as string;
@@ -320,14 +353,25 @@ export default function AgencyContractsPage() {
     const handleOutsideClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setOpenDropdownId(null);
+        setDropdownCoords(null);
       }
     };
+    const handleScroll = () => {
+      setOpenDropdownId(null);
+      setDropdownCoords(null);
+    };
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, []);
 
   // Update a candidate's status via PATCH /api/agency/candidates/:id
   const handleUpdateCandidate = async (id: string, updates: Partial<AgencyCandidate>) => {
+    setOpenDropdownId(null);
+    setDropdownCoords(null);
     const fieldName = Object.keys(updates)[0];
     setUpdatingField({ candidateId: id, fieldName });
     
@@ -572,6 +616,133 @@ export default function AgencyContractsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+  
+  const renderDropdownPortal = () => {
+    if (!openDropdownId || !dropdownCoords) return null;
+    
+    const parts = openDropdownId.split('-');
+    const type = parts[0];
+    const candId = parts[1];
+    const cand = candidates.find(c => c.id === candId);
+    if (!cand) return null;
+    
+    const { top, left, width, alignUp } = dropdownCoords;
+    
+    let menuContent = null;
+    
+    if (type === 'medical') {
+      menuContent = (
+        <div className="py-1">
+          {['Pending', 'Fit', 'Unfit', 'New'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleUpdateCandidate(cand.id, { medicalStatus: status })}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
+            >
+              <span>{status}</span>
+              {(cand.medicalStatus === status || (!cand.medicalStatus && status === 'Pending')) && <Check size={12} className="text-primary" />}
+            </button>
+          ))}
+        </div>
+      );
+    } else if (type === 'coc') {
+      menuContent = (
+        <div className="py-1">
+          {['NONE', 'DONE', 'NOT ONLINE'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleUpdateCandidate(cand.id, { cocStatus: status === 'NONE' ? 'No' : (status === 'DONE' ? 'Yes' : status) })}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
+            >
+              <span>{status}</span>
+              {((status === 'NONE' && (cand.cocStatus === 'No' || !cand.cocStatus)) ||
+                (status === 'DONE' && (cand.cocStatus === 'Yes' || cand.cocStatus === 'DONE')) ||
+                (status === cand.cocStatus && status !== 'NONE' && status !== 'DONE')) && <Check size={12} className="text-primary" />}
+            </button>
+          ))}
+        </div>
+      );
+    } else if (type === 'lmis') {
+      menuContent = (
+        <div className="py-1">
+          {['Pending', 'checked', 'verified', 'issued'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleUpdateCandidate(cand.id, { lmisStatus: status })}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
+            >
+              <span className="capitalize">{status}</span>
+              {(cand.lmisStatus === status || (!cand.lmisStatus && status === 'Pending')) && <Check size={12} className="text-primary" />}
+            </button>
+          ))}
+        </div>
+      );
+    } else if (type === 'embassy') {
+      menuContent = (
+        <div className="py-1">
+          {['Tasheer', 'ready to embassy', 'submitted to embassy', 'stumped'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleUpdateCandidate(cand.id, { embassyStatus: status })}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
+            >
+              <span className="capitalize">{status}</span>
+              {(cand.embassyStatus === status || (!cand.embassyStatus && status === 'ready to embassy')) && <Check size={12} className="text-primary" />}
+            </button>
+          ))}
+        </div>
+      );
+    } else if (type === 'status') {
+      menuContent = (
+        <div className="py-1 overflow-y-auto max-h-60">
+          {['stumped', 'READY TO EMBASSY', 'TASSHER', 'WAKALA', 'Under Process', 'Arrived', 'Returned'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleUpdateCandidate(cand.id, { agencyStatus: status })}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
+            >
+              <span>{status}</span>
+              {(cand.agencyStatus === status || (!cand.agencyStatus && status === 'Under Process')) && <Check size={12} className="text-primary" />}
+            </button>
+          ))}
+        </div>
+      );
+    } else if (type === 'flight') {
+      menuContent = (
+        <div className="py-1">
+          {['PENDING', 'ISSUED', 'VERIFIED'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleUpdateCandidate(cand.id, { flightStatus: status })}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
+            >
+              <span>{status}</span>
+              {(cand.flightStatus === status || (!cand.flightStatus && status === 'PENDING')) && <Check size={12} className="text-primary" />}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    
+    if (!menuContent) return null;
+    
+    return createPortal(
+      <div 
+        ref={dropdownRef}
+        style={{
+          position: 'fixed',
+          top: alignUp ? `${top - 8}px` : `${top + 8}px`,
+          left: `${left}px`,
+          width: `${width}px`,
+          transform: alignUp ? 'translate(-50%, -100%)' : 'translate(-50%, 0%)',
+        }}
+        className="bg-white border border-gray-200 rounded-xl shadow-lg z-[9999] overflow-hidden text-left"
+      >
+        {menuContent}
+      </div>,
+      document.body
+    );
   };
 
   return (
@@ -824,10 +995,10 @@ export default function AgencyContractsPage() {
                       {/* MEDICAL */}
                       <td className="px-5 py-4.5 text-center">
                         {canEdit ? (
-                          <div className="relative inline-block" ref={openDropdownId === `medical-${c.id}` ? dropdownRef : null}>
+                          <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `medical-${c.id}` ? null : `medical-${c.id}`)}
+                              onClick={(e) => toggleDropdown('medical', c.id, e)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
                                 c.medicalStatus === 'Fit' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.medicalStatus === 'Unfit' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
@@ -844,21 +1015,6 @@ export default function AgencyContractsPage() {
                                 </>
                               )}
                             </button>
-
-                            {openDropdownId === `medical-${c.id}` && (
-                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
-                                {['Pending', 'Fit', 'Unfit', 'New'].map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => handleUpdateCandidate(c.id, { medicalStatus: status })}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
-                                  >
-                                    <span>{status}</span>
-                                    {(c.medicalStatus === status || (!c.medicalStatus && status === 'Pending')) && <Check size={12} className="text-primary" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span
@@ -877,10 +1033,10 @@ export default function AgencyContractsPage() {
                       {/* coc */}
                       <td className="px-5 py-4.5 text-center">
                         {canEdit ? (
-                          <div className="relative inline-block" ref={openDropdownId === `coc-${c.id}` ? dropdownRef : null}>
+                          <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `coc-${c.id}` ? null : `coc-${c.id}`)}
+                              onClick={(e) => toggleDropdown('coc', c.id, e)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
                                 c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
@@ -896,23 +1052,6 @@ export default function AgencyContractsPage() {
                                 </>
                               )}
                             </button>
-
-                            {openDropdownId === `coc-${c.id}` && (
-                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
-                                {['NONE', 'DONE', 'NOT ONLINE'].map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => handleUpdateCandidate(c.id, { cocStatus: status === 'NONE' ? 'No' : (status === 'DONE' ? 'Yes' : status) })}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
-                                  >
-                                    <span>{status}</span>
-                                    {((status === 'NONE' && (c.cocStatus === 'No' || !c.cocStatus)) ||
-                                      (status === 'DONE' && (c.cocStatus === 'Yes' || c.cocStatus === 'DONE')) ||
-                                      (status === 'NOT ONLINE' && c.cocStatus === 'NOT ONLINE')) && <Check size={12} className="text-primary" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span
@@ -930,10 +1069,10 @@ export default function AgencyContractsPage() {
                       {/* LMIS issue */}
                       <td className="px-5 py-4.5 text-center">
                         {canEdit ? (
-                          <div className="relative inline-block" ref={openDropdownId === `lmis-${c.id}` ? dropdownRef : null}>
+                          <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `lmis-${c.id}` ? null : `lmis-${c.id}`)}
+                              onClick={(e) => toggleDropdown('lmis', c.id, e)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
                                 c.lmisStatus === 'issued' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -950,21 +1089,6 @@ export default function AgencyContractsPage() {
                                 </>
                               )}
                             </button>
-
-                            {openDropdownId === `lmis-${c.id}` && (
-                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
-                                {['Pending', 'checked', 'verified', 'issued'].map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => handleUpdateCandidate(c.id, { lmisStatus: status })}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
-                                  >
-                                    <span>{status}</span>
-                                    {(c.lmisStatus === status || (!c.lmisStatus && status === 'Pending')) && <Check size={12} className="text-primary" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span
@@ -983,10 +1107,10 @@ export default function AgencyContractsPage() {
                       {/* Embassy Status */}
                       <td className="px-5 py-4.5 text-center">
                         {canEdit ? (
-                          <div className="relative inline-block" ref={openDropdownId === `embassy-${c.id}` ? dropdownRef : null}>
+                          <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `embassy-${c.id}` ? null : `embassy-${c.id}`)}
+                              onClick={(e) => toggleDropdown('embassy', c.id, e)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
                                 c.embassyStatus === 'stumped' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.embassyStatus === 'submitted to embassy' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
@@ -1003,21 +1127,6 @@ export default function AgencyContractsPage() {
                                 </>
                               )}
                             </button>
-
-                            {openDropdownId === `embassy-${c.id}` && (
-                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
-                                {['Tasheer', 'ready to embassy', 'submitted to embassy', 'stumped'].map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => handleUpdateCandidate(c.id, { embassyStatus: status })}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
-                                  >
-                                    <span>{status}</span>
-                                    {(c.embassyStatus === status || (!c.embassyStatus && status === 'ready to embassy')) && <Check size={12} className="text-primary" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span
@@ -1048,10 +1157,10 @@ export default function AgencyContractsPage() {
                       {/* curunt states */}
                       <td className="px-5 py-4.5 text-center">
                         {canEdit ? (
-                          <div className="relative inline-block" ref={openDropdownId === `status-${c.id}` ? dropdownRef : null}>
+                          <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `status-${c.id}` ? null : `status-${c.id}`)}
+                              onClick={(e) => toggleDropdown('status', c.id, e)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
                                 c.agencyStatus === 'Arrived' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                 c.agencyStatus === 'Returned' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
@@ -1068,21 +1177,6 @@ export default function AgencyContractsPage() {
                                 </>
                               )}
                             </button>
-
-                            {openDropdownId === `status-${c.id}` && (
-                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-y-auto max-h-60 font-bold text-left">
-                                {['stumped', 'READY TO EMBASSY', 'TASSHER', 'WAKALA', 'Under Process', 'Arrived', 'Returned'].map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => handleUpdateCandidate(c.id, { agencyStatus: status })}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
-                                  >
-                                    <span>{status}</span>
-                                    {(c.agencyStatus === status || (!c.agencyStatus && status === 'Under Process')) && <Check size={12} className="text-primary" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span
@@ -1101,10 +1195,10 @@ export default function AgencyContractsPage() {
                       {/* flight date */}
                       <td className="px-5 py-4.5 text-center">
                         {canEdit ? (
-                          <div className="relative inline-block" ref={openDropdownId === `flight-${c.id}` ? dropdownRef : null}>
+                          <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `flight-${c.id}` ? null : `flight-${c.id}`)}
+                              onClick={(e) => toggleDropdown('flight', c.id, e)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
                                 c.flightStatus === 'ISSUED' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.flightStatus === 'VERIFIED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -1120,21 +1214,6 @@ export default function AgencyContractsPage() {
                                 </>
                               )}
                             </button>
-
-                            {openDropdownId === `flight-${c.id}` && (
-                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
-                                {['PENDING', 'ISSUED', 'VERIFIED'].map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => handleUpdateCandidate(c.id, { flightStatus: status })}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
-                                  >
-                                    <span>{status}</span>
-                                    {(c.flightStatus === status || (!c.flightStatus && status === 'PENDING')) && <Check size={12} className="text-primary" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span
@@ -1559,6 +1638,8 @@ export default function AgencyContractsPage() {
           </div>
         );
       })()}
+
+      {renderDropdownPortal()}
 
     </div>
   );
