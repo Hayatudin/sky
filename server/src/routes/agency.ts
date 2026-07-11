@@ -7,6 +7,13 @@ import { encryptPath } from '../lib/crypto';
 
 const router = Router();
 
+// Safe formatting helper to prevent Invalid Date errors throwing 500 RangeError
+const safeIsoString = (dateVal: any): string | null => {
+  if (!dateVal) return null;
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+};
+
 // Auto-verify and create missing columns in Candidate table to prevent crashes on stale databases
 async function ensureCandidateColumns() {
   try {
@@ -213,7 +220,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
         wakalaStatus: c.wakalaStatus || 'Unpaid',
         qrCodeStatus: hasQrCode ? 'Yes' : 'No',
         selectedType: c.selectedType || 'Private',
-        travelDate: c.deployedDate ? new Date(c.deployedDate).toISOString() : null,
+        travelDate: safeIsoString(c.deployedDate),
         agencyStatus: c.agencyStatus || 'Under Process',
         latestCVTemplate: candidateCVs[0]?.templateId || null,
         broker: c.brokerId ? (brokerMap1.get(c.brokerId) || null) : null,
@@ -221,11 +228,11 @@ router.get('/candidates', async (req: Request, res: Response) => {
         religion: c.religion,
         job: c.job,
         city: c.city,
-        dateOfBirth: c.dateOfBirth ? new Date(c.dateOfBirth).toISOString() : null,
+        dateOfBirth: safeIsoString(c.dateOfBirth),
         videoUrl: encryptPath(c.videoUrl) || null,
-        registeredAt: c.registeredAt ? new Date(c.registeredAt).toISOString() : null,
+        registeredAt: safeIsoString(c.registeredAt),
         allowVideo: c.allowVideo ?? false,
-        visaDate: c.visaDate ? new Date(c.visaDate).toISOString() : null,
+        visaDate: safeIsoString(c.visaDate),
         labourId: c.labourId || null,
         flightStatus: c.flightStatus || 'PENDING',
         lmisStatus: c.lmisStatus || 'Pending',
@@ -316,7 +323,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         wakalaStatus: c.wakalaStatus || 'Unpaid',
         qrCodeStatus: 'No',
         selectedType: c.selectedType || 'Private',
-        travelDate: c.deployedDate ? new Date(c.deployedDate).toISOString() : null,
+        travelDate: safeIsoString(c.deployedDate),
         agencyStatus: c.agencyStatus || 'Under Process',
         latestCVTemplate: candidateCVs2[0]?.templateId || null,
         broker: c.brokerId ? (brokerMap2.get(c.brokerId) || null) : null,
@@ -324,9 +331,9 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         religion: c.religion,
         job: c.job,
         city: c.city,
-        dateOfBirth: c.dateOfBirth ? new Date(c.dateOfBirth).toISOString() : null,
+        dateOfBirth: safeIsoString(c.dateOfBirth),
         videoUrl: encryptPath(c.videoUrl) || null,
-        registeredAt: c.registeredAt ? new Date(c.registeredAt).toISOString() : null,
+        registeredAt: safeIsoString(c.registeredAt),
         facePhotoUrl: c.facePhotoUrl,
         fullBodyPhotoUrl: c.fullBodyPhotoUrl,
         passportImageUrl: c.passportImageUrl,
@@ -336,7 +343,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         workExperience: c.workExperience,
         skills: c.skills,
         allowVideo: c.allowVideo ?? false,
-        visaDate: c.visaDate ? new Date(c.visaDate).toISOString() : null
+        visaDate: safeIsoString(c.visaDate)
       };
     }));
 
