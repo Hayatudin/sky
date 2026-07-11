@@ -451,19 +451,19 @@ router.post('/', async (req: Request, res: Response) => {
       labourId: body.personalInfo?.labourId || null,
       videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
-      status: (body.isRequested || body.visaSelected || body.status === 'visa selected') ? 'visa selected' : 'pending',
-      agency: body.agency || 'Sky',
+      status: (req.body.isRequested || req.body.visaSelected || req.body.status === 'visa selected' || body.isRequested || body.visaSelected || body.status === 'visa selected') ? 'visa selected' : 'pending',
+      agency: body.agency || req.body.agency || 'Sky',
       salary: body.personalInfo?.salary || '1000SR',
-      allowVideo: body.allowVideo ? true : false,
+      allowVideo: (body.allowVideo || req.body.allowVideo) ? true : false,
       registeredById,
-      price: body.price || null,
+      price: body.price || req.body.price || null,
       
       // Visa Selected Direct Registration fields
-      isRequested: body.isRequested ? true : false,
-      visaSelected: body.visaSelected ? true : false,
-      agencyStatus: body.agencyStatus || 'Under Process',
-      visaOrContractNumber: body.visaOrContractNumber || null,
-      visaDate: body.visaDate ? new Date(body.visaDate) : null
+      isRequested: (req.body.isRequested === true || req.body.isRequested === 'true' || body.isRequested === true),
+      visaSelected: (req.body.visaSelected === true || req.body.visaSelected === 'true' || body.visaSelected === true),
+      agencyStatus: body.agencyStatus || req.body.agencyStatus || 'Under Process',
+      visaOrContractNumber: body.visaOrContractNumber || req.body.visaOrContractNumber || null,
+      visaDate: body.visaDate ? new Date(body.visaDate) : (req.body.visaDate ? new Date(req.body.visaDate) : null)
     };
 
     await db.insert(candidate).values(candidateValues);
