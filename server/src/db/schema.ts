@@ -117,6 +117,7 @@ export const candidate = mysqlTable('Candidate', {
   travelDate: datetime('travelDate', { fsp: 3 }),
   agencyStatus: varchar('agencyStatus', { length: 191 }).notNull().default('Under Process'),
   agencySelected: boolean('agencySelected').notNull().default(false),
+  flightStatus: varchar('flightStatus', { length: 191 }).notNull().default('PENDING'),
   brokerId: varchar('brokerId', { length: 191 }),
   registeredById: varchar('registeredById', { length: 191 }),
 }, (table) => ({

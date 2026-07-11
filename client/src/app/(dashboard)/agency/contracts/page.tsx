@@ -68,11 +68,20 @@ interface AgencyCandidate {
   city?: string | null;
   visaDate?: string | null;
   registeredAt?: string | null;
+  labourId?: string | null;
+  flightStatus?: string | null;
 }
 
 const getCandidateAgencyName = (c: AgencyCandidate) => {
   const rawAgency = c.latestCVTemplate?.replace('tmpl-', '').toLowerCase() || c.agency?.toLowerCase() || '';
   return AGENCY_MAP[rawAgency] || rawAgency.toUpperCase() || '—';
+};
+
+const formatToMDY = (dateStr: string | null | undefined) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 };
 
 const getVisiblePages = (current: number, total: number) => {
@@ -363,7 +372,8 @@ export default function AgencyContractsPage() {
           qrCodeStatus: updatedData.qrCodeStatus ?? c.qrCodeStatus,
           selectedType: updatedData.selectedType ?? c.selectedType,
           travelDate: updatedData.travelDate ? new Date(updatedData.travelDate).toISOString() : null,
-          agencyStatus: updatedData.agencyStatus ?? c.agencyStatus
+          agencyStatus: updatedData.agencyStatus ?? c.agencyStatus,
+          flightStatus: updatedData.flightStatus ?? c.flightStatus
         } : c)
       );
     } catch (err) {
@@ -523,45 +533,23 @@ export default function AgencyContractsPage() {
   // CSV Exporter (Excel Compatible)
   const handleExportCSV = () => {
     const headers = [
-      'Roll No', 'Given Names', 'Surname', 'Passport Number', 'Embassy Issue', 
-      'Date Interval', 'Medical Status', 'Tasheer Status', 'Wakala Status', 
-      'Selected Type', 'Travel Date', 'Status', 'Broker', 'Latest CV Template'
+      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'ID NAME', 'office', 'curunt states', 'flight date'
     ];
 
     const rows = filteredCandidates.map((c, i) => {
-      const targetDate = c.visaDate ? new Date(c.visaDate) : (c.registeredAt ? new Date(c.registeredAt) : null);
-      let daysAgoText = '—';
-      if (targetDate) {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const selected = new Date(targetDate);
-        selected.setHours(0, 0, 0, 0);
-        const diffTime = now.getTime() - selected.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays <= 0) {
-          daysAgoText = 'Today';
-        } else if (diffDays === 1) {
-          daysAgoText = '1 day';
-        } else {
-          daysAgoText = `${diffDays} days`;
-        }
-      }
-
+      const cocVal = c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE');
       return [
         String(i + 1),
-        c.givenNames,
-        c.surname,
+        `${c.givenNames} ${c.surname}`.toUpperCase(),
         c.passportNumber,
-        c.embassyIssue,
-        daysAgoText,
-        c.medicalStatus,
-        c.tasheerStatus,
-        c.wakalaStatus,
-        c.selectedType,
-        c.travelDate ? c.travelDate.substring(0, 10) : '—',
-        c.agencyStatus,
-        c.broker?.name || '—',
-        c.latestCVTemplate || '—'
+        c.labourId || '—',
+        formatToMDY(c.visaDate || c.registeredAt),
+        c.medicalStatus || 'Pending',
+        cocVal,
+        c.broker?.name || 'calling',
+        getCandidateAgencyName(c),
+        c.agencyStatus || 'Under Process',
+        c.flightStatus || 'PENDING'
       ];
     });
 
@@ -761,23 +749,22 @@ export default function AgencyContractsPage() {
             <thead>
               <tr className="bg-gray-50/50 border-b border-border/30 text-[10px] uppercase tracking-wider font-bold text-text-tertiary/90">
                 <th className="px-5 py-4 font-semibold text-center w-12">#</th>
-                <th className="px-5 py-4 font-semibold">Candidate</th>
-                {isSuperAdmin && <th className="px-5 py-4 font-semibold">Agency</th>}
-                <th className="px-5 py-4 font-semibold text-center">Embassy Issue</th>
-                <th className="px-5 py-4 font-semibold text-center">Date Interval</th>
-                <th className="px-5 py-4 font-semibold text-center">Medical</th>
-                <th className="px-5 py-4 font-semibold text-center">Tasheer</th>
-                <th className="px-5 py-4 font-semibold text-center">Wakala</th>
-                <th className="px-5 py-4 font-semibold text-center">Selected</th>
-                <th className="px-5 py-4 font-semibold">Travel Date</th>
-                <th className="px-5 py-4 font-semibold">Status</th>
-                <th className="px-5 py-4 font-semibold text-center">CV</th>
+                <th className="px-5 py-4 font-semibold">NAME</th>
+                <th className="px-5 py-4 font-semibold">PASS NO</th>
+                <th className="px-5 py-4 font-semibold">LABOUR ID</th>
+                <th className="px-5 py-4 font-semibold text-center">DATE</th>
+                <th className="px-5 py-4 font-semibold text-center">MEDICAL</th>
+                <th className="px-5 py-4 font-semibold text-center">coc</th>
+                <th className="px-5 py-4 font-semibold">ID NAME</th>
+                <th className="px-5 py-4 font-semibold">office</th>
+                <th className="px-5 py-4 font-semibold text-center">curunt states</th>
+                <th className="px-5 py-4 font-semibold text-center">flight date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/20 text-sm">
               {isLoading ? (
                 <tr>
-                  <td colSpan={isSuperAdmin ? 12 : 11} className="px-6 py-24 text-center">
+                  <td colSpan={11} className="px-6 py-24 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 size={36} className="text-[#464479] animate-spin" />
                       <p className="text-sm font-semibold text-text-tertiary animate-pulse">Loading contracts database...</p>
@@ -789,6 +776,7 @@ export default function AgencyContractsPage() {
                   const rollNo = (currentPage - 1) * ITEMS_PER_PAGE + index + 1;
                   const isUpdating = (fieldName: string) => 
                     updatingField?.candidateId === c.id && updatingField.fieldName === fieldName;
+                  const canEdit = ['super_admin', 'agency', 'processor', 'coordinator'].includes(userRole);
 
                   return (
                     <tr key={c.id} className="hover:bg-gray-50/30 transition-colors group">
@@ -798,131 +786,43 @@ export default function AgencyContractsPage() {
                         {rollNo}
                       </td>
 
-                      {/* Candidate Identity */}
+                      {/* NAME */}
                       <td className="px-5 py-4.5">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center font-bold text-xs text-primary shrink-0">
                             {c.givenNames.charAt(0)}{c.surname.charAt(0)}
                           </div>
-                          <div>
-                            <p className="font-extrabold text-[#1E293B] text-sm uppercase leading-tight">
-                              {c.givenNames} {c.surname}
-                            </p>
-                            <p className="text-[11px] text-text-tertiary font-medium mt-0.5 font-mono">{c.passportNumber}</p>
-                          </div>
+                          <p className="font-extrabold text-[#1E293B] text-sm uppercase leading-tight">
+                            {c.givenNames} {c.surname}
+                          </p>
                         </div>
                       </td>
 
-                      {/* Agency Column */}
-                      {isSuperAdmin && (
-                        <td className="px-5 py-4.5">
-                          <span className="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-100">
-                            {getCandidateAgencyName(c)}
-                          </span>
-                        </td>
-                      )}
-
-                      {/* Embassy Issue */}
-                      <td className="px-5 py-4.5 text-center">
-                        {isSuperAdmin ? (
-                          <div className="relative inline-block" ref={openDropdownId === `embassy-${c.id}` ? dropdownRef : null}>
-                            <button
-                              disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `embassy-${c.id}` ? null : `embassy-${c.id}`)}
-                              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
-                                c.embassyIssue === 'Yes'
-                                  ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0] hover:bg-emerald-100/60'
-                                  : c.embassyIssue && c.embassyIssue !== 'No'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100/60'
-                                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100/60'
-                              }`}
-                            >
-                              {isUpdating('embassyIssue') ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                <>
-                                  <span>{c.embassyIssue === 'No' || !c.embassyIssue ? 'Set Date/Yes' : c.embassyIssue}</span>
-                                  <ChevronDown size={10} className="opacity-60" />
-                                </>
-                              )}
-                            </button>
-
-                            {openDropdownId === `embassy-${c.id}` && (
-                              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-2.5 font-bold space-y-2 text-left">
-                                <button
-                                  onClick={() => handleUpdateCandidate(c.id, { embassyIssue: 'Yes' })}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg flex items-center justify-between cursor-pointer"
-                                >
-                                  <span>Yes (Finished)</span>
-                                  {c.embassyIssue === 'Yes' && <Check size={12} />}
-                                </button>
-                                
-                                <div className="border-t border-gray-100 my-1"></div>
-                                
-                                <div className="px-1">
-                                  <label className="block text-[10px] text-gray-500 uppercase mb-1 font-black">Or Enter Date</label>
-                                  <input
-                                    type="date"
-                                    value={c.embassyIssue !== 'Yes' && c.embassyIssue !== 'No' ? c.embassyIssue : ''}
-                                    onChange={(e) => {
-                                      if (e.target.value) {
-                                        handleUpdateCandidate(c.id, { embassyIssue: e.target.value });
-                                      }
-                                    }}
-                                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-medium"
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
-                              c.embassyIssue === 'Yes' 
-                                ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' 
-                                : c.embassyIssue && c.embassyIssue !== 'No'
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : 'bg-gray-50 text-gray-400 border-gray-200'
-                            }`}
-                          >
-                            {c.embassyIssue === 'No' || !c.embassyIssue ? '—' : c.embassyIssue}
-                          </span>
-                        )}
+                      {/* PASS NO */}
+                      <td className="px-5 py-4.5 font-semibold text-text-primary text-xs font-mono">
+                        {c.passportNumber}
                       </td>
 
-                      {/* Date Interval */}
-                      <td className="px-5 py-4.5 text-center">
-                        <span className="font-bold text-gray-700 text-xs">
-                          {(() => {
-                            const targetDate = c.visaDate ? new Date(c.visaDate) : (c.registeredAt ? new Date(c.registeredAt) : null);
-                            if (!targetDate) return '—';
-                            const now = new Date();
-                            now.setHours(0, 0, 0, 0);
-                            const selected = new Date(targetDate);
-                            selected.setHours(0, 0, 0, 0);
-                            const diffTime = now.getTime() - selected.getTime();
-                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                            if (diffDays <= 0) {
-                              return 'Today';
-                            } else if (diffDays === 1) {
-                              return '1 day';
-                            } else {
-                              return `${diffDays} days`;
-                            }
-                          })()}
-                        </span>
+                      {/* LABOUR ID */}
+                      <td className="px-5 py-4.5 font-semibold text-text-primary text-xs font-mono">
+                        {c.labourId || '—'}
                       </td>
 
-                      {/* Medical Status */}
+                      {/* DATE */}
+                      <td className="px-5 py-4.5 text-center font-bold text-text-secondary text-xs">
+                        {formatToMDY(c.visaDate || c.registeredAt)}
+                      </td>
+
+                      {/* MEDICAL */}
                       <td className="px-5 py-4.5 text-center">
-                        {isSuperAdmin ? (
+                        {canEdit ? (
                           <div className="relative inline-block" ref={openDropdownId === `medical-${c.id}` ? dropdownRef : null}>
                             <button
                               disabled={updatingField !== null}
                               onClick={() => setOpenDropdownId(openDropdownId === `medical-${c.id}` ? null : `medical-${c.id}`)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
-                                c.medicalStatus === 'Fit' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                c.medicalStatus === 'Unfit' ? 'bg-red-50 text-red-700 border-red-200' :
+                                c.medicalStatus === 'Fit' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                                c.medicalStatus === 'Unfit' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
                                 c.medicalStatus === 'New' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                 'bg-slate-50 text-slate-700 border-slate-200'
                               }`}
@@ -938,7 +838,7 @@ export default function AgencyContractsPage() {
                             </button>
 
                             {openDropdownId === `medical-${c.id}` && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
+                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
                                 {['Pending', 'Fit', 'Unfit', 'New'].map((status) => (
                                   <button
                                     key={status}
@@ -966,148 +866,83 @@ export default function AgencyContractsPage() {
                         )}
                       </td>
 
-                      {/* Tasheer Status */}
+                      {/* coc */}
                       <td className="px-5 py-4.5 text-center">
-                        {isSuperAdmin ? (
-                          <div className="relative inline-block" ref={openDropdownId === `tasheer-${c.id}` ? dropdownRef : null}>
+                        {canEdit ? (
+                          <div className="relative inline-block" ref={openDropdownId === `coc-${c.id}` ? dropdownRef : null}>
                             <button
                               disabled={updatingField !== null}
-                              onClick={() => setOpenDropdownId(openDropdownId === `tasheer-${c.id}` ? null : `tasheer-${c.id}`)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
-                                c.tasheerStatus === 'Yes'
-                                  ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0] hover:bg-emerald-100/60'
-                                  : c.tasheerStatus && c.tasheerStatus !== 'No'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100/60'
-                                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100/60'
+                              onClick={() => setOpenDropdownId(openDropdownId === `coc-${c.id}` ? null : `coc-${c.id}`)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                                c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                                c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
+                                'bg-slate-50 text-slate-700 border-slate-200'
                               }`}
                             >
-                              {isUpdating('tasheerStatus') ? (
+                              {isUpdating('cocStatus') ? (
                                 <Loader2 size={12} className="animate-spin" />
                               ) : (
                                 <>
-                                  <span>{c.tasheerStatus === 'No' || !c.tasheerStatus ? 'Set Date/Yes' : c.tasheerStatus}</span>
+                                  <span>{c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE')}</span>
                                   <ChevronDown size={10} className="opacity-60" />
                                 </>
                               )}
                             </button>
 
-                            {openDropdownId === `tasheer-${c.id}` && (
-                              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-2.5 font-bold space-y-2 text-left">
-                                <button
-                                  onClick={() => handleUpdateCandidate(c.id, { tasheerStatus: 'Yes' })}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg flex items-center justify-between cursor-pointer"
-                                >
-                                  <span>Yes (Finished)</span>
-                                  {c.tasheerStatus === 'Yes' && <Check size={12} />}
-                                </button>
-                                
-                                <div className="border-t border-gray-100 my-1"></div>
-                                
-                                <div className="px-1">
-                                  <label className="block text-[10px] text-gray-500 uppercase mb-1 font-black">Or Enter Date</label>
-                                  <input
-                                    type="date"
-                                    value={c.tasheerStatus !== 'Yes' && c.tasheerStatus !== 'No' ? c.tasheerStatus : ''}
-                                    onChange={(e) => {
-                                      if (e.target.value) {
-                                        handleUpdateCandidate(c.id, { tasheerStatus: e.target.value });
-                                      }
-                                    }}
-                                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-medium"
-                                  />
-                                </div>
+                            {openDropdownId === `coc-${c.id}` && (
+                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
+                                {['NONE', 'DONE', 'NOT ONLINE'].map((status) => (
+                                  <button
+                                    key={status}
+                                    onClick={() => handleUpdateCandidate(c.id, { cocStatus: status === 'NONE' ? 'No' : (status === 'DONE' ? 'Yes' : status) })}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
+                                  >
+                                    <span>{status}</span>
+                                    {((status === 'NONE' && (c.cocStatus === 'No' || !c.cocStatus)) ||
+                                      (status === 'DONE' && (c.cocStatus === 'Yes' || c.cocStatus === 'DONE')) ||
+                                      (status === 'NOT ONLINE' && c.cocStatus === 'NOT ONLINE')) && <Check size={12} className="text-primary" />}
+                                  </button>
+                                ))}
                               </div>
                             )}
                           </div>
                         ) : (
                           <span
                             className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
-                              c.tasheerStatus === 'Yes' 
-                                ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' 
-                                : c.tasheerStatus && c.tasheerStatus !== 'No'
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : 'bg-gray-50 text-gray-400 border-gray-200'
+                              c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                              c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
+                              'bg-slate-50 text-slate-700 border-slate-200'
                             }`}
                           >
-                            {c.tasheerStatus === 'No' || !c.tasheerStatus ? '—' : c.tasheerStatus}
+                            {c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE')}
                           </span>
                         )}
                       </td>
 
-                      {/* Wakala Status */}
-                      <td className="px-5 py-4.5 text-center">
-                        {userRole === 'agency' ? (
-                          <button
-                            disabled={updatingField !== null}
-                            onClick={() => handleUpdateCandidate(c.id, { wakalaStatus: c.wakalaStatus === 'Paid' ? 'Unpaid' : 'Paid' })}
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
-                              c.wakalaStatus === 'Paid' 
-                                ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0] hover:bg-emerald-100/60' 
-                                : 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5] hover:bg-orange-100/50'
-                            }`}
-                          >
-                            {isUpdating('wakalaStatus') ? <Loader2 size={12} className="animate-spin" /> : c.wakalaStatus}
-                          </button>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
-                              c.wakalaStatus === 'Paid' 
-                                ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' 
-                                : 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]'
-                            }`}
-                          >
-                            {c.wakalaStatus}
-                          </span>
-                        )}
+                      {/* ID NAME */}
+                      <td className="px-5 py-4.5 font-bold text-text-secondary text-xs">
+                        {c.broker?.name || 'calling'}
                       </td>
 
-                      {/* Selected Type */}
-                      <td className="px-5 py-4.5 text-center">
-                        {userRole === 'agency' ? (
-                          <button
-                            disabled={updatingField !== null}
-                            onClick={() => handleUpdateCandidate(c.id, { selectedType: c.selectedType === 'Company' ? 'Private' : 'Company' })}
-                            className={`inline-flex items-center justify-center px-3.5 py-1 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
-                              c.selectedType === 'Company' 
-                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100/60' 
-                                : 'bg-[#f8fafc] text-[#475569] border-[#e2e8f0] hover:bg-slate-100/60'
-                            }`}
-                          >
-                            {isUpdating('selectedType') ? <Loader2 size={12} className="animate-spin" /> : c.selectedType}
-                          </button>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center justify-center px-3.5 py-1 rounded-full text-xs font-black border select-none ${
-                              c.selectedType === 'Company' 
-                                ? 'bg-blue-50 text-blue-700 border-blue-200' 
-                                : 'bg-[#f8fafc] text-[#475569] border-[#e2e8f0]'
-                            }`}
-                          >
-                            {c.selectedType}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Travel Date (Read-only Text) */}
+                      {/* office */}
                       <td className="px-5 py-4.5">
-                        <span className="font-bold text-gray-700 text-xs">
-                          {c.travelDate ? c.travelDate.substring(0, 10) : '—'}
+                        <span className="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-100 uppercase">
+                          {getCandidateAgencyName(c)}
                         </span>
                       </td>
 
-                      {/* Agency Status Dropdown / Badge */}
-                      <td className="px-5 py-4.5">
-                        {isSuperAdmin ? (
+                      {/* curunt states */}
+                      <td className="px-5 py-4.5 text-center">
+                        {canEdit ? (
                           <div className="relative inline-block" ref={openDropdownId === `status-${c.id}` ? dropdownRef : null}>
                             <button
                               disabled={updatingField !== null}
                               onClick={() => setOpenDropdownId(openDropdownId === `status-${c.id}` ? null : `status-${c.id}`)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
-                                c.agencyStatus === 'Arrived' && 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              } ${
-                                c.agencyStatus === 'Returned' && 'bg-[#fdf4e7] text-[#854d0e] border-[#fef08a]'
-                              } ${
-                                (!c.agencyStatus || c.agencyStatus === 'Under Process') && 'bg-amber-50 text-amber-700 border-amber-200'
+                                c.agencyStatus === 'Arrived' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                c.agencyStatus === 'Returned' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
+                                c.agencyStatus === 'stumped' || c.agencyStatus === 'READY TO EMBASSY' || c.agencyStatus === 'TASSHER' || c.agencyStatus === 'WAKALA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
                               }`}
                             >
                               {isUpdating('agencyStatus') ? (
@@ -1121,15 +956,15 @@ export default function AgencyContractsPage() {
                             </button>
 
                             {openDropdownId === `status-${c.id}` && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold">
-                                {['Under Process', 'Arrived', 'Returned'].map((status) => (
+                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-y-auto max-h-60 font-bold text-left">
+                                {['stumped', 'READY TO EMBASSY', 'TASSHER', 'WAKALA', 'Under Process', 'Arrived', 'Returned'].map((status) => (
                                   <button
                                     key={status}
                                     onClick={() => handleUpdateCandidate(c.id, { agencyStatus: status })}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
                                   >
                                     <span>{status}</span>
-                                    {c.agencyStatus === status && <Check size={12} className="text-primary" />}
+                                    {(c.agencyStatus === status || (!c.agencyStatus && status === 'Under Process')) && <Check size={12} className="text-primary" />}
                                   </button>
                                 ))}
                               </div>
@@ -1139,7 +974,8 @@ export default function AgencyContractsPage() {
                           <span
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border select-none ${
                               c.agencyStatus === 'Arrived' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                              c.agencyStatus === 'Returned' ? 'bg-[#fdf4e7] text-[#854d0e] border-[#fef08a]' :
+                              c.agencyStatus === 'Returned' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
+                              c.agencyStatus === 'stumped' || c.agencyStatus === 'READY TO EMBASSY' || c.agencyStatus === 'TASSHER' || c.agencyStatus === 'WAKALA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                               'bg-amber-50 text-amber-700 border-amber-200'
                             }`}
                           >
@@ -1148,19 +984,54 @@ export default function AgencyContractsPage() {
                         )}
                       </td>
 
-                      {/* CV */}
+                      {/* flight date */}
                       <td className="px-5 py-4.5 text-center">
-                        {c.latestCVTemplate ? (
-                          <button
-                            disabled={loadingCvId === c.id}
-                            onClick={() => handlePreviewCV(c.id, c.latestCVTemplate!)}
-                            className="px-3.5 py-1.5 rounded-xl border border-[#00A4EF]/35 hover:border-[#00A4EF] text-[#00A4EF] hover:bg-[#00A4EF]/5 text-xs font-extrabold shadow-sm transition-all inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                          >
-                            {loadingCvId === c.id ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
-                            View
-                          </button>
+                        {canEdit ? (
+                          <div className="relative inline-block" ref={openDropdownId === `flight-${c.id}` ? dropdownRef : null}>
+                            <button
+                              disabled={updatingField !== null}
+                              onClick={() => setOpenDropdownId(openDropdownId === `flight-${c.id}` ? null : `flight-${c.id}`)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                                c.flightStatus === 'ISSUED' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                                c.flightStatus === 'VERIFIED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}
+                            >
+                              {isUpdating('flightStatus') ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <>
+                                  <span>{c.flightStatus || 'PENDING'}</span>
+                                  <ChevronDown size={10} className="opacity-60" />
+                                </>
+                              )}
+                            </button>
+
+                            {openDropdownId === `flight-${c.id}` && (
+                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
+                                {['PENDING', 'ISSUED', 'VERIFIED'].map((status) => (
+                                  <button
+                                    key={status}
+                                    onClick={() => handleUpdateCandidate(c.id, { flightStatus: status })}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
+                                  >
+                                    <span>{status}</span>
+                                    {(c.flightStatus === status || (!c.flightStatus && status === 'PENDING')) && <Check size={12} className="text-primary" />}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <span className="text-xs font-semibold text-text-tertiary italic">No CV</span>
+                          <span
+                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
+                              c.flightStatus === 'ISSUED' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                              c.flightStatus === 'VERIFIED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {c.flightStatus || 'PENDING'}
+                          </span>
                         )}
                       </td>
 
@@ -1169,7 +1040,7 @@ export default function AgencyContractsPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={isSuperAdmin ? 12 : 11} className="px-6 py-20 text-center text-text-tertiary text-sm font-semibold">
+                  <td colSpan={11} className="px-6 py-20 text-center text-text-tertiary text-sm font-semibold">
                     No candidates found matching the selected filters.
                   </td>
                 </tr>

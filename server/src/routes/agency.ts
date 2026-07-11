@@ -21,7 +21,8 @@ async function ensureCandidateColumns() {
       { name: 'qrCodeStatus', definition: "VARCHAR(191) DEFAULT 'No'" },
       { name: 'selectedType', definition: "VARCHAR(191) DEFAULT 'Private'" },
       { name: 'travelDate', definition: "DATETIME(3) NULL" },
-      { name: 'agencyStatus', definition: "VARCHAR(191) DEFAULT 'Under Process'" }
+      { name: 'agencyStatus', definition: "VARCHAR(191) DEFAULT 'Under Process'" },
+      { name: 'flightStatus', definition: "VARCHAR(191) DEFAULT 'PENDING'" }
     ];
 
     for (const col of requiredColumns) {
@@ -142,7 +143,13 @@ router.get('/candidates', async (req: Request, res: Response) => {
     }
 
     const { agency } = req.query;
-    const conditions: any[] = [eq(candidate.agencySelected, true)];
+    const conditions: any[] = [
+      or(
+        eq(candidate.agencySelected, true),
+        eq(candidate.visaSelected, true),
+        eq(candidate.isRequested, true)
+      )
+    ];
  
     if (role === 'agency') {
       const agencyStr = agencyName!.toLowerCase();
@@ -217,7 +224,9 @@ router.get('/candidates', async (req: Request, res: Response) => {
         videoUrl: encryptPath(c.videoUrl) || null,
         registeredAt: c.registeredAt ? new Date(c.registeredAt).toISOString() : null,
         allowVideo: c.allowVideo ?? false,
-        visaDate: c.visaDate ? new Date(c.visaDate).toISOString() : null
+        visaDate: c.visaDate ? new Date(c.visaDate).toISOString() : null,
+        labourId: c.labourId || null,
+        flightStatus: c.flightStatus || 'PENDING'
       };
     }));
 
@@ -421,7 +430,8 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       qrCodeStatus, 
       selectedType, 
       travelDate, 
-      agencyStatus 
+      agencyStatus,
+      flightStatus
     } = req.body;
 
     const agencyName = await resolveAndHealAgency(session.user);
@@ -453,6 +463,7 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       updateData.travelDate = travelDate ? new Date(travelDate) : null;
     }
     if (agencyStatus !== undefined) updateData.agencyStatus = agencyStatus;
+    if (flightStatus !== undefined) updateData.flightStatus = flightStatus;
 
     await db.update(candidate)
       .set(updateData)

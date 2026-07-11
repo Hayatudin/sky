@@ -35,7 +35,7 @@ export const ROUTE_ACCESS: Record<string, Role[]> = {
   '/settings': ['super_admin', 'registrar', 'processor', 'coordinator', 'accountant', 'video_uploader', 'agency', 'genaral', 'calling'],
   '/users': ['super_admin'],
   '/agency/available-candidates': ['agency'],
-  '/agency/contracts': [], // temporarily hidden — re-enable by restoring: ['super_admin', 'agency']
+  '/agency/contracts': ['super_admin', 'agency', 'processor', 'coordinator', 'accountant', 'genaral'],
   '/available-passport': ['super_admin', 'genaral'],
 };
 

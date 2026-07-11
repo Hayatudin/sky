@@ -203,6 +203,7 @@ export async function ensureDatabaseSchema() {
         \`visaDate\` DATETIME(3) NULL,
         \`salary\` VARCHAR(191) NULL DEFAULT '1000SR',
         \`agency\` VARCHAR(191) NULL DEFAULT 'Sky',
+        \`flightStatus\` VARCHAR(191) NOT NULL DEFAULT 'PENDING',
         \`brokerId\` VARCHAR(191) NULL,
         \`registeredById\` VARCHAR(191) NULL,
         PRIMARY KEY (\`id\`),
@@ -467,7 +468,8 @@ export async function ensureDatabaseSchema() {
     { name: 'travelDate', type: 'DATETIME(3) NULL' },
     { name: 'agencyStatus', type: "VARCHAR(191) NOT NULL DEFAULT 'Under Process'" },
     { name: 'agencySelected', type: 'TINYINT(1) NOT NULL DEFAULT 0' },
-    { name: 'price', type: 'VARCHAR(191) NULL' }
+    { name: 'price', type: 'VARCHAR(191) NULL' },
+    { name: 'flightStatus', type: "VARCHAR(191) NOT NULL DEFAULT 'PENDING'" }
   ];
 
   for (const col of candidateColumns) {
