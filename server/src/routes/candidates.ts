@@ -20,6 +20,16 @@ const candidateBodySchema = z.object({
     phone: z.string().optional().nullable(),
     job: z.string().optional().nullable(),
   }).partial().passthrough(),
+  isRequested: z.boolean().optional().nullable(),
+  visaSelected: z.boolean().optional().nullable(),
+  status: z.string().optional().nullable(),
+  agencyStatus: z.string().optional().nullable(),
+  visaOrContractNumber: z.string().optional().nullable(),
+  visaDate: z.string().optional().nullable(),
+  agency: z.string().optional().nullable(),
+  allowVideo: z.boolean().optional().nullable(),
+  price: z.string().optional().nullable(),
+  quickRegistrationId: z.string().optional().nullable(),
 }).partial().passthrough();
 
 const router = Router();

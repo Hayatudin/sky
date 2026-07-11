@@ -1155,6 +1155,7 @@ export default function RequestedPage() {
           <DirectRegistrationModal 
             onClose={() => setShowDirectRegistrationModal(false)}
             onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['candidates'] });
               mutate();
               setShowDirectRegistrationModal(false);
             }}
