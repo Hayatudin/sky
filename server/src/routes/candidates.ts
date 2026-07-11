@@ -441,7 +441,7 @@ router.post('/', async (req: Request, res: Response) => {
       labourId: body.personalInfo?.labourId || null,
       videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
-      status: body.status || 'pending',
+      status: (body.isRequested || body.visaSelected || body.status === 'visa selected') ? 'visa selected' : 'pending',
       agency: body.agency || 'Sky',
       salary: body.personalInfo?.salary || '1000SR',
       allowVideo: body.allowVideo ? true : false,
