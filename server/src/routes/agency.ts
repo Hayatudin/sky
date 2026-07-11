@@ -164,7 +164,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
       conditions.push(
         or(
           eq(candidate.agency, agencyStr),
-          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
         )
       );
     } else {
@@ -173,7 +173,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
         conditions.push(
           or(
             eq(candidate.agency, agencyStr),
-            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
           )
         );
       }
@@ -267,7 +267,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
     const { agency } = req.query;
     const conditions: any[] = [
       eq(candidate.agencySelected, false),
-      sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\`)`
+      sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id})`
     ];
  
     if (role === 'agency') {
@@ -275,7 +275,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
       conditions.push(
         or(
           eq(candidate.agency, agencyStr),
-          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
         )
       );
     } else {
@@ -284,7 +284,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         conditions.push(
           or(
             eq(candidate.agency, agencyStr),
-            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyStr}%`})`
+            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
           )
         );
       }
@@ -455,7 +455,7 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       const hasAccess = await db.query.candidate.findFirst({
         where: and(
           eq(candidate.id, id),
-          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = \`Candidate\`.\`id\` and gc.\`templateId\` like ${`%${agencyName.toLowerCase()}%`})`
+          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyName.toLowerCase()}%`})`
         )
       });
       if (!hasAccess) {
