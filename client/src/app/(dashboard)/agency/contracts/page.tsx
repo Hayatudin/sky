@@ -70,6 +70,8 @@ interface AgencyCandidate {
   registeredAt?: string | null;
   labourId?: string | null;
   flightStatus?: string | null;
+  lmisStatus?: string | null;
+  embassyStatus?: string | null;
 }
 
 const getCandidateAgencyName = (c: AgencyCandidate) => {
@@ -373,7 +375,9 @@ export default function AgencyContractsPage() {
           selectedType: updatedData.selectedType ?? c.selectedType,
           travelDate: updatedData.travelDate ? new Date(updatedData.travelDate).toISOString() : null,
           agencyStatus: updatedData.agencyStatus ?? c.agencyStatus,
-          flightStatus: updatedData.flightStatus ?? c.flightStatus
+          flightStatus: updatedData.flightStatus ?? c.flightStatus,
+          lmisStatus: updatedData.lmisStatus ?? c.lmisStatus,
+          embassyStatus: updatedData.embassyStatus ?? c.embassyStatus
         } : c)
       );
     } catch (err) {
@@ -533,7 +537,7 @@ export default function AgencyContractsPage() {
   // CSV Exporter (Excel Compatible)
   const handleExportCSV = () => {
     const headers = [
-      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'ID NAME', 'office', 'curunt states', 'flight date'
+      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'curunt states', 'flight date'
     ];
 
     const rows = filteredCandidates.map((c, i) => {
@@ -546,6 +550,8 @@ export default function AgencyContractsPage() {
         formatToMDY(c.visaDate || c.registeredAt),
         c.medicalStatus || 'Pending',
         cocVal,
+        c.lmisStatus || 'Pending',
+        c.embassyStatus || 'ready to embassy',
         c.broker?.name || 'calling',
         getCandidateAgencyName(c),
         c.agencyStatus || 'Under Process',
@@ -755,6 +761,8 @@ export default function AgencyContractsPage() {
                 <th className="px-5 py-4 font-semibold text-center">DATE</th>
                 <th className="px-5 py-4 font-semibold text-center">MEDICAL</th>
                 <th className="px-5 py-4 font-semibold text-center">coc</th>
+                <th className="px-5 py-4 font-semibold text-center">lmis issue</th>
+                <th className="px-5 py-4 font-semibold text-center">embassy status</th>
                 <th className="px-5 py-4 font-semibold">ID NAME</th>
                 <th className="px-5 py-4 font-semibold">office</th>
                 <th className="px-5 py-4 font-semibold text-center">curunt states</th>
@@ -764,7 +772,7 @@ export default function AgencyContractsPage() {
             <tbody className="divide-y divide-border/20 text-sm">
               {isLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-24 text-center">
+                  <td colSpan={13} className="px-6 py-24 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 size={36} className="text-[#464479] animate-spin" />
                       <p className="text-sm font-semibold text-text-tertiary animate-pulse">Loading contracts database...</p>
@@ -915,6 +923,112 @@ export default function AgencyContractsPage() {
                             }`}
                           >
                             {c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE')}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* LMIS issue */}
+                      <td className="px-5 py-4.5 text-center">
+                        {canEdit ? (
+                          <div className="relative inline-block" ref={openDropdownId === `lmis-${c.id}` ? dropdownRef : null}>
+                            <button
+                              disabled={updatingField !== null}
+                              onClick={() => setOpenDropdownId(openDropdownId === `lmis-${c.id}` ? null : `lmis-${c.id}`)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                                c.lmisStatus === 'issued' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                                c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}
+                            >
+                              {isUpdating('lmisStatus') ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <>
+                                  <span>{c.lmisStatus || 'Pending'}</span>
+                                  <ChevronDown size={10} className="opacity-60" />
+                                </>
+                              )}
+                            </button>
+
+                            {openDropdownId === `lmis-${c.id}` && (
+                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
+                                {['Pending', 'checked', 'verified', 'issued'].map((status) => (
+                                  <button
+                                    key={status}
+                                    onClick={() => handleUpdateCandidate(c.id, { lmisStatus: status })}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
+                                  >
+                                    <span>{status}</span>
+                                    {(c.lmisStatus === status || (!c.lmisStatus && status === 'Pending')) && <Check size={12} className="text-primary" />}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
+                              c.lmisStatus === 'issued' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                              c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                              'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {c.lmisStatus || 'Pending'}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Embassy Status */}
+                      <td className="px-5 py-4.5 text-center">
+                        {canEdit ? (
+                          <div className="relative inline-block" ref={openDropdownId === `embassy-${c.id}` ? dropdownRef : null}>
+                            <button
+                              disabled={updatingField !== null}
+                              onClick={() => setOpenDropdownId(openDropdownId === `embassy-${c.id}` ? null : `embassy-${c.id}`)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                                c.embassyStatus === 'stumped' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                                c.embassyStatus === 'submitted to embassy' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                c.embassyStatus === 'ready to embassy' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}
+                            >
+                              {isUpdating('embassyStatus') ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <>
+                                  <span>{c.embassyStatus || 'ready to embassy'}</span>
+                                  <ChevronDown size={10} className="opacity-60" />
+                                </>
+                              )}
+                            </button>
+
+                            {openDropdownId === `embassy-${c.id}` && (
+                              <div className="absolute left-1/2 -translate-x-1/2 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden font-bold text-left">
+                                {['Tasheer', 'ready to embassy', 'submitted to embassy', 'stumped'].map((status) => (
+                                  <button
+                                    key={status}
+                                    onClick={() => handleUpdateCandidate(c.id, { embassyStatus: status })}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
+                                  >
+                                    <span>{status}</span>
+                                    {(c.embassyStatus === status || (!c.embassyStatus && status === 'ready to embassy')) && <Check size={12} className="text-primary" />}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
+                              c.embassyStatus === 'stumped' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
+                              c.embassyStatus === 'submitted to embassy' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                              c.embassyStatus === 'ready to embassy' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {c.embassyStatus || 'ready to embassy'}
                           </span>
                         )}
                       </td>

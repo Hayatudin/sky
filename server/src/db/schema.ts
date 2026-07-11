@@ -118,6 +118,8 @@ export const candidate = mysqlTable('Candidate', {
   agencyStatus: varchar('agencyStatus', { length: 191 }).notNull().default('Under Process'),
   agencySelected: boolean('agencySelected').notNull().default(false),
   flightStatus: varchar('flightStatus', { length: 191 }).notNull().default('PENDING'),
+  lmisStatus: varchar('lmisStatus', { length: 191 }).notNull().default('Pending'),
+  embassyStatus: varchar('embassyStatus', { length: 191 }).notNull().default('ready to embassy'),
   brokerId: varchar('brokerId', { length: 191 }),
   registeredById: varchar('registeredById', { length: 191 }),
 }, (table) => ({

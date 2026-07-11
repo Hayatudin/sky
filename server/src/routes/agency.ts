@@ -133,7 +133,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
     }
 
     const role = session.user.role;
-    if (role !== 'agency' && role !== 'super_admin') {
+    if (!['super_admin', 'agency', 'processor', 'coordinator', 'accountant', 'genaral'].includes(role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -147,7 +147,8 @@ router.get('/candidates', async (req: Request, res: Response) => {
       or(
         eq(candidate.agencySelected, true),
         eq(candidate.visaSelected, true),
-        eq(candidate.isRequested, true)
+        eq(candidate.isRequested, true),
+        eq(candidate.status, 'visa selected')
       )
     ];
  
@@ -226,7 +227,9 @@ router.get('/candidates', async (req: Request, res: Response) => {
         allowVideo: c.allowVideo ?? false,
         visaDate: c.visaDate ? new Date(c.visaDate).toISOString() : null,
         labourId: c.labourId || null,
-        flightStatus: c.flightStatus || 'PENDING'
+        flightStatus: c.flightStatus || 'PENDING',
+        lmisStatus: c.lmisStatus || 'Pending',
+        embassyStatus: c.embassyStatus || 'ready to embassy'
       };
     }));
 
@@ -416,7 +419,7 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     }
 
     const role = session.user.role;
-    if (!['super_admin', 'agency', 'processor', 'coordinator'].includes(role)) {
+    if (!['super_admin', 'agency', 'processor', 'coordinator', 'accountant', 'genaral'].includes(role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -431,7 +434,9 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       selectedType, 
       travelDate, 
       agencyStatus,
-      flightStatus
+      flightStatus,
+      lmisStatus,
+      embassyStatus
     } = req.body;
 
     const agencyName = await resolveAndHealAgency(session.user);
@@ -464,6 +469,8 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     }
     if (agencyStatus !== undefined) updateData.agencyStatus = agencyStatus;
     if (flightStatus !== undefined) updateData.flightStatus = flightStatus;
+    if (lmisStatus !== undefined) updateData.lmisStatus = lmisStatus;
+    if (embassyStatus !== undefined) updateData.embassyStatus = embassyStatus;
 
     await db.update(candidate)
       .set(updateData)
