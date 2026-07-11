@@ -164,7 +164,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
       conditions.push(
         or(
           eq(candidate.agency, agencyStr),
-          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
+          sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
         )
       );
     } else {
@@ -173,7 +173,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
         conditions.push(
           or(
             eq(candidate.agency, agencyStr),
-            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
+            sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
           )
         );
       }
@@ -240,9 +240,13 @@ router.get('/candidates', async (req: Request, res: Response) => {
       };
     }));
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('[AGENCY] Failed to fetch candidates', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: err?.message || String(err), 
+      stack: err?.stack 
+    });
   }
 });
 
@@ -267,7 +271,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
     const { agency } = req.query;
     const conditions: any[] = [
       eq(candidate.agencySelected, false),
-      sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id})`
+      sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id})`
     ];
  
     if (role === 'agency') {
@@ -275,7 +279,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
       conditions.push(
         or(
           eq(candidate.agency, agencyStr),
-          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
+          sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
         )
       );
     } else {
@@ -284,7 +288,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         conditions.push(
           or(
             eq(candidate.agency, agencyStr),
-            sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyStr}%`})`
+            sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
           )
         );
       }
@@ -347,9 +351,13 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
       };
     }));
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('[AGENCY] Failed to fetch available candidates', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: err?.message || String(err), 
+      stack: err?.stack 
+    });
   }
 });
 
@@ -455,7 +463,7 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       const hasAccess = await db.query.candidate.findFirst({
         where: and(
           eq(candidate.id, id),
-          sql`exists (select 1 from \`GeneratedCV\` gc where gc.\`candidateId\` = ${candidate.id} and gc.\`templateId\` like ${`%${agencyName.toLowerCase()}%`})`
+          sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyName.toLowerCase()}%`})`
         )
       });
       if (!hasAccess) {
@@ -488,9 +496,13 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     });
 
     res.json(updated);
-  } catch (err) {
+  } catch (err: any) {
     console.error('[AGENCY] Failed to patch candidate', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: err?.message || String(err), 
+      stack: err?.stack 
+    });
   }
 });
 
