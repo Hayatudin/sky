@@ -581,7 +581,7 @@ export default function AgencyContractsPage() {
   // CSV Exporter (Excel Compatible)
   const handleExportCSV = () => {
     const headers = [
-      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'curunt states', 'flight date'
+      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'curunt states', 'DEPLOYMENT DATE'
     ];
 
     const rows = filteredCandidates.map((c, i) => {
@@ -599,7 +599,7 @@ export default function AgencyContractsPage() {
         c.broker?.name || 'calling',
         getCandidateAgencyName(c),
         c.agencyStatus || 'Under Process',
-        c.flightStatus || 'PENDING'
+        formatToMDY(c.travelDate)
       ];
     });
 
@@ -704,21 +704,6 @@ export default function AgencyContractsPage() {
             >
               <span>{status}</span>
               {(cand.agencyStatus === status || (!cand.agencyStatus && status === 'Under Process')) && <Check size={12} className="text-primary" />}
-            </button>
-          ))}
-        </div>
-      );
-    } else if (type === 'flight') {
-      menuContent = (
-        <div className="py-1">
-          {['PENDING', 'ISSUED', 'VERIFIED'].map((status) => (
-            <button
-              key={status}
-              onClick={() => handleUpdateCandidate(cand.id, { flightStatus: status })}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
-            >
-              <span>{status}</span>
-              {(cand.flightStatus === status || (!cand.flightStatus && status === 'PENDING')) && <Check size={12} className="text-primary" />}
             </button>
           ))}
         </div>
@@ -924,20 +909,20 @@ export default function AgencyContractsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/50 border-b border-border/30 text-[10px] uppercase tracking-wider font-bold text-text-tertiary/90">
-                <th className="px-5 py-4 font-semibold text-center w-12">#</th>
-                <th className="px-5 py-4 font-semibold">NAME</th>
-                <th className="px-5 py-4 font-semibold">PASS NO</th>
-                <th className="px-5 py-4 font-semibold">LABOUR ID</th>
-                <th className="px-5 py-4 font-semibold text-center">DATE</th>
-                <th className="px-5 py-4 font-semibold text-center">MEDICAL</th>
-                <th className="px-5 py-4 font-semibold text-center">coc</th>
-                <th className="px-5 py-4 font-semibold text-center">lmis issue</th>
-                <th className="px-5 py-4 font-semibold text-center">embassy status</th>
-                <th className="px-5 py-4 font-semibold">ID NAME</th>
-                <th className="px-5 py-4 font-semibold">office</th>
-                <th className="px-5 py-4 font-semibold text-center">curunt states</th>
-                <th className="px-5 py-4 font-semibold text-center">flight date</th>
+              <tr className="bg-gray-50/50 border-b border-border/30 text-[10px] uppercase tracking-wider font-bold text-text-tertiary/90 whitespace-nowrap">
+                <th className="px-2 py-2.5 font-semibold text-center w-12">#</th>
+                <th className="px-2 py-2.5 font-semibold text-left">NAME</th>
+                <th className="px-2 py-2.5 font-semibold text-left">PASS NO</th>
+                <th className="px-2 py-2.5 font-semibold text-left">LABOUR ID</th>
+                <th className="px-2 py-2.5 font-semibold text-center">DATE</th>
+                <th className="px-2 py-2.5 font-semibold text-center">MEDICAL</th>
+                <th className="px-2 py-2.5 font-semibold text-center">coc</th>
+                <th className="px-2 py-2.5 font-semibold text-center">lmis issue</th>
+                <th className="px-2 py-2.5 font-semibold text-center">embassy status</th>
+                <th className="px-2 py-2.5 font-semibold text-left">ID NAME</th>
+                <th className="px-2 py-2.5 font-semibold text-left">office</th>
+                <th className="px-2 py-2.5 font-semibold text-center">curunt states</th>
+                <th className="px-2 py-2.5 font-semibold text-center">DEPLOYMENT DATE</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/20 text-sm">
@@ -961,45 +946,45 @@ export default function AgencyContractsPage() {
                     <tr key={c.id} className="hover:bg-gray-50/30 transition-colors group">
                       
                       {/* Roll Number */}
-                      <td className="px-5 py-4.5 text-center font-bold text-text-tertiary">
+                      <td className="px-2 py-2 text-center font-bold text-text-tertiary text-xs">
                         {rollNo}
                       </td>
 
                       {/* NAME */}
-                      <td className="px-5 py-4.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                      <td className="px-2 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center font-bold text-[10px] text-primary shrink-0">
                             {c.givenNames.charAt(0)}{c.surname.charAt(0)}
                           </div>
-                          <p className="font-extrabold text-[#1E293B] text-sm uppercase leading-tight">
+                          <p className="font-extrabold text-[#1E293B] text-[11px] uppercase leading-tight whitespace-nowrap">
                             {c.givenNames} {c.surname}
                           </p>
                         </div>
                       </td>
 
                       {/* PASS NO */}
-                      <td className="px-5 py-4.5 font-semibold text-text-primary text-xs font-mono">
+                      <td className="px-2 py-2 font-semibold text-text-primary text-xs font-mono whitespace-nowrap">
                         {c.passportNumber}
                       </td>
 
                       {/* LABOUR ID */}
-                      <td className="px-5 py-4.5 font-semibold text-text-primary text-xs font-mono">
+                      <td className="px-2 py-2 font-semibold text-text-primary text-xs font-mono whitespace-nowrap">
                         {c.labourId || '—'}
                       </td>
 
                       {/* DATE */}
-                      <td className="px-5 py-4.5 text-center font-bold text-text-secondary text-xs">
+                      <td className="px-2 py-2 text-center font-bold text-text-secondary text-xs whitespace-nowrap">
                         {formatToMDY(c.visaDate || c.registeredAt)}
                       </td>
 
                       {/* MEDICAL */}
-                      <td className="px-5 py-4.5 text-center">
+                      <td className="px-2 py-2 text-center">
                         {canEdit ? (
                           <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
                               onClick={(e) => toggleDropdown('medical', c.id, e)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer select-none disabled:opacity-50 whitespace-nowrap ${
                                 c.medicalStatus === 'Fit' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.medicalStatus === 'Unfit' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
                                 c.medicalStatus === 'New' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -1007,7 +992,7 @@ export default function AgencyContractsPage() {
                               }`}
                             >
                               {isUpdating('medicalStatus') ? (
-                                <Loader2 size={12} className="animate-spin" />
+                                <Loader2 size={10} className="animate-spin" />
                               ) : (
                                 <>
                                   <span>{c.medicalStatus || 'Pending'}</span>
@@ -1018,7 +1003,7 @@ export default function AgencyContractsPage() {
                           </div>
                         ) : (
                           <span
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
+                            className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-black border select-none whitespace-nowrap ${
                               c.medicalStatus === 'Fit' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                               c.medicalStatus === 'Unfit' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
                               c.medicalStatus === 'New' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -1031,20 +1016,20 @@ export default function AgencyContractsPage() {
                       </td>
 
                       {/* coc */}
-                      <td className="px-5 py-4.5 text-center">
+                      <td className="px-2 py-2 text-center">
                         {canEdit ? (
                           <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
                               onClick={(e) => toggleDropdown('coc', c.id, e)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer select-none disabled:opacity-50 whitespace-nowrap ${
                                 c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
                                 'bg-slate-50 text-slate-700 border-slate-200'
                               }`}
                             >
                               {isUpdating('cocStatus') ? (
-                                <Loader2 size={12} className="animate-spin" />
+                                <Loader2 size={10} className="animate-spin" />
                               ) : (
                                 <>
                                   <span>{c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE')}</span>
@@ -1055,7 +1040,7 @@ export default function AgencyContractsPage() {
                           </div>
                         ) : (
                           <span
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
+                            className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-black border select-none whitespace-nowrap ${
                               c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                               c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
                               'bg-slate-50 text-slate-700 border-slate-200'
@@ -1067,13 +1052,13 @@ export default function AgencyContractsPage() {
                       </td>
 
                       {/* LMIS issue */}
-                      <td className="px-5 py-4.5 text-center">
+                      <td className="px-2 py-2 text-center">
                         {canEdit ? (
                           <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
                               onClick={(e) => toggleDropdown('lmis', c.id, e)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer select-none disabled:opacity-50 whitespace-nowrap ${
                                 c.lmisStatus === 'issued' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                 c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
@@ -1081,7 +1066,7 @@ export default function AgencyContractsPage() {
                               }`}
                             >
                               {isUpdating('lmisStatus') ? (
-                                <Loader2 size={12} className="animate-spin" />
+                                <Loader2 size={10} className="animate-spin" />
                               ) : (
                                 <>
                                   <span>{c.lmisStatus || 'Pending'}</span>
@@ -1092,7 +1077,7 @@ export default function AgencyContractsPage() {
                           </div>
                         ) : (
                           <span
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
+                            className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-black border select-none whitespace-nowrap ${
                               c.lmisStatus === 'issued' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                               c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                               c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
@@ -1105,13 +1090,13 @@ export default function AgencyContractsPage() {
                       </td>
 
                       {/* Embassy Status */}
-                      <td className="px-5 py-4.5 text-center">
+                      <td className="px-2 py-2 text-center">
                         {canEdit ? (
                           <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
                               onClick={(e) => toggleDropdown('embassy', c.id, e)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer select-none disabled:opacity-50 whitespace-nowrap ${
                                 c.embassyStatus === 'stumped' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.embassyStatus === 'submitted to embassy' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                                 c.embassyStatus === 'ready to embassy' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -1119,7 +1104,7 @@ export default function AgencyContractsPage() {
                               }`}
                             >
                               {isUpdating('embassyStatus') ? (
-                                <Loader2 size={12} className="animate-spin" />
+                                <Loader2 size={10} className="animate-spin" />
                               ) : (
                                 <>
                                   <span>{c.embassyStatus || 'ready to embassy'}</span>
@@ -1130,7 +1115,7 @@ export default function AgencyContractsPage() {
                           </div>
                         ) : (
                           <span
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
+                            className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-black border select-none whitespace-nowrap ${
                               c.embassyStatus === 'stumped' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                               c.embassyStatus === 'submitted to embassy' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                               c.embassyStatus === 'ready to embassy' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -1143,25 +1128,25 @@ export default function AgencyContractsPage() {
                       </td>
 
                       {/* ID NAME */}
-                      <td className="px-5 py-4.5 font-bold text-text-secondary text-xs">
+                      <td className="px-2 py-2 font-bold text-text-secondary text-xs whitespace-nowrap">
                         {c.broker?.name || 'calling'}
                       </td>
 
                       {/* office */}
-                      <td className="px-5 py-4.5">
-                        <span className="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-100 uppercase">
+                      <td className="px-2 py-2">
+                        <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-100 uppercase whitespace-nowrap">
                           {getCandidateAgencyName(c)}
                         </span>
                       </td>
 
                       {/* curunt states */}
-                      <td className="px-5 py-4.5 text-center">
+                      <td className="px-2 py-2 text-center">
                         {canEdit ? (
                           <div className="relative inline-block">
                             <button
                               disabled={updatingField !== null}
                               onClick={(e) => toggleDropdown('status', c.id, e)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer select-none disabled:opacity-50 whitespace-nowrap ${
                                 c.agencyStatus === 'Arrived' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                 c.agencyStatus === 'Returned' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
                                 c.agencyStatus === 'stumped' || c.agencyStatus === 'READY TO EMBASSY' || c.agencyStatus === 'TASSHER' || c.agencyStatus === 'WAKALA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -1169,7 +1154,7 @@ export default function AgencyContractsPage() {
                               }`}
                             >
                               {isUpdating('agencyStatus') ? (
-                                <Loader2 size={12} className="animate-spin" />
+                                <Loader2 size={10} className="animate-spin" />
                               ) : (
                                 <>
                                   <span>{c.agencyStatus || 'Under Process'}</span>
@@ -1180,7 +1165,7 @@ export default function AgencyContractsPage() {
                           </div>
                         ) : (
                           <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border select-none ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border select-none whitespace-nowrap ${
                               c.agencyStatus === 'Arrived' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                               c.agencyStatus === 'Returned' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
                               c.agencyStatus === 'stumped' || c.agencyStatus === 'READY TO EMBASSY' || c.agencyStatus === 'TASSHER' || c.agencyStatus === 'WAKALA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -1192,40 +1177,11 @@ export default function AgencyContractsPage() {
                         )}
                       </td>
 
-                      {/* flight date */}
-                      <td className="px-5 py-4.5 text-center">
-                        {canEdit ? (
-                          <div className="relative inline-block">
-                            <button
-                              disabled={updatingField !== null}
-                              onClick={(e) => toggleDropdown('flight', c.id, e)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border transition-all cursor-pointer select-none disabled:opacity-50 ${
-                                c.flightStatus === 'ISSUED' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
-                                c.flightStatus === 'VERIFIED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}
-                            >
-                              {isUpdating('flightStatus') ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                <>
-                                  <span>{c.flightStatus || 'PENDING'}</span>
-                                  <ChevronDown size={10} className="opacity-60" />
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-black border select-none ${
-                              c.flightStatus === 'ISSUED' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
-                              c.flightStatus === 'VERIFIED' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                              'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}
-                          >
-                            {c.flightStatus || 'PENDING'}
-                          </span>
-                        )}
+                      {/* flight date (deployment date) */}
+                      <td className="px-2 py-2 text-center">
+                        <span className="font-bold text-text-secondary text-xs whitespace-nowrap">
+                          {formatToMDY(c.travelDate)}
+                        </span>
                       </td>
 
                     </tr>
