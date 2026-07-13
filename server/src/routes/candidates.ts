@@ -1011,6 +1011,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
       updateData.deployedDate = body.deployedDate ? new Date(body.deployedDate) : null;
     }
 
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid candidate fields recognized for update. Received payload: ' + JSON.stringify(req.body) });
+    }
+
     await db.update(candidate)
       .set(updateData)
       .where(eq(candidate.id, id));

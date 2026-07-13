@@ -399,6 +399,7 @@ export default function AgencyContractsPage() {
     }
 
     try {
+      console.log('[API PATCH] Updating candidate ID:', id, 'with payload:', updates);
       const res = await api(`/api/agency/candidates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

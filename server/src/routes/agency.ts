@@ -491,6 +491,10 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     if (embassyStatus !== undefined) updateData.embassyStatus = embassyStatus;
     if (sponsorName !== undefined) updateData.sponsorName = sponsorName;
 
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid candidate fields recognized for update. Received payload: ' + JSON.stringify(req.body) });
+    }
+
     await db.update(candidate)
       .set(updateData)
       .where(eq(candidate.id, id));
