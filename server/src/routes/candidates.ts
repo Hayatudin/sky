@@ -35,12 +35,19 @@ const candidateBodySchema = z.object({
 
 const router = Router();
 
-router.get('/test-status', (req: Request, res: Response) => {
-  res.json({
-    status: 'online',
-    timestamp: '2026-07-08T06:18:00Z',
-    schemaColumns: Object.keys(candidate)
-  });
+router.get('/test-status', async (req: Request, res: Response) => {
+  try {
+    const columns = await db.execute(sql`DESCRIBE \`Candidate\``);
+    res.json({
+      status: 'online',
+      dbColumns: columns
+    });
+  } catch (err: any) {
+    res.json({
+      status: 'error',
+      message: err.message || String(err)
+    });
+  }
 });
 
 async function getBrokerLockMap(): Promise<Record<string, boolean>> {

@@ -405,7 +405,11 @@ export default function AgencyContractsPage() {
         body: JSON.stringify(updates),
       });
 
-      if (!res.ok) throw new Error('Failed to update candidate state');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const errMsg = errorData.message || errorData.error || `HTTP error ${res.status}`;
+        throw new Error(errMsg);
+      }
       
       // Update success - get fresh values
       const updatedData = await res.json();
@@ -430,9 +434,9 @@ export default function AgencyContractsPage() {
           visaOrContractNumber: updatedData.visaOrContractNumber ?? c.visaOrContractNumber
         } : c)
       );
-    } catch (err) {
-      console.error('[UPDATE ERROR]', err);
-      alert('Failed to update candidate status. Reverting changes...');
+    } catch (err: any) {
+      console.error('[UPDATE ERROR DETAIL]', err);
+      alert(`Failed to update candidate: ${err.message || String(err)}. Reverting changes...`);
       // Revert to original on error
       setCandidates(originalCandidates);
     } finally {

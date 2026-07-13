@@ -446,6 +446,23 @@ export async function ensureDatabaseSchema() {
     console.warn('⚠️ Passport table check warning:', e.message || e);
   }
 
+  // Rename misnamed sponsor name columns if present
+  try {
+    const [candCols] = await db.execute(sql`SHOW COLUMNS FROM \`Candidate\``) as any[];
+    const hasWrongSponsorSpace = candCols.some((c: any) => c.Field === 'sponsor name');
+    const hasWrongSponsorUnderscore = candCols.some((c: any) => c.Field === 'sponsor_name');
+    
+    if (hasWrongSponsorSpace) {
+      console.log('🔄 Misnamed column \'sponsor name\' detected. Renaming to \'sponsorName\'...');
+      await db.execute(sql`ALTER TABLE \`Candidate\` CHANGE COLUMN \`sponsor name\` \`sponsorName\` VARCHAR(191) NULL`);
+    } else if (hasWrongSponsorUnderscore) {
+      console.log('🔄 Misnamed column \'sponsor_name\' detected. Renaming to \'sponsorName\'...');
+      await db.execute(sql`ALTER TABLE \`Candidate\` CHANGE COLUMN \`sponsor_name\` \`sponsorName\` VARCHAR(191) NULL`);
+    }
+  } catch (err: any) {
+    console.warn('⚠️ Sponsor column rename warning:', err.message || err);
+  }
+
   const candidateColumns = [
     { name: 'registeredById', type: 'VARCHAR(191) NULL' },
     { name: 'visaDate', type: 'DATETIME(3) NULL' },
