@@ -73,6 +73,8 @@ interface AgencyCandidate {
   flightStatus?: string | null;
   lmisStatus?: string | null;
   embassyStatus?: string | null;
+  sponsorName?: string | null;
+  visaOrContractNumber?: string | null;
 }
 
 const getCandidateAgencyName = (c: AgencyCandidate) => {
@@ -107,6 +109,8 @@ export default function AgencyContractsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [activeTab, setActiveTab] = useState<string>('All');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null);
+  const [sponsorInputVal, setSponsorInputVal] = useState<string>('');
   const [dropdownCoords, setDropdownCoords] = useState<{
     top: number;
     left: number;
@@ -421,7 +425,9 @@ export default function AgencyContractsPage() {
           agencyStatus: updatedData.agencyStatus ?? c.agencyStatus,
           flightStatus: updatedData.flightStatus ?? c.flightStatus,
           lmisStatus: updatedData.lmisStatus ?? c.lmisStatus,
-          embassyStatus: updatedData.embassyStatus ?? c.embassyStatus
+          embassyStatus: updatedData.embassyStatus ?? c.embassyStatus,
+          sponsorName: updatedData.sponsorName ?? c.sponsorName,
+          visaOrContractNumber: updatedData.visaOrContractNumber ?? c.visaOrContractNumber
         } : c)
       );
     } catch (err) {
@@ -433,6 +439,11 @@ export default function AgencyContractsPage() {
       setUpdatingField(null);
       setOpenDropdownId(null);
     }
+  };
+
+  const handleSaveSponsor = async (id: string, name: string) => {
+    setEditingSponsorId(null);
+    await handleUpdateCandidate(id, { sponsorName: name.trim() || null });
   };
 
   // Helper to determine if date is within next 7 days
@@ -581,7 +592,7 @@ export default function AgencyContractsPage() {
   // CSV Exporter (Excel Compatible)
   const handleExportCSV = () => {
     const headers = [
-      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'curunt states', 'DEPLOYMENT DATE'
+      'no', 'NAME', 'PASS NO', 'VISA NUMBER', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DEPLOYMENT DATE'
     ];
 
     const rows = filteredCandidates.map((c, i) => {
@@ -590,7 +601,7 @@ export default function AgencyContractsPage() {
         String(i + 1),
         `${c.givenNames} ${c.surname}`.toUpperCase(),
         c.passportNumber,
-        c.labourId || '—',
+        c.visaOrContractNumber || '—',
         formatToMDY(c.visaDate || c.registeredAt),
         c.medicalStatus || 'Pending',
         cocVal,
@@ -598,7 +609,7 @@ export default function AgencyContractsPage() {
         c.embassyStatus || 'ready to embassy',
         c.broker?.name || 'calling',
         getCandidateAgencyName(c),
-        c.agencyStatus || 'Under Process',
+        c.sponsorName || '—',
         formatToMDY(c.travelDate)
       ];
     });
@@ -689,21 +700,6 @@ export default function AgencyContractsPage() {
             >
               <span className="capitalize">{status}</span>
               {(cand.embassyStatus === status || (!cand.embassyStatus && status === 'ready to embassy')) && <Check size={12} className="text-primary" />}
-            </button>
-          ))}
-        </div>
-      );
-    } else if (type === 'status') {
-      menuContent = (
-        <div className="py-1 overflow-y-auto max-h-60">
-          {['stumped', 'READY TO EMBASSY', 'TASSHER', 'WAKALA', 'Under Process', 'Arrived', 'Returned'].map((status) => (
-            <button
-              key={status}
-              onClick={() => handleUpdateCandidate(cand.id, { agencyStatus: status })}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
-            >
-              <span>{status}</span>
-              {(cand.agencyStatus === status || (!cand.agencyStatus && status === 'Under Process')) && <Check size={12} className="text-primary" />}
             </button>
           ))}
         </div>
@@ -913,7 +909,7 @@ export default function AgencyContractsPage() {
                 <th className="px-2 py-2.5 font-semibold text-center w-12">#</th>
                 <th className="px-2 py-2.5 font-semibold text-left">NAME</th>
                 <th className="px-2 py-2.5 font-semibold text-left">PASS NO</th>
-                <th className="px-2 py-2.5 font-semibold text-left">LABOUR ID</th>
+                <th className="px-2 py-2.5 font-semibold text-left">VISA NUMBER</th>
                 <th className="px-2 py-2.5 font-semibold text-center">DATE</th>
                 <th className="px-2 py-2.5 font-semibold text-center">MEDICAL</th>
                 <th className="px-2 py-2.5 font-semibold text-center">coc</th>
@@ -921,7 +917,7 @@ export default function AgencyContractsPage() {
                 <th className="px-2 py-2.5 font-semibold text-center">embassy status</th>
                 <th className="px-2 py-2.5 font-semibold text-left">ID NAME</th>
                 <th className="px-2 py-2.5 font-semibold text-left">office</th>
-                <th className="px-2 py-2.5 font-semibold text-center">curunt states</th>
+                <th className="px-2 py-2.5 font-semibold text-center">SPONSOR NAME</th>
                 <th className="px-2 py-2.5 font-semibold text-center">DEPLOYMENT DATE</th>
               </tr>
             </thead>
@@ -967,9 +963,9 @@ export default function AgencyContractsPage() {
                         {c.passportNumber}
                       </td>
 
-                      {/* LABOUR ID */}
+                      {/* LABOUR ID (now VISA NUMBER) */}
                       <td className="px-2 py-2 font-semibold text-text-primary text-xs font-mono whitespace-nowrap">
-                        {c.labourId || '—'}
+                        {c.visaOrContractNumber || '—'}
                       </td>
 
                       {/* DATE */}
@@ -1139,41 +1135,63 @@ export default function AgencyContractsPage() {
                         </span>
                       </td>
 
-                      {/* curunt states */}
+                      {/* SPONSOR NAME */}
                       <td className="px-2 py-2 text-center">
-                        {canEdit ? (
-                          <div className="relative inline-block">
+                        {editingSponsorId === c.id ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <input
+                              type="text"
+                              value={sponsorInputVal}
+                              onChange={(e) => setSponsorInputVal(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveSponsor(c.id, sponsorInputVal);
+                                } else if (e.key === 'Escape') {
+                                  setEditingSponsorId(null);
+                                }
+                              }}
+                              autoFocus
+                              className="px-1.5 py-0.5 text-[11px] border border-primary/30 rounded bg-white text-text-primary w-24 font-bold uppercase focus:outline-none focus:border-primary"
+                            />
                             <button
-                              disabled={updatingField !== null}
-                              onClick={(e) => toggleDropdown('status', c.id, e)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer select-none disabled:opacity-50 whitespace-nowrap ${
-                                c.agencyStatus === 'Arrived' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                c.agencyStatus === 'Returned' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
-                                c.agencyStatus === 'stumped' || c.agencyStatus === 'READY TO EMBASSY' || c.agencyStatus === 'TASSHER' || c.agencyStatus === 'WAKALA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}
+                              onClick={() => handleSaveSponsor(c.id, sponsorInputVal)}
+                              className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
                             >
-                              {isUpdating('agencyStatus') ? (
-                                <Loader2 size={10} className="animate-spin" />
-                              ) : (
-                                <>
-                                  <span>{c.agencyStatus || 'Under Process'}</span>
-                                  <ChevronDown size={10} className="opacity-60" />
-                                </>
-                              )}
+                              <Check size={10} className="font-bold" />
+                            </button>
+                            <button
+                              onClick={() => setEditingSponsorId(null)}
+                              className="p-0.5 text-red-600 hover:bg-red-50 rounded cursor-pointer"
+                            >
+                              <X size={10} className="font-bold" />
                             </button>
                           </div>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border select-none whitespace-nowrap ${
-                              c.agencyStatus === 'Arrived' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                              c.agencyStatus === 'Returned' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
-                              c.agencyStatus === 'stumped' || c.agencyStatus === 'READY TO EMBASSY' || c.agencyStatus === 'TASSHER' || c.agencyStatus === 'WAKALA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                              'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}
+                        ) : c.sponsorName ? (
+                          <div 
+                            onClick={() => {
+                              if (canEdit) {
+                                setEditingSponsorId(c.id);
+                                setSponsorInputVal(c.sponsorName || '');
+                              }
+                            }}
+                            className={`${canEdit ? 'cursor-pointer hover:bg-gray-100/70' : ''} px-2 py-1 rounded transition-colors inline-block`}
                           >
-                            {c.agencyStatus || 'Under Process'}
-                          </span>
+                            <span className="font-bold text-text-secondary text-[11px] uppercase whitespace-nowrap">
+                              {c.sponsorName}
+                            </span>
+                          </div>
+                        ) : canEdit ? (
+                          <button
+                            onClick={() => {
+                              setEditingSponsorId(c.id);
+                              setSponsorInputVal('');
+                            }}
+                            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-primary-50 text-primary border border-primary-200 text-[10px] font-black cursor-pointer hover:bg-primary-100/70 transition-all select-none whitespace-nowrap"
+                          >
+                            <span>+ Add</span>
+                          </button>
+                        ) : (
+                          <span className="text-text-tertiary text-xs">—</span>
                         )}
                       </td>
 

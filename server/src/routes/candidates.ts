@@ -28,6 +28,7 @@ const candidateBodySchema = z.object({
   visaDate: z.string().optional().nullable(),
   agency: z.string().optional().nullable(),
   allowVideo: z.boolean().optional().nullable(),
+  sponsorName: z.string().optional().nullable(),
   price: z.string().optional().nullable(),
   quickRegistrationId: z.string().optional().nullable(),
 }).partial().passthrough();
@@ -970,7 +971,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       'emergencyContactName', 'emergencyContactRelation', 'emergencyContactPhone',
       'emergencyContactAddress', 'passportImageUrl', 'facePhotoUrl', 'fullBodyPhotoUrl',
       'cocDocumentUrl', 'medicalDocumentUrl', 'candidateIdImageUrl', 'relativeIdImageUrl',
-      'labourId', 'status', 'agency', 'salary', 'price'
+      'labourId', 'status', 'agency', 'salary', 'price', 'visaOrContractNumber', 'sponsorName'
     ];
 
     stringFields.forEach(f => {

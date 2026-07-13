@@ -471,7 +471,8 @@ export async function ensureDatabaseSchema() {
     { name: 'price', type: 'VARCHAR(191) NULL' },
     { name: 'flightStatus', type: "VARCHAR(191) NOT NULL DEFAULT 'PENDING'" },
     { name: 'lmisStatus', type: "VARCHAR(191) NOT NULL DEFAULT 'Pending'" },
-    { name: 'embassyStatus', type: "VARCHAR(191) NOT NULL DEFAULT 'ready to embassy'" }
+    { name: 'embassyStatus', type: "VARCHAR(191) NOT NULL DEFAULT 'ready to embassy'" },
+    { name: 'sponsorName', type: 'VARCHAR(191) NULL' }
   ];
 
   for (const col of candidateColumns) {

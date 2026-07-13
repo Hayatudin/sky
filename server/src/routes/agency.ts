@@ -236,7 +236,9 @@ router.get('/candidates', async (req: Request, res: Response) => {
         labourId: c.labourId || null,
         flightStatus: c.flightStatus || 'PENDING',
         lmisStatus: c.lmisStatus || 'Pending',
-        embassyStatus: c.embassyStatus || 'ready to embassy'
+        embassyStatus: c.embassyStatus || 'ready to embassy',
+        visaOrContractNumber: c.visaOrContractNumber || null,
+        sponsorName: c.sponsorName || null
       };
     }));
 
@@ -451,7 +453,8 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       agencyStatus,
       flightStatus,
       lmisStatus,
-      embassyStatus
+      embassyStatus,
+      sponsorName
     } = req.body;
 
     const agencyName = await resolveAndHealAgency(session.user);
@@ -486,6 +489,7 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     if (flightStatus !== undefined) updateData.flightStatus = flightStatus;
     if (lmisStatus !== undefined) updateData.lmisStatus = lmisStatus;
     if (embassyStatus !== undefined) updateData.embassyStatus = embassyStatus;
+    if (sponsorName !== undefined) updateData.sponsorName = sponsorName;
 
     await db.update(candidate)
       .set(updateData)
