@@ -80,6 +80,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavig
   const role = ((session?.user as any)?.role ?? 'user') as string;
 
   const navItems = allNavItems.filter(item => {
+    if (item.href === '/registration') return false; // Hide Registration tab
     const allowedRoles = ROUTE_ACCESS[item.href];
     if (!allowedRoles) return false;
     return allowedRoles.includes(role as Role);

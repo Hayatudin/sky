@@ -6,8 +6,8 @@ import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 import { useQuickRegistrations } from '@/hooks/useQuickRegistrations';
 import { useBrokers } from '@/hooks/useBrokers';
-import { getFileUrl, cleanLabourId } from '@/lib/utils';
-import { Loader2, ClipboardList, Search, Eye, Calendar, User, ShieldCheck, X, Upload, CheckCircle2, XCircle, ArrowRight, FileText, Trash2, MoreVertical, Edit2, Plus, Phone, Briefcase, GraduationCap, Heart, Baby, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn, getFileUrl, cleanLabourId } from '@/lib/utils';
+import { Loader2, ClipboardList, Search, Eye, Calendar, User, ShieldCheck, X, Upload, CheckCircle2, XCircle, ArrowRight, FileText, Trash2, MoreVertical, Edit2, Plus, Phone, Briefcase, GraduationCap, Heart, Baby, Globe, ChevronLeft, ChevronRight, AlertCircle, ChevronDown, FolderOpen } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 const getVisiblePages = (current: number, total: number) => {
@@ -86,6 +86,12 @@ export default function QuickRegisteredPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'promoted'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | '1d' | '1w' | '1m'>('all');
+  const [missingFileFilter, setMissingFileFilter] = useState<string>('');
+  const [expandedRegId, setExpandedRegId] = useState<string | null>(null);
+  const [dragOverField, setDragOverField] = useState<string | null>(null); // 'regId-field'
+  const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
+  const [editingLabourId, setEditingLabourId] = useState<string | null>(null);
+  const [labourIdInput, setLabourIdInput] = useState<string>('');
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role ?? 'user';
   const canVerify = ['super_admin', 'processor', 'genaral'].includes(userRole);
@@ -185,6 +191,15 @@ export default function QuickRegisteredPage() {
     const cutoff = getDateCutoffMs(dateFilter);
     if (cutoff !== null && new Date(r.createdAt).getTime() > cutoff) return false;
 
+    if (missingFileFilter) {
+      if (missingFileFilter === 'passportImageUrl' && r.passportImageUrl) return false;
+      if (missingFileFilter === 'cocDocumentUrl' && r.cocDocumentUrl) return false;
+      if (missingFileFilter === 'candidateIdImageUrl' && r.candidateIdImageUrl) return false;
+      if (missingFileFilter === 'relativeIdImageUrl' && r.relativeIdImageUrl) return false;
+      if (missingFileFilter === 'videoUrl' && r.videoUrl) return false;
+      if (missingFileFilter === 'labourId' && r.labourId) return false;
+    }
+
     return true;
   });
 
@@ -202,7 +217,7 @@ export default function QuickRegisteredPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, dateFilter]);
+  }, [search, statusFilter, dateFilter, missingFileFilter]);
 
   // Handle Musaned PDF upload for verification
   const handleMusanedUpload = async (file: File) => {
@@ -241,6 +256,268 @@ export default function QuickRegisteredPage() {
     } finally {
       setIsExtracting(false);
     }
+  };
+
+  const handleDragOver = (e: React.DragEvent, fieldKey: string) => {
+    e.preventDefault();
+    setDragOverField(fieldKey);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverField(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, regId: string, field: string) => {
+    e.preventDefault();
+    setDragOverField(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await handleUploadSingle(regId, field, file);
+    }
+  };
+
+  const handleUploadSingle = async (regId: string, field: string, file: File) => {
+    const limit = 50 * 1024 * 1024;
+    if (file.size > limit) {
+      alert(`Max file size is ${limit / (1024 * 1024)}MB`);
+      return;
+    }
+    const key = `${regId}-${field}`;
+    setUploadingState(prev => ({ ...prev, [key]: true }));
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      if (ev.target?.result) {
+        const base64 = ev.target.result as string;
+        try {
+          const res = await api(`/api/quick-registrations/${regId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              [field]: base64,
+            }),
+          });
+          const updated = await res.json();
+          if (!res.ok) throw new Error(updated.error || 'Failed to save document');
+          
+          mutateRegistrations(prev => prev.map(r => r.id === regId ? updated : r));
+          queryClient.invalidateQueries({ queryKey: ['passports'] });
+        } catch (err: any) {
+          alert(err.message || 'Something went wrong while saving document');
+        } finally {
+          setUploadingState(prev => ({ ...prev, [key]: false }));
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveLabourIdText = async (regId: string, textValue: string) => {
+    const key = `${regId}-labourId`;
+    setUploadingState(prev => ({ ...prev, [key]: true }));
+    try {
+      const res = await api(`/api/quick-registrations/${regId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          labourId: textValue.trim(),
+        }),
+      });
+      const updated = await res.json();
+      if (!res.ok) throw new Error(updated.error || 'Failed to save Labour ID');
+      
+      mutateRegistrations(prev => prev.map(r => r.id === regId ? updated : r));
+      setEditingLabourId(null);
+    } catch (err: any) {
+      alert(err.message || 'Something went wrong while saving Labour ID');
+    } finally {
+      setUploadingState(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const renderDocCard = (r: QuickReg, fieldKey: string, label: string, acceptTypes: string) => {
+    const value = (r as any)[fieldKey];
+    const isUploading = uploadingState[`${r.id}-${fieldKey}`];
+    const isOver = dragOverField === `${r.id}-${fieldKey}`;
+
+    return (
+      <div 
+        className={cn(
+          "border rounded-xl p-3 bg-white flex flex-col justify-between h-40 transition-all text-left",
+          isOver ? "border-primary bg-primary/5 scale-95" : "border-border hover:border-primary/20"
+        )}
+        onDragOver={(e) => handleDragOver(e, `${r.id}-${fieldKey}`)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, r.id, fieldKey)}
+      >
+        <div className="space-y-1.5 min-w-0">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary truncate">{label}</p>
+          
+          <div className="h-20 bg-slate-50 rounded-lg overflow-hidden border border-dashed border-border/80 flex items-center justify-center relative">
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-1">
+                <Loader2 size={16} className="text-primary animate-spin" />
+                <span className="text-[10px] text-text-tertiary">Saving...</span>
+              </div>
+            ) : value ? (
+              fieldKey === 'videoUrl' ? (
+                <video src={getFileUrl(value)} className="w-full h-full object-cover" />
+              ) : value.startsWith('data:image') || value.startsWith('http') || value.startsWith('/uploads') ? (
+                <img src={getFileUrl(value)} alt={label} className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-1 text-[10px] text-text-secondary text-center p-1">
+                  <FileText className="text-primary/40" size={20} />
+                  <span className="truncate max-w-[100px]">Doc File</span>
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-1 text-center p-2">
+                <AlertCircle className="text-amber-500/80" size={16} />
+                <span className="text-[10px] font-medium text-text-tertiary">Not uploaded</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2.5">
+          <label className="flex items-center justify-center gap-1 w-full px-2 py-1 text-[10px] font-bold rounded-lg bg-gray-50 border border-border text-text-secondary hover:text-primary hover:border-primary/20 hover:bg-primary/5 transition-all cursor-pointer shadow-sm">
+            <Upload size={10} />
+            {value ? 'Change' : 'Upload'}
+            <input
+              type="file"
+              accept={acceptTypes}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUploadSingle(r.id, fieldKey, file);
+              }}
+            />
+          </label>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLabourIdCard = (r: QuickReg) => {
+    const value = r.labourId;
+    const isUploading = uploadingState[`${r.id}-labourId`];
+    const isOver = dragOverField === `${r.id}-labourId`;
+    const isEditing = editingLabourId === r.id;
+
+    const isFile = value && (
+      value.startsWith('data:image/') ||
+      value.startsWith('http://') ||
+      value.startsWith('https://') ||
+      value.startsWith('ENC-') ||
+      value.startsWith('/uploads') ||
+      value.includes('/uploads/') ||
+      value.toLowerCase().endsWith('.jpg') ||
+      value.toLowerCase().endsWith('.jpeg') ||
+      value.toLowerCase().endsWith('.png') ||
+      value.toLowerCase().endsWith('.pdf')
+    );
+
+    return (
+      <div 
+        className={cn(
+          "border rounded-xl p-3 bg-white flex flex-col justify-between h-40 transition-all text-left",
+          isOver ? "border-primary bg-primary/5 scale-95" : "border-border hover:border-primary/20"
+        )}
+        onDragOver={(e) => handleDragOver(e, `${r.id}-labourId`)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, r.id, 'labourId')}
+      >
+        <div className="space-y-1.5 min-w-0">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary truncate">Labour ID</p>
+          
+          <div className="h-20 bg-slate-55 rounded-lg overflow-hidden border border-dashed border-border/80 flex items-center justify-center relative">
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-1">
+                <Loader2 size={16} className="text-primary animate-spin" />
+                <span className="text-[10px] text-text-tertiary">Saving...</span>
+              </div>
+            ) : isEditing ? (
+              <div className="p-1.5 w-full h-full flex flex-col gap-1 items-center justify-center bg-white">
+                <input
+                  type="text"
+                  value={labourIdInput}
+                  onChange={(e) => setLabourIdInput(e.target.value)}
+                  placeholder="Enter ID..."
+                  className="w-full text-[10px] px-1.5 py-1 border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                  autoFocus
+                />
+                <div className="flex gap-1 w-full">
+                  <button
+                    onClick={() => handleSaveLabourIdText(r.id, labourIdInput)}
+                    className="flex-1 px-1.5 py-0.5 text-[8px] font-bold bg-primary text-white rounded hover:bg-primary-dark"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingLabourId(null)}
+                    className="flex-1 px-1.5 py-0.5 text-[8px] font-bold bg-gray-100 border text-text-secondary rounded hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : value ? (
+              isFile ? (
+                value.startsWith('data:image') || value.startsWith('http') || value.startsWith('/uploads') ? (
+                  <img src={getFileUrl(value)} alt="Labour ID" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-1 text-[10px] text-text-secondary text-center p-1">
+                    <FileText className="text-primary/40" size={20} />
+                    <span>Doc File</span>
+                  </div>
+                )
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-1 text-center p-2 w-full">
+                  <span className="text-[10px] font-bold text-text-primary break-all max-h-12 overflow-hidden px-1.5 py-1 bg-gray-105 rounded border border-gray-200 w-full text-center">
+                    {value}
+                  </span>
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-1 text-center p-2">
+                <AlertCircle className="text-amber-500/80" size={16} />
+                <span className="text-[10px] font-medium text-text-tertiary">Not inserted</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-1.5 mt-2.5">
+          {!isEditing && (
+            <>
+              <button
+                onClick={() => {
+                  setEditingLabourId(r.id);
+                  setLabourIdInput(isFile ? '' : value || '');
+                }}
+                className="flex-1 py-1 text-[9px] font-bold rounded-lg bg-gray-50 border border-border text-text-secondary hover:text-primary hover:border-primary/20 hover:bg-primary/5 transition-all shadow-sm"
+              >
+                Text ID
+              </button>
+              <label className="flex-1 flex items-center justify-center gap-1 py-1 text-[9px] font-bold rounded-lg bg-gray-50 border border-border text-text-secondary hover:text-primary hover:border-primary/20 hover:bg-primary/5 transition-all cursor-pointer shadow-sm">
+                <Upload size={8} />
+                File
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUploadSingle(r.id, 'labourId', file);
+                  }}
+                />
+              </label>
+            </>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // Navigate to /registration and promote candidate via sessionStorage
@@ -528,6 +805,32 @@ export default function QuickRegisteredPage() {
           <option value="1w">Registered 1+ Week Ago</option>
           <option value="1m">Registered 1+ Month Ago</option>
         </select>
+        <select
+          value={missingFileFilter}
+          onChange={e => setMissingFileFilter(e.target.value)}
+          className="h-[42px] px-4 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[180px]"
+        >
+          <option value="">All Documents</option>
+          <option value="passportImageUrl">Missing Passport</option>
+          <option value="cocDocumentUrl">Missing COC</option>
+          <option value="candidateIdImageUrl">Missing Candidate ID</option>
+          <option value="relativeIdImageUrl">Missing Relative ID</option>
+          <option value="videoUrl">Missing Video</option>
+          <option value="labourId">Missing Labour ID</option>
+        </select>
+        {(search || statusFilter !== 'all' || dateFilter !== 'all' || missingFileFilter) && (
+          <button
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('all');
+              setDateFilter('all');
+              setMissingFileFilter('');
+            }}
+            className="text-sm text-text-tertiary hover:text-red-500 font-semibold px-3 transition-colors h-[42px] flex items-center"
+          >
+            Clear Filters
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -559,148 +862,182 @@ export default function QuickRegisteredPage() {
               ) : paginated.length > 0 ? (
                 paginated.map(r => {
                   const experienceLabel = parseExperience(r.jobExperience);
+                  const isExpanded = expandedRegId === r.id;
                   return (
-                    <tr
-                      key={r.id}
-                      className="hover:bg-gray-50/30 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 border border-primary-100">
-                            <span className="text-primary font-bold text-sm">
-                              {r.givenNames?.charAt(0)}{r.surname?.charAt(0)}
-                            </span>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-text-primary text-sm truncate">{r.givenNames} {r.surname}</p>
-                            <p className="text-[10px] text-text-tertiary sm:hidden">{r.passportNumber}</p>
-                            {r.languages && Array.isArray(r.languages) && r.languages.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {r.languages.map(l => (
-                                  <span key={l} className="text-[8px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10">
-                                    {l}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 hidden sm:table-cell whitespace-nowrap">
-                        <span className="text-xs font-mono font-bold text-text-secondary bg-gray-100 px-2.5 py-1 rounded border border-gray-200 shadow-sm">{r.passportNumber}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-secondary hidden md:table-cell whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
-                            {r.registeredBy ? r.registeredBy.charAt(0).toUpperCase() : 'W'}
-                          </div>
-                          <span className="text-sm font-medium text-text-primary">{r.registeredBy || 'Walk-in'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 hidden lg:table-cell whitespace-nowrap text-xs text-text-secondary font-semibold">
-                        {r.broker?.name || '—'}
-                      </td>
-                      <td className="px-6 py-4 hidden sm:table-cell whitespace-nowrap">
-                        {getStatusBadge(r.verificationStatus || 'pending')}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-primary font-semibold hidden sm:table-cell whitespace-nowrap">
-                        {new Date(r.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => router.push(`/quick-registration/preview/${r.id}`)}
-                          className="px-3 py-1.5 text-xs font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:shadow-primary/20"
-                        >
-                          Open
-                          <ArrowRight size={10} />
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 text-right relative whitespace-nowrap">
-                        <div className="flex items-center justify-end">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdownId(activeDropdownId === r.id ? null : r.id);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 text-text-tertiary hover:text-text-primary transition-all duration-200"
-                            title="Actions"
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-
-                          {activeDropdownId === r.id && (
-                            <>
-                              {/* Overlay for closing click */}
-                              <div
-                                className="fixed inset-0 z-10"
-                                onClick={() => setActiveDropdownId(null)}
+                    <React.Fragment key={r.id}>
+                      <tr
+                        className="hover:bg-gray-50/30 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setExpandedRegId(expandedRegId === r.id ? null : r.id)}
+                              className="p-1 rounded-lg hover:bg-gray-100 text-text-tertiary transition-colors"
+                            >
+                              <ChevronDown 
+                                size={16} 
+                                className={cn(
+                                  "transition-transform duration-200", 
+                                  isExpanded && "transform rotate-180 text-primary"
+                                )} 
                               />
-                              
-                              {/* Dropdown Menu */}
-                              <div className="absolute right-0 mt-2 w-48 bg-white border border-border rounded-xl shadow-lg py-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                                <button
-                                  onClick={() => {
-                                    setActiveDropdownId(null);
-                                    router.push(`/quick-registration/preview/${r.id}`);
-                                  }}
-                                  className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
-                                >
-                                  <Eye size={14} className="text-text-tertiary" /> Preview Details
-                                </button>
-
-                                {r.verificationStatus !== 'promoted' && canVerify && (
-                                  <>
-                                    <button
-                                      onClick={() => {
-                                        setActiveDropdownId(null);
-                                        openVerifyModal(r);
-                                      }}
-                                      className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
-                                    >
-                                      <ShieldCheck size={14} className="text-emerald-600" /> Verify with CV
-                                    </button>
-                                    
-                                    <button
-                                      onClick={() => {
-                                        setActiveDropdownId(null);
-                                        openEditModal(r);
-                                      }}
-                                      className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
-                                    >
-                                      <Edit2 size={14} className="text-blue-600" /> Edit Registration
-                                    </button>
-                                  </>
-                                )}
-
-                                {r.promotedCandidateId && userRole !== 'registrar' && (
+                            </button>
+                            <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 border border-primary-100">
+                              <span className="text-primary font-bold text-sm">
+                                {r.givenNames?.charAt(0)}{r.surname?.charAt(0)}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-text-primary text-sm truncate">{r.givenNames} {r.surname}</p>
+                              <p className="text-[10px] text-text-tertiary sm:hidden">{r.passportNumber}</p>
+                              {r.languages && Array.isArray(r.languages) && r.languages.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {r.languages.map(l => (
+                                    <span key={l} className="text-[8px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10">
+                                      {l}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 hidden sm:table-cell whitespace-nowrap">
+                          <span className="text-xs font-mono font-bold text-text-secondary bg-gray-100 px-2.5 py-1 rounded border border-gray-200 shadow-sm">{r.passportNumber}</span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-secondary hidden md:table-cell whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                              {r.registeredBy ? r.registeredBy.charAt(0).toUpperCase() : 'W'}
+                            </div>
+                            <span className="text-sm font-medium text-text-primary">{r.registeredBy || 'Walk-in'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 hidden lg:table-cell whitespace-nowrap text-xs text-text-secondary font-semibold">
+                          {r.broker?.name || '—'}
+                        </td>
+                        <td className="px-6 py-4 hidden sm:table-cell whitespace-nowrap">
+                          {getStatusBadge(r.verificationStatus || 'pending')}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-primary font-semibold hidden sm:table-cell whitespace-nowrap">
+                          {new Date(r.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => router.push(`/quick-registration/preview/${r.id}`)}
+                            className="px-3 py-1.5 text-xs font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:shadow-primary/20"
+                          >
+                            Open
+                            <ArrowRight size={10} />
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-right relative whitespace-nowrap">
+                          <div className="flex items-center justify-end">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdownId(activeDropdownId === r.id ? null : r.id);
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-gray-100 text-text-tertiary hover:text-text-primary transition-all duration-200"
+                              title="Actions"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+  
+                            {activeDropdownId === r.id && (
+                              <>
+                                {/* Overlay for closing click */}
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setActiveDropdownId(null)}
+                                />
+                                
+                                {/* Dropdown Menu */}
+                                <div className="absolute right-0 mt-2 w-48 bg-white border border-border rounded-xl shadow-lg py-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
                                   <button
                                     onClick={() => {
                                       setActiveDropdownId(null);
-                                      router.push(`/candidates/${r.promotedCandidateId}`);
+                                      router.push(`/quick-registration/preview/${r.id}`);
                                     }}
                                     className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
                                   >
-                                    <ArrowRight size={14} className="text-blue-600" /> View Candidate
+                                    <Eye size={14} className="text-text-tertiary" /> Preview Details
                                   </button>
-                                )}
-
-                                <div className="border-t border-border/50 my-1" />
-
-                                <button
-                                  onClick={() => {
-                                    setActiveDropdownId(null);
-                                    handleDelete(r.id, `${r.givenNames} ${r.surname}`);
-                                  }}
-                                  className="w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-semibold"
-                                >
-                                  <Trash2 size={14} /> Delete
-                                </button>
+  
+                                  {r.verificationStatus !== 'promoted' && canVerify && (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setActiveDropdownId(null);
+                                          openVerifyModal(r);
+                                        }}
+                                        className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
+                                      >
+                                        <ShieldCheck size={14} className="text-emerald-600" /> Verify with CV
+                                      </button>
+                                      
+                                      <button
+                                        onClick={() => {
+                                          setActiveDropdownId(null);
+                                          openEditModal(r);
+                                        }}
+                                        className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
+                                      >
+                                        <Edit2 size={14} className="text-blue-600" /> Edit Registration
+                                      </button>
+                                    </>
+                                  )}
+  
+                                  {r.promotedCandidateId && userRole !== 'registrar' && (
+                                    <button
+                                      onClick={() => {
+                                        setActiveDropdownId(null);
+                                        router.push(`/candidates/${r.promotedCandidateId}`);
+                                      }}
+                                      className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
+                                    >
+                                      <ArrowRight size={14} className="text-blue-600" /> View Candidate
+                                    </button>
+                                  )}
+  
+                                  <div className="border-t border-border/50 my-1" />
+  
+                                  <button
+                                    onClick={() => {
+                                      setActiveDropdownId(null);
+                                      handleDelete(r.id, `${r.givenNames} ${r.surname}`);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-semibold"
+                                  >
+                                    <Trash2 size={14} /> Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="bg-slate-50/50 border-b border-border/10">
+                          <td colSpan={8} className="px-8 py-6">
+                            <div className="space-y-4">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                                <FolderOpen size={14} className="text-primary" /> Candidate Documents & Uploads
+                              </h4>
+                              
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                                {renderDocCard(r, 'passportImageUrl', 'Passport Image', 'image/*')}
+                                {renderDocCard(r, 'cocDocumentUrl', 'COC Document', 'image/*,application/pdf')}
+                                {renderDocCard(r, 'candidateIdImageUrl', 'Candidate ID Image', 'image/*,application/pdf')}
+                                {renderDocCard(r, 'relativeIdImageUrl', 'Relative ID Image', 'image/*,application/pdf')}
+                                {renderDocCard(r, 'videoUrl', 'Candidate Video', 'video/*')}
+                                {renderLabourIdCard(r)}
                               </div>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })
               ) : (

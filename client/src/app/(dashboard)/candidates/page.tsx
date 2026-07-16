@@ -8,7 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Candidate } from '@/types';
-import { cn, cleanLabourId } from '@/lib/utils';
+import { cn, cleanLabourId, getFileUrl } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { authClient } from '@/lib/auth-client';
@@ -17,6 +17,23 @@ import { useCandidates } from '@/hooks/useCandidates';
 import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
 
 const TEMPLATES = CV_TEMPLATE_OPTIONS;
+
+function isLabourIdFile(val: string | null | undefined): boolean {
+  if (!val) return false;
+  const v = val.trim();
+  return (
+    v.startsWith('data:image/') ||
+    v.startsWith('http://') ||
+    v.startsWith('https://') ||
+    v.startsWith('ENC-') ||
+    v.startsWith('/uploads') ||
+    v.includes('/uploads/') ||
+    v.toLowerCase().endsWith('.jpg') ||
+    v.toLowerCase().endsWith('.jpeg') ||
+    v.toLowerCase().endsWith('.png') ||
+    v.toLowerCase().endsWith('.pdf')
+  );
+}
 
 export default function CandidatesPage() {
   const router = useRouter();
@@ -432,6 +449,7 @@ export default function CandidatesPage() {
                 <th className="px-6 py-4 font-semibold">Shelf ID</th>
                 <th className="px-6 py-4 font-semibold">Candidate</th>
                 <th className="px-6 py-4 font-semibold">Passport No.</th>
+                <th className="px-6 py-4 font-semibold">Labour ID</th>
                 <th className="px-6 py-4 font-semibold">CV Agency</th>
                 <th className="px-6 py-4 font-semibold">Broker</th>
                 <th className="px-6 py-4 font-semibold">Visa Status</th>
@@ -443,9 +461,9 @@ export default function CandidatesPage() {
             </thead>
             <tbody className="divide-y divide-border/20">
               {isLoading ? (
-                <TableSkeleton rows={8} cols={10} />
+                <TableSkeleton rows={8} cols={11} />
               ) : error ? (
-                <tr><td colSpan={10} className="px-3 xl:px-6 py-10 text-center text-danger">Error: {error}</td></tr>
+                <tr><td colSpan={11} className="px-3 xl:px-6 py-10 text-center text-danger">Error: {error}</td></tr>
               ) : filtered.length > 0 ? (
                 paginatedCandidates.map((candidate) => (
                   <tr key={candidate.id} className="hover:bg-gray-50/30 transition-colors">
@@ -481,6 +499,31 @@ export default function CandidatesPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <p className="text-sm font-medium text-text-primary">{candidate.passportData?.passportNumber}</p>
                       <p className="text-xs text-text-tertiary">Exp: {new Date(candidate.passportData?.dateOfExpiry).toLocaleDateString()}</p>
+                    </td>
+
+                    {/* Labour ID */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {candidate.labourId ? (
+                        isLabourIdFile(candidate.labourId) ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewDoc(candidate.labourId!);
+                            }}
+                            className="text-primary hover:bg-primary/5 px-2.5 py-1 rounded-lg border border-primary/20 transition-colors inline-flex items-center gap-1 font-semibold text-xs cursor-pointer"
+                            title="View Labour ID image/document"
+                          >
+                            <Eye size={13} />
+                            <span>View</span>
+                          </button>
+                        ) : (
+                          <span className="font-mono text-xs font-bold text-text-secondary bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                            {candidate.labourId}
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-xs text-text-tertiary">—</span>
+                      )}
                     </td>
 
                     {/* CV Agency */}
@@ -671,7 +714,7 @@ export default function CandidatesPage() {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={10} className="px-3 xl:px-6 py-10 text-center text-text-tertiary">No candidates found matching your search or filters.</td></tr>
+                <tr><td colSpan={11} className="px-3 xl:px-6 py-10 text-center text-text-tertiary">No candidates found matching your search or filters.</td></tr>
               )}
             </tbody>
           </table>
@@ -735,14 +778,14 @@ export default function CandidatesPage() {
               <button onClick={() => setViewDoc(null)} className="text-text-tertiary hover:text-text-primary text-xl font-bold px-2">✕</button>
             </div>
             <div className="p-4 flex items-center justify-center overflow-auto max-h-[80vh]">
-              {viewDoc.startsWith('data:image') || (viewDoc.startsWith('http') && !viewDoc.toLowerCase().endsWith('.pdf')) ? (
-                <img src={viewDoc} alt="Document" className="max-w-full max-h-[70vh] object-contain rounded-lg" />
+              {viewDoc.startsWith('data:image') || viewDoc.startsWith('/uploads') || viewDoc.startsWith('ENC-') || (viewDoc.startsWith('http') && !viewDoc.toLowerCase().endsWith('.pdf')) ? (
+                <img src={getFileUrl(viewDoc)} alt="Document" className="max-w-full max-h-[70vh] object-contain rounded-lg" />
               ) : viewDoc.startsWith('data:application/pdf') ? (
                 <iframe src={viewDoc} className="w-full h-[70vh] rounded-lg" />
-              ) : viewDoc.startsWith('http') && viewDoc.toLowerCase().endsWith('.pdf') ? (
+              ) : (viewDoc.startsWith('http') || viewDoc.startsWith('/uploads') || viewDoc.startsWith('ENC-')) && viewDoc.toLowerCase().endsWith('.pdf') ? (
                 <div className="flex flex-col items-center w-full">
-                  <img src={viewDoc.replace(/\.pdf$/i, '.jpg')} alt="Document Preview" className="max-w-full max-h-[65vh] object-contain rounded-lg shadow-sm border border-border mb-3" />
-                  <a href={viewDoc} target="_blank" rel="noreferrer" className="text-primary hover:underline text-sm font-medium flex items-center gap-2 bg-primary-50 px-4 py-2 rounded-lg">
+                  <img src={getFileUrl(viewDoc).replace(/\.pdf$/i, '.jpg')} alt="Document Preview" className="max-w-full max-h-[65vh] object-contain rounded-lg shadow-sm border border-border mb-3" />
+                  <a href={getFileUrl(viewDoc)} target="_blank" rel="noreferrer" className="text-primary hover:underline text-sm font-medium flex items-center gap-2 bg-primary-50 px-4 py-2 rounded-lg">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                     Open Original PDF
                   </a>
@@ -750,7 +793,7 @@ export default function CandidatesPage() {
               ) : (
                 <div className="text-center">
                   <p className="text-text-tertiary mb-2">Cannot preview this document type.</p>
-                  <a href={viewDoc} target="_blank" rel="noreferrer" className="text-primary hover:underline">Open in new tab</a>
+                  <a href={getFileUrl(viewDoc)} target="_blank" rel="noreferrer" className="text-primary hover:underline">Open in new tab</a>
                 </div>
               )}
             </div>
