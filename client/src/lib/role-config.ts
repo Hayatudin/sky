@@ -19,9 +19,9 @@ export const DASHBOARD_ROLES: Role[] = [
 
 // Route → which roles can see/access it
 export const ROUTE_ACCESS: Record<string, Role[]> = {
-  '/dashboard': ['super_admin', 'registrar', 'processor', 'coordinator', 'accountant', 'genaral', 'calling'],
+  '/dashboard': ['super_admin', 'processor', 'coordinator', 'accountant', 'genaral', 'calling'],
   '/candidates': ['super_admin', 'processor', 'coordinator', 'genaral', 'calling'],
-  '/quick-registration': ['super_admin', 'registrar', 'genaral', 'calling'],
+  '/quick-registration': ['super_admin', 'genaral', 'calling'],
   '/quick-registered': ['super_admin', 'registrar', 'processor', 'genaral'],
   '/requested': ['super_admin', 'coordinator', 'accountant', 'genaral'],
   '/fit-candidates': [], // temporarily hidden — re-enable by restoring: ['super_admin', 'coordinator', 'genaral']
@@ -29,8 +29,8 @@ export const ROUTE_ACCESS: Record<string, Role[]> = {
   '/cv-generator': ['super_admin', 'processor', 'coordinator', 'genaral'],
   '/generated-cvs': ['super_admin', 'processor', 'genaral'],
   '/invoice': ['super_admin', 'accountant', 'genaral'],
-  '/deployments': ['super_admin', 'registrar', 'processor', 'coordinator', 'accountant', 'genaral'],
-  '/brokers': ['super_admin', 'registrar', 'processor', 'genaral'],
+  '/deployments': ['super_admin', 'processor', 'coordinator', 'accountant', 'genaral'],
+  '/brokers': ['super_admin', 'processor', 'genaral'],
   '/backup': ['super_admin', 'processor', 'coordinator', 'genaral'],
   '/settings': ['super_admin', 'registrar', 'processor', 'coordinator', 'accountant', 'video_uploader', 'agency', 'genaral', 'calling'],
   '/users': ['super_admin'],
