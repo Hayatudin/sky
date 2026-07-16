@@ -70,6 +70,7 @@ export default function QuickRegistrationPage() {
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const isCalling = (session?.user as any)?.role === 'calling';
+  const isKadra = session?.user?.email === 'kadra@gmail.com';
 
   // Passport state
   const [passportImage, setPassportImage] = useState<string | null>(null);
@@ -943,7 +944,7 @@ export default function QuickRegistrationPage() {
             />
             {!isCalling && (
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video {isKadra && <span className="text-red-500">*</span>}</label>
                 {videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) ? (
                   <div className="space-y-2">
                     <div className="relative">
@@ -952,7 +953,7 @@ export default function QuickRegistrationPage() {
                         value={videoUrl}
                         onChange={e => setVideoUrl(e.target.value)}
                         className="pr-10"
-                        required
+                        required={isKadra}
                       />
                       <Video className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                     </div>
@@ -983,7 +984,7 @@ export default function QuickRegistrationPage() {
                       onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setVideoUrl(base64), 50 * 1024 * 1024)}
                       onClear={() => setVideoUrl(null)}
                       helperText="MP4, WebM or MOV — Max 50MB"
-                      required={true}
+                      required={isKadra}
                     />
                   </div>
                 )}
