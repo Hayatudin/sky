@@ -373,7 +373,9 @@ export default function QuickRegistrationPage() {
       return;
     }
 
-    if (!isCalling && !videoUrl) {
+    const userEmail = session?.user?.email;
+    const isKadra = userEmail === 'kadra@gmail.com';
+    if (isKadra && !videoUrl) {
       setError('Candidate Video is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;

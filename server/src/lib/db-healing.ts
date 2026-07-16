@@ -674,5 +674,36 @@ export async function ensureDatabaseSchema() {
     console.warn('⚠️ Auto-backfill of QuickRegistration registeredById failed:', backfillErr.message || backfillErr);
   }
 
+  // 13. Auto-heal any QuickRegistration record with 'verified' status
+  try {
+    console.log('🔄 Running auto-heal for QuickRegistration records with "verified" status...');
+    
+    // First, heal those that have a corresponding Candidate record (mark as 'promoted')
+    const [promotedResult] = await db.execute(sql`
+      UPDATE \`QuickRegistration\` q
+      INNER JOIN \`Candidate\` c ON q.passportNumber = c.passportNumber
+      SET q.verificationStatus = 'promoted', q.promotedCandidateId = c.id
+      WHERE q.verificationStatus = 'verified'
+    `);
+    
+    // Second, heal any remaining 'verified' records that do NOT have a corresponding Candidate record (mark as 'pending')
+    const [pendingResult] = await db.execute(sql`
+      UPDATE \`QuickRegistration\`
+      SET verificationStatus = 'pending'
+      WHERE verificationStatus = 'verified'
+    `);
+
+    const healedPromoted = (promotedResult as any).affectedRows || 0;
+    const healedPending = (pendingResult as any).affectedRows || 0;
+    
+    if (healedPromoted > 0 || healedPending > 0) {
+      console.log(`✅ Healed 'verified' status for QuickRegistration: ${healedPromoted} set to 'promoted', ${healedPending} set to 'pending'.`);
+    } else {
+      console.log('ℹ️ No QuickRegistration records with "verified" status found.');
+    }
+  } catch (healErr: any) {
+    console.warn('⚠️ Auto-heal of QuickRegistration "verified" status failed:', healErr.message || healErr);
+  }
+
   console.log('✅ Database self-healing complete.');
 }

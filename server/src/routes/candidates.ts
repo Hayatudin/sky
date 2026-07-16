@@ -1061,7 +1061,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
       // 4. Update QuickRegistration promotions
       await tx.update(quickRegistration)
-        .set({ promotedCandidateId: null, verificationStatus: 'verified' })
+        .set({ promotedCandidateId: null, verificationStatus: 'pending' })
         .where(eq(quickRegistration.promotedCandidateId, id));
 
       // 5. Delete the candidate
