@@ -37,6 +37,8 @@ export default function DashboardPage() {
   React.useEffect(() => {
     if (userRole === 'agency') {
       router.replace('/agency/contracts');
+    } else if (userRole === 'registrar') {
+      router.replace('/quick-registered');
     }
   }, [userRole, router]);
 

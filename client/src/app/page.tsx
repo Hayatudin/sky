@@ -66,6 +66,8 @@ export default function HomePage() {
     if (!isPending && session) {
       if (role === 'agency') {
         router.push('/agency/contracts');
+      } else if (role === 'registrar') {
+        router.push('/quick-registered');
       } else if (canAccessDashboard) {
         router.push('/dashboard');
       }
