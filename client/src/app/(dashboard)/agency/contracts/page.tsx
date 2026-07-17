@@ -502,9 +502,11 @@ export default function AgencyContractsPage() {
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(c => {
-        const fullName = `${c.givenNames} ${c.surname}`.toLowerCase();
+        const fullName = `${c.surname} ${c.givenNames}`.toLowerCase();
         const passport = (c.passportNumber || '').toLowerCase();
-        return fullName.includes(q) || passport.includes(q);
+        const visaNo = (c.visaOrContractNumber || '').toLowerCase();
+        const labourId = (c.labourId || '').toLowerCase();
+        return fullName.includes(q) || passport.includes(q) || visaNo.includes(q) || labourId.includes(q);
       });
     }
 
@@ -597,16 +599,16 @@ export default function AgencyContractsPage() {
   // CSV Exporter (Excel Compatible)
   const handleExportCSV = () => {
     const headers = [
-      'no', 'NAME', 'PASS NO', 'VISA NUMBER', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DEPLOYMENT DATE'
+      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DEPLOYMENT DATE'
     ];
 
     const rows = filteredCandidates.map((c, i) => {
       const cocVal = c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE');
       return [
         String(i + 1),
-        `${c.givenNames} ${c.surname}`.toUpperCase(),
+        `${c.surname} ${c.givenNames}`.toUpperCase(),
         c.passportNumber,
-        c.visaOrContractNumber || '—',
+        c.labourId || '—',
         formatToMDY(c.visaDate || c.registeredAt),
         c.medicalStatus || 'Pending',
         cocVal,
@@ -838,7 +840,7 @@ export default function AgencyContractsPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input 
               type="text" 
-              placeholder="Search by Name, Passport No, Visa No, National ID..."
+              placeholder="Search by Name, Passport No, Labour ID, Visa No..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200/80 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
@@ -914,7 +916,7 @@ export default function AgencyContractsPage() {
                 <th className="px-2 py-2.5 font-semibold text-center w-12">#</th>
                 <th className="px-2 py-2.5 font-semibold text-left">NAME</th>
                 <th className="px-2 py-2.5 font-semibold text-left">PASS NO</th>
-                <th className="px-2 py-2.5 font-semibold text-left">VISA NUMBER</th>
+                <th className="px-2 py-2.5 font-semibold text-left">LABOUR ID</th>
                 <th className="px-2 py-2.5 font-semibold text-center">DATE</th>
                 <th className="px-2 py-2.5 font-semibold text-center">MEDICAL</th>
                 <th className="px-2 py-2.5 font-semibold text-center">coc</th>
@@ -955,10 +957,10 @@ export default function AgencyContractsPage() {
                       <td className="px-2 py-2">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center font-bold text-[10px] text-primary shrink-0">
-                            {c.givenNames.charAt(0)}{c.surname.charAt(0)}
+                            {c.surname.charAt(0)}{c.givenNames ? c.givenNames.trim().charAt(0) : ''}
                           </div>
                           <p className="font-extrabold text-[#1E293B] text-[11px] uppercase leading-tight whitespace-nowrap">
-                            {c.givenNames} {c.surname}
+                            {c.surname} {c.givenNames}
                           </p>
                         </div>
                       </td>
@@ -968,9 +970,9 @@ export default function AgencyContractsPage() {
                         {c.passportNumber}
                       </td>
 
-                      {/* LABOUR ID (now VISA NUMBER) */}
+                      {/* LABOUR ID */}
                       <td className="px-2 py-2 font-semibold text-text-primary text-xs font-mono whitespace-nowrap">
-                        {c.visaOrContractNumber || '—'}
+                        {c.labourId || '—'}
                       </td>
 
                       {/* DATE */}
