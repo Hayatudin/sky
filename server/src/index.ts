@@ -357,11 +357,23 @@ app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'SKY Agency API is running' });
 });
 
-app.get('/test-status', (req: Request, res: Response) => {
+app.get('/test-status', async (req: Request, res: Response) => {
+  let dbColumns: any[] = [];
+  let dbError: string | null = null;
+  try {
+    const result = await db.execute(sql`DESCRIBE \`Candidate\``);
+    const rows = result[0] as unknown as any[];
+    dbColumns = rows.map(r => ({ field: r.Field, type: r.Type }));
+  } catch (err: any) {
+    dbError = err.message || String(err);
+  }
+
   res.json({
     status: 'online',
-    timestamp: '2026-07-08T07:31:00Z',
-    schemaColumns: Object.keys(candidate)
+    timestamp: new Date().toISOString(),
+    schemaColumns: Object.keys(candidate),
+    dbColumns,
+    dbError
   });
 });
 

@@ -547,7 +547,8 @@ router.post('/', async (req: Request, res: Response) => {
     if (error.message?.includes('Duplicate entry') || error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'A candidate with this Passport Number already exists in the system.' });
     }
-    res.status(500).json({ error: error.message || String(error) });
+    const dbErr = error.cause?.message || error.message || String(error);
+    res.status(500).json({ error: `Database Error: ${dbErr}` });
   }
 });
 
@@ -854,7 +855,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (error.message?.includes('Duplicate entry') || error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'A candidate with this Passport Number already exists.' });
     }
-    res.status(500).json({ error: error.message || String(error) });
+    const dbErr = error.cause?.message || error.message || String(error);
+    res.status(500).json({ error: `Database Error: ${dbErr}` });
   }
 });
 

@@ -252,7 +252,8 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json(enriched);
   } catch (error: any) {
     console.error('Error creating quick registration:', error);
-    res.status(500).json({ error: error.message || String(error) });
+    const dbErr = error.cause?.message || error.message || String(error);
+    res.status(500).json({ error: `Database Error: ${dbErr}` });
   }
 });
 
@@ -338,7 +339,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     res.json(enrichedUpdated);
   } catch (error: any) {
     console.error('Error updating quick registration:', error);
-    res.status(500).json({ error: error.message || String(error) });
+    const dbErr = error.cause?.message || error.message || String(error);
+    res.status(500).json({ error: `Database Error: ${dbErr}` });
   }
 });
 
