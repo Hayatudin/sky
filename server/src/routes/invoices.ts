@@ -121,11 +121,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { isDelivered } = req.body;
-
-    if (typeof isDelivered !== 'boolean') {
-      return res.status(400).json({ error: 'isDelivered must be a boolean' });
-    }
+    const { isDelivered, isDownloaded } = req.body;
 
     const existingInvoice = await db.query.invoice.findFirst({
       where: eq(invoice.id, id)
@@ -135,17 +131,37 @@ router.patch('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-    const deployedDate = isDelivered ? new Date() : null;
+    const updateData: any = {};
+    if (isDelivered !== undefined) {
+      if (typeof isDelivered !== 'boolean') {
+        return res.status(400).json({ error: 'isDelivered must be a boolean' });
+      }
+      updateData.isDelivered = isDelivered;
+      updateData.deployedDate = isDelivered ? new Date() : null;
+    }
 
-    await db.update(invoice)
-      .set({ isDelivered, deployedDate })
-      .where(eq(invoice.id, id));
+    if (isDownloaded !== undefined) {
+      if (typeof isDownloaded !== 'boolean') {
+        return res.status(400).json({ error: 'isDownloaded must be a boolean' });
+      }
+      updateData.isDownloaded = isDownloaded;
+    }
 
-    const updated = await db.query.invoice.findFirst({
-      where: eq(invoice.id, id)
-    });
+    if (Object.keys(updateData).length > 0) {
+      await db.update(invoice)
+        .set(updateData)
+        .where(eq(invoice.id, id));
+    }
 
-    return res.json(updated);
+    // Fetch the updated invoice with candidate data (MySQL 5.7 compatible)
+    const [updatedInv] = await db.select().from(invoice).where(eq(invoice.id, id)).limit(1);
+    let candidateData = null;
+    if (updatedInv?.candidateId) {
+      const [cand] = await db.select().from(candidate).where(eq(candidate.id, updatedInv.candidateId)).limit(1);
+      candidateData = cand || null;
+    }
+
+    return res.json({ ...updatedInv, candidate: candidateData });
   } catch (error: any) {
     console.error('Error updating invoice:', error);
     res.status(500).json({ error: 'Failed to update invoice', message: error.message });

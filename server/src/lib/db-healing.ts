@@ -386,6 +386,7 @@ export async function ensureDatabaseSchema() {
         \`ticketUrl\` TEXT NOT NULL,
         \`price\` VARCHAR(191) NOT NULL,
         \`isDelivered\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`isDownloaded\` TINYINT(1) NOT NULL DEFAULT 0,
         \`deployedDate\` DATETIME(3) NULL,
         \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -395,6 +396,17 @@ export async function ensureDatabaseSchema() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     `);
     console.log(`✅ Verified/Created 'Invoice' table.`);
+
+    // Incremental check: alter Invoice table to add isDownloaded column if missing
+    try {
+      await db.execute(sql`ALTER TABLE \`Invoice\` ADD COLUMN \`isDownloaded\` TINYINT(1) NOT NULL DEFAULT 0`);
+      console.log(`✅ Successfully added column 'isDownloaded' to Invoice table.`);
+    } catch (e: any) {
+      const msg = e.message || String(e);
+      if (!msg.includes('Duplicate column') && !msg.includes('already exists')) {
+        console.warn(`⚠️ Invoice column fallback update warning for 'isDownloaded':`, msg);
+      }
+    }
   } catch (e: any) {
     console.warn('⚠️ Invoice table check warning:', e.message || e);
   }

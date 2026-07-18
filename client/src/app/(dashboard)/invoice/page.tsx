@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { FileText, Loader2, CheckCircle2, Eye, Download, AlertCircle, FileCheck, Circle, Edit3, Filter, Trash2 } from 'lucide-react';
+import { FileText, Loader2, CheckCircle2, Eye, Download, AlertCircle, FileCheck, Circle, Edit3, Filter, Trash2, RotateCcw } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { generateInvoicePdf } from '@/lib/invoicePdfGenerator';
@@ -26,10 +26,11 @@ export default function InvoicePage() {
 
   // Template filter state
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('all');
+  const [statusTab, setStatusTab] = useState<'available' | 'downloaded'>('available');
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedTemplateId]);
+  }, [searchQuery, selectedTemplateId, statusTab]);
 
   // Download Invoice Modal states
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -108,7 +109,28 @@ export default function InvoicePage() {
     }
   };
 
+  const handleRevertToAvailable = async (invoiceId: string) => {
+    setActionLoading(invoiceId);
+    try {
+      const res = await api(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDownloaded: false }),
+      });
+      if (!res.ok) throw new Error();
+      await mutateInvoices();
+    } catch {
+      alert('Failed to revert invoice to available.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const filtered = (Array.isArray(invoices) ? invoices : []).filter(inv => {
+    // 0. Filter by statusTab (available/downloaded)
+    const matchesStatus = statusTab === 'downloaded' ? inv.isDownloaded : !inv.isDownloaded;
+    if (!matchesStatus) return false;
+
     // 1. Filter by template
     if (selectedTemplateId !== 'all') {
       const cvs = inv.candidate?.generatedCVs || [];
@@ -151,16 +173,16 @@ export default function InvoicePage() {
 
     setIsGeneratingPdf(true);
     try {
-      // Get delivered candidates in the current filtered list
-      const deliveredInvoices = filtered.filter(inv => inv.isDelivered);
+      // Get candidates to include in the invoice PDF (must be delivered)
+      const targetInvoices = filtered.filter(inv => inv.isDelivered);
 
-      if (deliveredInvoices.length === 0) {
-        alert("No delivered candidates to include in the invoice.");
+      if (targetInvoices.length === 0) {
+        alert("No delivered candidates selected to include in the invoice.");
         return;
       }
 
       // Map to the format needed by the PDF generator
-      const candidatesToInvoice = deliveredInvoices.map((inv, index) => {
+      const candidatesToInvoice = targetInvoices.map((inv, index) => {
         let priceNum = parseFloat(inv.price.replace(/[^0-9.]/g, ''));
         if (isNaN(priceNum)) priceNum = 0;
 
@@ -182,6 +204,20 @@ export default function InvoicePage() {
       const templateFullName = TEMPLATES[selectedTemplateId]?.fullName || '';
 
       await generateInvoicePdf(candidatesToInvoice, templateFullName, invoiceNumber);
+
+      // If downloading from Available tab, mark them as downloaded on the database
+      if (statusTab === 'available') {
+        await Promise.all(
+          targetInvoices.map(inv =>
+            api(`/api/invoices/${inv.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ isDownloaded: true })
+            })
+          )
+        );
+        await mutateInvoices();
+      }
 
       setShowDownloadModal(false);
       setInvoiceNumber('');
@@ -236,7 +272,10 @@ export default function InvoicePage() {
             Invoices Management
           </h1>
           <p className="text-text-secondary mt-1 ml-12">
-            Candidates with generated invoices — mark as delivered to download
+            {statusTab === 'available'
+              ? 'Candidates with generated invoices — mark as delivered to download'
+              : 'Delivered invoices that have been downloaded — you can re-download or revert them'
+            }
           </p>
         </div>
 
@@ -244,12 +283,36 @@ export default function InvoicePage() {
         {canDownload && (
           <button
             onClick={() => setShowDownloadModal(true)}
-            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0"
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0 cursor-pointer"
           >
             <Download size={18} />
-            <span>Download Invoice</span>
+            <span>{statusTab === 'available' ? 'Download Invoice' : 'Download Invoice Again'}</span>
           </button>
         )}
+      </div>
+
+      {/* Available / Downloaded Tabs */}
+      <div className="flex border-b border-border">
+        <button
+          onClick={() => setStatusTab('available')}
+          className={`px-6 py-3 border-b-2 text-sm font-bold transition-all cursor-pointer ${
+            statusTab === 'available'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          Available Invoices
+        </button>
+        <button
+          onClick={() => setStatusTab('downloaded')}
+          className={`px-6 py-3 border-b-2 text-sm font-bold transition-all cursor-pointer ${
+            statusTab === 'downloaded'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          Downloaded Invoices
+        </button>
       </div>
 
       {/* Template Tabs & Search */}
@@ -407,9 +470,20 @@ export default function InvoicePage() {
                     {/* Action Column */}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-xs xl:text-sm font-medium pr-6">
                       <div className="flex items-center justify-end gap-1 xl:gap-2">
+                        {statusTab === 'downloaded' && (
+                          <button
+                            onClick={() => handleRevertToAvailable(inv.id)}
+                            disabled={actionLoading === inv.id}
+                            className="text-amber-600 hover:text-amber-700 transition-colors p-1.5 rounded-lg hover:bg-amber-50 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                            title="Move back to Available"
+                          >
+                            <RotateCcw size={14} />
+                            <span className="hidden xl:inline">Revert</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => setEditingInvoice(inv)}
-                          className="text-primary hover:text-primary-700 transition-colors p-1.5 rounded-lg hover:bg-primary-50 inline-flex items-center gap-1 font-semibold"
+                          className="text-primary hover:text-primary-700 transition-colors p-1.5 rounded-lg hover:bg-primary-50 inline-flex items-center gap-1 font-semibold cursor-pointer"
                         >
                           <Edit3 size={14} />
                           <span className="hidden xl:inline">Edit</span>
@@ -417,7 +491,7 @@ export default function InvoicePage() {
                         <button
                           onClick={() => handleDeleteInvoice(inv.id)}
                           disabled={actionLoading === inv.id}
-                          className="text-red-500 hover:text-red-700 transition-colors p-1.5 rounded-lg hover:bg-red-50 inline-flex items-center gap-1"
+                          className="text-red-500 hover:text-red-700 transition-colors p-1.5 rounded-lg hover:bg-red-50 inline-flex items-center gap-1 cursor-pointer"
                           title="Delete Invoice"
                         >
                           <Trash2 size={14} />

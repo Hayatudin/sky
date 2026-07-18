@@ -596,7 +596,7 @@ export default function AgencyContractsPage() {
     }
   };
 
-  // CSV Exporter (Excel Compatible)
+  // CSV/Excel Exporter (Excel/WPS Compatible with Auto-fitting Widths)
   const handleExportCSV = () => {
     const headers = [
       'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DEPLOYMENT DATE'
@@ -621,16 +621,71 @@ export default function AgencyContractsPage() {
       ];
     });
 
-    const csvContent = "\uFEFF" + [
-      headers.join(','),
-      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
-    ].join('\r\n');
+    // Calculate custom column widths based on the maximum string length of each column's values
+    const colWidths = headers.map((header, colIndex) => {
+      let maxLen = header.length;
+      rows.forEach(row => {
+        const val = row[colIndex] || '';
+        if (val.length > maxLen) {
+          maxLen = val.length;
+        }
+      });
+      // Convert character count to approximate pixel width (minimum 80px, maximum 350px)
+      return Math.min(Math.max(maxLen * 8 + 30, 80), 350);
+    });
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Contracts</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; }
+          th { background-color: #f3f4f6; font-weight: bold; border: 0.5pt solid #d1d5db; text-align: left; }
+          td { border: 0.5pt solid #e5e7eb; white-space: nowrap; }
+          th, td { padding: 8px 12px; font-family: 'Segoe UI', sans-serif; font-size: 11px; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <colgroup>
+            ${colWidths.map(w => `<col width="${w}" style="width: ${w}px;" />`).join('\n')}
+          </colgroup>
+          <thead>
+            <tr>
+              ${headers.map(h => `<th>${h}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `
+              <tr>
+                ${row.map(val => `<td>${val === null || val === undefined ? '' : String(val)}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `sky-contracts-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `sky-contracts-export-${new Date().toISOString().split('T')[0]}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -667,7 +722,7 @@ export default function AgencyContractsPage() {
     } else if (type === 'coc') {
       menuContent = (
         <div className="py-1">
-          {['NONE', 'DONE', 'NOT ONLINE'].map((status) => (
+          {['NONE', 'DONE', 'NOT ONLINE', 'Not approved'].map((status) => (
             <button
               key={status}
               onClick={() => handleUpdateCandidate(cand.id, { cocStatus: status === 'NONE' ? 'No' : (status === 'DONE' ? 'Yes' : status) })}
@@ -866,10 +921,10 @@ export default function AgencyContractsPage() {
           
           <button 
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            Export XLSX (CSV)
+            Export Excel
           </button>
         </div>
       </div>
@@ -1028,6 +1083,7 @@ export default function AgencyContractsPage() {
                               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer select-none disabled:opacity-50 whitespace-nowrap ${
                                 c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
+                                c.cocStatus === 'Not approved' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
                                 'bg-slate-50 text-slate-700 border-slate-200'
                               }`}
                             >
@@ -1046,6 +1102,7 @@ export default function AgencyContractsPage() {
                             className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-black border select-none whitespace-nowrap ${
                               c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                               c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
+                              c.cocStatus === 'Not approved' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
                               'bg-slate-50 text-slate-700 border-slate-200'
                             }`}
                           >

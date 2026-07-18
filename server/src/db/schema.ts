@@ -291,6 +291,7 @@ export const invoice = mysqlTable('Invoice', {
   ticketUrl: text('ticketUrl').notNull(),
   price: varchar('price', { length: 191 }).notNull(),
   isDelivered: boolean('isDelivered').notNull().default(false),
+  isDownloaded: boolean('isDownloaded').notNull().default(false),
   deployedDate: datetime('deployedDate', { fsp: 3 }),
   createdAt: timestamp('createdAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
   updatedAt: timestamp('updatedAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)`),
