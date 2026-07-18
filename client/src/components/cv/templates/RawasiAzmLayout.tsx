@@ -211,14 +211,14 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
                 <tr>
                   <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[30%]`}>English</td>
                   <td className={`${cellBorder} px-1.5 py-1 text-center font-bold w-[40%]`}>
-                    {hasLang(candidate, 'ENGLISH') ? 'YES' : 'NO'}
+                    {hasLang(candidate, 'ENGLISH')}
                   </td>
                   <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[30%]`} dir="rtl">الإنجليزية</td>
                 </tr>
                 <tr>
                   <td className={`${cellBorder} px-1.5 py-1 ${labelClass}`}>Arabic</td>
                   <td className={`${cellBorder} px-1.5 py-1 text-center font-bold`}>
-                    {hasLang(candidate, 'ARABIC') ? 'YES' : 'NO'}
+                    {hasLang(candidate, 'ARABIC')}
                   </td>
                   <td className={`${cellBorder} px-1.5 py-1 text-right font-bold`} dir="rtl">العربية</td>
                 </tr>

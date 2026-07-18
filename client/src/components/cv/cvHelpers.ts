@@ -39,7 +39,10 @@ export function getFullName(candidate: Candidate) {
 }
 
 export function hasLang(candidate: Candidate, lang: string) {
-  return candidate.personalInfo?.languages?.includes(lang) ? 'YES' : 'NO';
+  const list = candidate.personalInfo?.languages;
+  if (!list || !Array.isArray(list)) return 'NO';
+  const hasIt = list.some(l => String(l).toUpperCase() === lang.toUpperCase());
+  return hasIt ? 'YES' : 'NO';
 }
 
 export function isExperienced(candidate: Candidate) {
