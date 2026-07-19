@@ -30,7 +30,27 @@ async function enrichQR(reg: any) {
     if (u) registeredByName = u.name;
   }
 
-  return { ...reg, broker: brokerData, registeredBy: registeredByName };
+  const parseJson = (v: any) => {
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'string') {
+      try {
+        const p = JSON.parse(v);
+        return Array.isArray(p) ? p : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  return {
+    ...reg,
+    broker: brokerData,
+    registeredBy: registeredByName,
+    languages: parseJson(reg.languages),
+    relativePhones: parseJson(reg.relativePhones),
+    jobExperience: parseJson(reg.jobExperience),
+  };
 }
 
 async function enrichQRMany(regs: any[]) {
@@ -54,10 +74,26 @@ async function enrichQRMany(regs: any[]) {
     users.forEach(u => userMap.set(u.id, u.name));
   }
 
+  const parseJson = (v: any) => {
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'string') {
+      try {
+        const p = JSON.parse(v);
+        return Array.isArray(p) ? p : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   return regs.map(reg => ({
     ...reg,
     broker: reg.brokerId ? (brokerMap.get(reg.brokerId) || null) : null,
     registeredBy: reg.registeredById ? (userMap.get(reg.registeredById) || 'Walk-in') : 'Walk-in',
+    languages: parseJson(reg.languages),
+    relativePhones: parseJson(reg.relativePhones),
+    jobExperience: parseJson(reg.jobExperience),
   }));
 }
 

@@ -279,7 +279,7 @@ router.post('/generate', async (req: Request, res: Response) => {
         }
         return skillsArray.some((s: string) => s.toLowerCase().includes(kw)) ? 'Yes' : 'No';
       };
-      const hasLang = (keyword: string) => langsArray.some((l: string) => l.toLowerCase().includes(keyword.toLowerCase())) ? 'Yes' : 'No';
+      const hasLang = (keyword: string) => isExperienced ? 'Yes' : 'No';
 
       const [facePhotoData, fullBodyPhotoData, passportPhotoData] = await Promise.all([
         fetchImageAsBase64(facePhoto || cand.passportImageUrl || ''),
@@ -517,7 +517,7 @@ router.post('/bulk-generate', async (req: Request, res: Response) => {
                   }
                   return skillsArray.some((s: string) => s.toLowerCase().includes(kw)) ? 'Yes' : 'No';
                 };
-                const hasLang = (keyword: string) => langsArray.some((l: string) => l.toLowerCase().includes(keyword.toLowerCase())) ? 'Yes' : 'No';
+                const hasLang = (keyword: string) => isExperienced ? 'Yes' : 'No';
 
                 const formatValue = (val: any) => (val && val !== 'undefined' && val !== 'null' && String(val).trim() !== '' ? val : '-');
 

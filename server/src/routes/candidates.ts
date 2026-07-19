@@ -251,6 +251,18 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
       return res.status(404).json({ error: `No candidate found with passport number ${qr.passportNumber}. Please complete full registration first.` });
     }
 
+    const parseJson = (v: any) => {
+      if (!v) return null;
+      if (typeof v === 'string') {
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      }
+      return v;
+    };
+
     const updateData: any = {
       allowVideo: qr.allowVideo
     };
@@ -259,6 +271,13 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
     if (qr.labourId) updateData.labourId = qr.labourId;
     if (qr.candidateIdImageUrl) updateData.candidateIdImageUrl = qr.candidateIdImageUrl;
     if (qr.relativeIdImageUrl) updateData.relativeIdImageUrl = qr.relativeIdImageUrl;
+    if (qr.languages) updateData.languages = parseJson(qr.languages);
+    if (qr.jobExperience) updateData.workExperience = parseJson(qr.jobExperience);
+    if (qr.religion) updateData.religion = qr.religion;
+    if (qr.maritalStatus) updateData.maritalStatus = qr.maritalStatus;
+    if (qr.numberOfChildren !== undefined && qr.numberOfChildren !== null) updateData.numberOfChildren = qr.numberOfChildren;
+    if (qr.educationLevel) updateData.educationLevel = qr.educationLevel;
+    if (qr.brokerId) updateData.brokerId = qr.brokerId;
     
     let hasRemoteVideo = false;
     if (qr.videoUrl) {
