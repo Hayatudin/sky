@@ -51,7 +51,13 @@ if (unixSocket && !isCloud) {
       user: decodeURIComponent(parsed.username || 'skyforoo_un'),
       password: decodeURIComponent(parsed.password || '@Sky132435'),
       database: parsed.pathname ? parsed.pathname.replace(/^\//, '') : 'skyforoo_db',
-      connectionLimit: 10,
+      waitForConnections: true,
+      connectionLimit: 20,
+      queueLimit: 0,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
+      maxIdle: 20,
+      idleTimeout: 60000,
       connectTimeout: 20000,
     };
   } catch {
@@ -60,7 +66,13 @@ if (unixSocket && !isCloud) {
       user: 'skyforoo_un',
       password: '@Sky132435',
       database: 'skyforoo_db',
-      connectionLimit: 10,
+      waitForConnections: true,
+      connectionLimit: 20,
+      queueLimit: 0,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
+      maxIdle: 20,
+      idleTimeout: 60000,
       connectTimeout: 20000,
     };
   }
@@ -74,7 +86,13 @@ if (unixSocket && !isCloud) {
 
   poolOptions = {
     uri: cleanUrl,
-    connectionLimit: 10,
+    waitForConnections: true,
+    connectionLimit: 20,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    maxIdle: 20,
+    idleTimeout: 60000,
     connectTimeout: 20000,
     ...(isCloud && {
       ssl: {

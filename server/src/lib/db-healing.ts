@@ -791,5 +791,31 @@ export async function ensureDatabaseSchema() {
     console.warn('⚠️ FENERO/SKY database segregation migrations failed:', segErr.message || segErr);
   }
 
+  // 15. Performance Indexes for Fast Search & Retrieval
+  try {
+    console.log('⚡ Ensuring database performance indexes exist...');
+    const indexes = [
+      { name: 'idx_candidate_major_agency_reg', table: 'Candidate', spec: '(`major_agency`, `registeredAt`)' },
+      { name: 'idx_candidate_major_agency_status', table: 'Candidate', spec: '(`major_agency`, `status`)' },
+      { name: 'idx_candidate_major_agency_req', table: 'Candidate', spec: '(`major_agency`, `isRequested`)' },
+      { name: 'idx_candidate_major_agency_visa', table: 'Candidate', spec: '(`major_agency`, `visaSelected`)' },
+      { name: 'idx_candidate_names', table: 'Candidate', spec: '(`surname`, `givenNames`)' },
+      { name: 'idx_quickreg_major_agency_created', table: 'QuickRegistration', spec: '(`major_agency`, `createdAt`)' },
+      { name: 'idx_generatedcv_candidate_id', table: 'GeneratedCV', spec: '(`candidateId`)' },
+      { name: 'idx_invoice_candidate_id', table: 'Invoice', spec: '(`candidateId`)' },
+    ];
+
+    for (const idx of indexes) {
+      try {
+        await db.execute(sql`CREATE INDEX ${sql.raw(idx.name)} ON ${sql.raw('`' + idx.table + '`')} ${sql.raw(idx.spec)}`);
+        console.log(`✅ Created index '${idx.name}' on ${idx.table}.`);
+      } catch (e: any) {
+        // Ignore duplicate index errors
+      }
+    }
+  } catch (idxErr: any) {
+    console.warn('⚠️ Performance index check warning:', idxErr.message || idxErr);
+  }
+
   console.log('✅ Database self-healing complete.');
 }

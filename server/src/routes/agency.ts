@@ -43,8 +43,8 @@ async function ensureCandidateColumns() {
   }
 }
 
-// Kick off checking asynchronously
-ensureCandidateColumns();
+// Candidate columns are verified safely by db-healing.ts on startup
+// ensureCandidateColumns();
 
 // Email-to-agency template ID resolver fallback mapping
 function inferAgencyFromEmail(email: string): string | null {
