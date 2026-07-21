@@ -3,6 +3,7 @@ import { db } from '../db';
 import { passport } from '../db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
+import { getSession } from '../lib/auth-helper';
 import fs from 'fs';
 import path from 'path';
 
@@ -65,7 +66,12 @@ export const getNextShelfNo = async (): Promise<string> => {
 // GET /api/passports
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const passports = await db.select().from(passport).orderBy(desc(passport.createdAt));
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
+    const passports = await db.select().from(passport)
+      .where(eq(passport.majorAgency, userAgency))
+      .orderBy(desc(passport.createdAt));
     res.json(passports);
   } catch (error: any) {
     console.error('Failed to fetch passports:', error);
@@ -76,6 +82,8 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/passports
 router.post('/', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { passportNumber, fullName, passportImageUrl } = req.body;
 
     if (!passportNumber || !passportNumber.trim()) {
@@ -103,6 +111,7 @@ router.post('/', async (req: Request, res: Response) => {
         passportNumber: cleanPassportNumber,
         passportImageUrl: savedImageUrl,
         status: 'Available',
+        majorAgency: userAgency,
       });
     } catch (insertErr: any) {
       if (insertErr.message?.includes('Duplicate entry') || insertErr.code === 'ER_DUP_ENTRY') {
@@ -125,8 +134,15 @@ router.post('/', async (req: Request, res: Response) => {
 // PATCH /api/passports/:id/taken
 router.patch('/:id/taken', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const { takenReason, takenByName, takenByPhone } = req.body;
+
+    const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
+    if (!existing || existing.majorAgency !== userAgency) {
+      return res.status(404).json({ error: 'Passport not found' });
+    }
 
     if (!takenReason || !['Medical', 'Terminate'].includes(takenReason)) {
       return res.status(400).json({ error: "Invalid or missing 'takenReason'. Must be 'Medical' or 'Terminate'." });
@@ -160,7 +176,14 @@ router.patch('/:id/taken', async (req: Request, res: Response) => {
 // PATCH /api/passports/:id/return
 router.patch('/:id/return', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
+
+    const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
+    if (!existing || existing.majorAgency !== userAgency) {
+      return res.status(404).json({ error: 'Passport not found' });
+    }
 
     await db.update(passport)
       .set({
@@ -181,7 +204,14 @@ router.patch('/:id/return', async (req: Request, res: Response) => {
 // DELETE /api/passports/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
+
+    const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
+    if (!existing || existing.majorAgency !== userAgency) {
+      return res.status(404).json({ error: 'Passport not found' });
+    }
 
     await db.delete(passport).where(eq(passport.id, id));
 

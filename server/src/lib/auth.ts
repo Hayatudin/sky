@@ -57,6 +57,11 @@ export const auth = betterAuth({
         type: 'string',
         required: false,
       },
+      majorAgency: {
+        type: 'string',
+        required: false,
+        fieldName: 'major_agency',
+      },
     },
   },
 });

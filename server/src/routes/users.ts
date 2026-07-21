@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { user, candidate, quickRegistration } from '../db/schema';
-import { eq, desc, isNotNull, sql } from 'drizzle-orm';
+import { eq, desc, isNotNull, sql, and } from 'drizzle-orm';
 import { auth } from '../lib/auth';
 import { authenticateSession, requireSuperAdmin } from '../middlewares/auth';
+import { getSession } from '../lib/auth-helper';
 
 const router = Router();
 
@@ -13,13 +14,17 @@ router.use(authenticateSession);
 // GET /api/users/analytics
 router.get('/analytics', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
     const users = await db.select({
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
       createdAt: user.createdAt,
-    }).from(user);
+    }).from(user)
+    .where(eq(user.majorAgency, userAgency));
 
     const candidateCountMap: Record<string, number> = {};
     try {
@@ -28,7 +33,7 @@ router.get('/analytics', requireSuperAdmin, async (req: Request, res: Response) 
         count: sql<number>`count(*)`
       })
       .from(candidate)
-      .where(isNotNull(candidate.registeredById))
+      .where(and(isNotNull(candidate.registeredById), eq(candidate.majorAgency, userAgency)))
       .groupBy(candidate.registeredById);
 
       candidateCounts.forEach((c) => {
@@ -47,7 +52,7 @@ router.get('/analytics', requireSuperAdmin, async (req: Request, res: Response) 
         count: sql<number>`count(*)`
       })
       .from(quickRegistration)
-      .where(isNotNull(quickRegistration.registeredById))
+      .where(and(isNotNull(quickRegistration.registeredById), eq(quickRegistration.majorAgency, userAgency)))
       .groupBy(quickRegistration.registeredById);
 
       quickRegistrationCounts.forEach((q) => {
@@ -79,16 +84,21 @@ router.get('/analytics', requireSuperAdmin, async (req: Request, res: Response) 
 // GET /api/users
 router.get('/', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
     const users = await db.select({
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
       agency: user.agency,
+      majorAgency: user.majorAgency,
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
     })
     .from(user)
+    .where(eq(user.majorAgency, userAgency))
     .orderBy(desc(user.createdAt));
     
     res.json(users);
@@ -101,7 +111,9 @@ router.get('/', requireSuperAdmin, async (req: Request, res: Response) => {
 // POST /api/users
 router.post('/', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const { name, email, password, role, agency } = req.body;
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const { name, email, password, role, agency, majorAgency } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'name, email and password are required' });
@@ -135,7 +147,8 @@ router.post('/', requireSuperAdmin, async (req: Request, res: Response) => {
     await db.update(user)
       .set({ 
         role: assignedRole,
-        agency: assignedRole === 'agency' ? agency : null
+        agency: assignedRole === 'agency' ? agency : null,
+        majorAgency: majorAgency || userAgency // default to creator's agency
       })
       .where(eq(user.id, userId));
 
@@ -150,7 +163,7 @@ router.post('/', requireSuperAdmin, async (req: Request, res: Response) => {
 router.patch('/:id', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { role, agency } = req.body;
+    const { role, agency, majorAgency } = req.body;
 
     const VALID_ROLES = ['user', 'super_admin', 'agency', 'registrar', 'processor', 'coordinator', 'accountant', 'video_uploader', 'genaral', 'calling'];
     if (role && !VALID_ROLES.includes(role)) {
@@ -166,6 +179,9 @@ router.patch('/:id', requireSuperAdmin, async (req: Request, res: Response) => {
     }
     if (agency !== undefined) {
       updateData.agency = agency;
+    }
+    if (majorAgency !== undefined) {
+      updateData.majorAgency = majorAgency;
     }
 
     await db.update(user)

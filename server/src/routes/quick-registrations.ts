@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { quickRegistration, candidate, user, broker, passport } from '../db/schema';
-import { eq, or, sql, inArray } from 'drizzle-orm';
+import { eq, or, sql, inArray, and } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
 import { createId } from '@paralleldrive/cuid2';
@@ -103,6 +103,7 @@ async function syncPassportFromQuickReg(tx: any, qr: {
   surname: string;
   passportImageUrl?: string | null;
   passportType?: string | null;
+  majorAgency: string;
 }) {
   try {
     if (!qr.passportNumber) return;
@@ -127,6 +128,7 @@ async function syncPassportFromQuickReg(tx: any, qr: {
           passportNumber: cleanPassportNumber,
           passportImageUrl: qr.passportImageUrl || null,
           status: 'Available',
+          majorAgency: qr.majorAgency,
         });
         console.log(`[PASSPORT-SYNC] Automatically registered original passport under shelf ${shelfNo}`);
       } else {
@@ -135,6 +137,7 @@ async function syncPassportFromQuickReg(tx: any, qr: {
           .set({
             fullName: cleanFullName,
             passportImageUrl: qr.passportImageUrl || null,
+            majorAgency: qr.majorAgency,
           })
           .where(eq(passport.id, existingPassport.id));
       }
@@ -165,7 +168,11 @@ router.get('/generate-client', (req: Request, res: Response) => {
 // GET /api/quick-registrations
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
     const regs = await db.select().from(quickRegistration)
+      .where(eq(quickRegistration.majorAgency, userAgency))
       .orderBy(sql`${quickRegistration.createdAt} DESC`);
     const mapped = await enrichQRMany(regs);
     res.json(mapped);
@@ -186,34 +193,42 @@ router.post('/', async (req: Request, res: Response) => {
 
     const passportUpper = body.passportNumber.trim().toUpperCase();
 
-    // Check for duplicates in QuickRegistration
+    // Resolve logged in user from session to populate registeredById and agency
+    let registeredById = body.registeredById || null;
+    let userAgency = 'Sky';
+    try {
+      const session = await getSession(req);
+      if (session?.user?.id) {
+        registeredById = session.user.id;
+        userAgency = (session?.user as any)?.majorAgency || 'Sky';
+        console.log('[DEBUG] Resolved registeredById from server session in quick-reg:', registeredById, 'Agency:', userAgency);
+      }
+    } catch (sessionError) {
+      console.error('[DEBUG] Failed to get session in POST quick-reg route:', sessionError);
+    }
+
+    // Check for duplicates in QuickRegistration for the user's agency
     const existingQr = await db.query.quickRegistration.findFirst({
-      where: (qr, { eq }) => eq(sql`upper(${qr.passportNumber})`, passportUpper)
+      where: (qr, { eq, and }) => and(
+        eq(sql`upper(${qr.passportNumber})`, passportUpper),
+        eq(qr.majorAgency, userAgency)
+      )
     });
 
     if (existingQr) {
       return res.status(400).json({ error: 'A quick registration with this passport number already exists.' });
     }
 
-    // Check for duplicates in full Candidates
+    // Check for duplicates in full Candidates for the user's agency
     const existingCandidate = await db.query.candidate.findFirst({
-      where: (c, { eq }) => eq(sql`upper(${c.passportNumber})`, passportUpper)
+      where: (c, { eq, and }) => and(
+        eq(sql`upper(${c.passportNumber})`, passportUpper),
+        eq(c.majorAgency, userAgency)
+      )
     });
 
     if (existingCandidate) {
       return res.status(400).json({ error: 'A full candidate registration with this passport number already exists.' });
-    }
-
-    // Resolve logged in user from session to populate registeredById
-    let registeredById = body.registeredById || null;
-    try {
-      const session = await getSession(req);
-      if (session?.user?.id) {
-        registeredById = session.user.id;
-        console.log('[DEBUG] Resolved registeredById from server session in quick-reg:', registeredById);
-      }
-    } catch (sessionError) {
-      console.error('[DEBUG] Failed to get session in POST quick-reg route:', sessionError);
     }
 
     const [
@@ -258,7 +273,7 @@ router.post('/', async (req: Request, res: Response) => {
         relativeIdImageUrl: relativeIdImageUrl || null,
         relativePhones: body.relativePhones || null,
         videoUrl: videoUrl || null,
-        agency: body.agency || 'Sky',
+        majorAgency: userAgency,
         passportType: body.passportType || 'original',
         languages: body.languages || null,
         allowVideo: body.allowVideo ? true : false,
@@ -281,6 +296,7 @@ router.post('/', async (req: Request, res: Response) => {
         surname: registration.surname,
         passportImageUrl: registration.passportImageUrl,
         passportType: registration.passportType,
+        majorAgency: userAgency,
       });
     });
 
@@ -296,13 +312,15 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/quick-registrations/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const body = req.body;
 
     const existing = await db.query.quickRegistration.findFirst({
       where: eq(quickRegistration.id, id)
     });
-    if (!existing) {
+    if (!existing || existing.majorAgency !== userAgency) {
       return res.status(404).json({ error: 'Quick registration not found' });
     }
 
@@ -344,7 +362,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (relativeIdImageUrl !== undefined) updateData.relativeIdImageUrl = relativeIdImageUrl;
     if (body.relativePhones !== undefined) updateData.relativePhones = body.relativePhones || null;
     if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
-    if (body.agency !== undefined) updateData.agency = body.agency || 'Sky';
+    updateData.agency = userAgency; // force agency to remain correct
     if (body.passportType !== undefined) updateData.passportType = body.passportType || 'original';
     if (body.languages !== undefined) updateData.languages = body.languages || null;
     if (body.allowVideo !== undefined) updateData.allowVideo = body.allowVideo ? true : false;
@@ -366,6 +384,7 @@ router.put('/:id', async (req: Request, res: Response) => {
           surname: txUpdated[0].surname,
           passportImageUrl: txUpdated[0].passportImageUrl,
           passportType: txUpdated[0].passportType,
+          majorAgency: userAgency,
         });
         updated = txUpdated[0];
       }
@@ -383,11 +402,18 @@ router.put('/:id', async (req: Request, res: Response) => {
 // GET /api/quick-registrations/by-passport/:passportNumber
 router.get('/by-passport/:passportNumber', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { passportNumber } = req.params;
     const passportUpper = passportNumber.trim().toUpperCase();
 
     const [reg] = await db.select().from(quickRegistration)
-      .where(eq(sql`upper(${quickRegistration.passportNumber})`, passportUpper)).limit(1);
+      .where(
+        and(
+          eq(sql`upper(${quickRegistration.passportNumber})`, passportUpper),
+          eq(quickRegistration.majorAgency, userAgency)
+        )
+      ).limit(1);
 
     if (!reg) return res.status(404).json({ error: 'Not found' });
 
@@ -401,9 +427,11 @@ router.get('/by-passport/:passportNumber', async (req: Request, res: Response) =
 // GET /api/quick-registrations/:id
 router.get('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const reg = await fetchQR(id);
-    if (!reg) return res.status(404).json({ error: 'Not found' });
+    if (!reg || reg.majorAgency !== userAgency) return res.status(404).json({ error: 'Not found' });
     res.json(reg);
   } catch (error) {
     console.error('Failed to fetch quick registration:', error);
@@ -414,19 +442,26 @@ router.get('/:id', async (req: Request, res: Response) => {
 // DELETE /api/quick-registrations/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     
     const existing = await db.query.quickRegistration.findFirst({
       where: eq(quickRegistration.id, id)
     });
-    if (!existing) {
+    if (!existing || existing.majorAgency !== userAgency) {
       return res.status(404).json({ error: 'Registration not found' });
     }
 
     await db.transaction(async (tx) => {
       if (existing.passportNumber) {
         const cleanPassport = existing.passportNumber.trim().toUpperCase();
-        await tx.delete(passport).where(eq(passport.passportNumber, cleanPassport));
+        await tx.delete(passport).where(
+          and(
+            eq(passport.passportNumber, cleanPassport),
+            eq(passport.majorAgency, userAgency)
+          )
+        );
         console.log(`[PASSPORT-SYNC] Automatically deleted passport ${cleanPassport} because quick registration was deleted`);
       }
 

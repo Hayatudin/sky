@@ -8,14 +8,14 @@ interface CVTemplateProps {
   fullBodyPhoto: string | null;
 }
 
-export default function RawasiTemplate(props: CVTemplateProps) {
+export default function AlmersahTemplate(props: CVTemplateProps) {
   return (
     <RawasiAzmLayout
       {...props}
       branding={{
-        agencyName: 'SKY FOREIGN EMPLOYMENT AGENCY',
-        email: 'shakushakisa12@gmail.com',
-        tel: '+251929676688',
+        agencyName: 'ALMERSAH RECRUITMENT AGENCY',
+        email: 'info@almersah.com',
+        tel: '+966123456789',
       }}
     />
   );

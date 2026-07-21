@@ -17,6 +17,7 @@ interface UserRow {
   email: string;
   role: Role;
   agency?: string | null;
+  majorAgency?: string | null;
   emailVerified: boolean;
   createdAt: string;
 }
@@ -49,6 +50,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('processor');
   const [agency, setAgency] = useState('ussus');
+  const [majorAgency, setmajorAgency] = useState('Sky');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -60,7 +62,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
       const res = await api('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role, agency: role === 'agency' ? agency : null }),
+        body: JSON.stringify({ name, email, password, role, agency: role === 'agency' ? agency : null, majorAgency }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -110,6 +112,15 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Password</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Min. 6 characters"
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Agency Database Scope</label>
+            <select value={majorAgency} onChange={e => setmajorAgency(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white cursor-pointer">
+              <option value="Sky">Sky</option>
+              <option value="Fenero">Fenero</option>
+            </select>
           </div>
 
           <div>
@@ -339,6 +350,7 @@ export default function UsersPage() {
                 <th className="px-6 py-4 font-semibold">User</th>
                 <th className="px-6 py-4 font-semibold">Email</th>
                 <th className="px-6 py-4 font-semibold">Role</th>
+                <th className="px-6 py-4 font-semibold">Agency Scope</th>
                 <th className="px-6 py-4 font-semibold hidden lg:table-cell">Verified</th>
                 <th className="px-6 py-4 font-semibold hidden xl:table-cell">Joined</th>
                 <th className="px-6 py-4 text-right pr-6 font-semibold">Actions</th>
@@ -347,7 +359,7 @@ export default function UsersPage() {
             <tbody className="divide-y divide-border/20">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 size={32} className="text-primary animate-spin" />
                       <p className="text-sm font-medium text-text-tertiary">Loading users...</p>
@@ -356,7 +368,7 @@ export default function UsersPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-text-tertiary text-sm">
+                  <td colSpan={7} className="px-6 py-12 text-center text-text-tertiary text-sm">
                     No users found.
                   </td>
                 </tr>
@@ -379,6 +391,18 @@ export default function UsersPage() {
                     <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border', roleBadge(user.role))}>
                       {ROLE_OPTIONS.find(r => r.value === user.role)?.label ?? user.role}
                       {user.role === 'agency' && user.agency && ` (${AGENCIES.find(a => a.id === user.agency)?.name ?? user.agency.toUpperCase()})`}
+                    </span>
+                  </td>
+
+                  {/* Agency Partition Scope badge */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={cn(
+                      'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border',
+                      user.majorAgency === 'Fenero'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                    )}>
+                      {user.majorAgency || 'Sky'}
                     </span>
                   </td>
 
@@ -452,6 +476,29 @@ export default function UsersPage() {
                               {user.role === opt.value && <Check size={13} />}
                             </button>
                           ))}
+                          <div className="border-t border-border my-1" />
+                          <p className="px-4 py-2 text-[10px] uppercase tracking-widest font-bold text-text-tertiary">Agency Scope</p>
+                          <button
+                            onClick={async () => {
+                              const newScope = user.majorAgency === 'Fenero' ? 'Sky' : 'Fenero';
+                              try {
+                                const res = await api(`/api/users/${user.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ majorAgency: newScope }),
+                                });
+                                if (!res.ok) throw new Error();
+                                setUsers(prev => prev.map(u => u.id === user.id ? { ...u, majorAgency: newScope } : u));
+                                showMsg(`Scope updated to ${newScope}`);
+                              } catch {
+                                showMsg('Failed to update scope', 'error');
+                              }
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-text-secondary hover:bg-gray-50 transition-colors text-left font-semibold"
+                          >
+                            <span>Switch to {user.majorAgency === 'Fenero' ? 'Sky' : 'Fenero'}</span>
+                          </button>
                           <div className="border-t border-border my-1" />
                           <button
                             onClick={() => deleteUser(user.id)}

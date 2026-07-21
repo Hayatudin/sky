@@ -129,9 +129,11 @@ export async function ensureDatabaseSchema() {
         \`id\` VARCHAR(191) NOT NULL,
         \`name\` VARCHAR(191) NOT NULL,
         \`isLocked\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`leaderId\` VARCHAR(191) NULL,
         \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         PRIMARY KEY (\`id\`),
-        UNIQUE KEY \`Broker_name_key\` (\`name\`)
+        UNIQUE KEY \`Broker_name_key\` (\`name\`),
+        INDEX \`Broker_leaderId_idx\` (\`leaderId\`)
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     `);
     console.log(`✅ Verified/Created 'Broker' table.`);
@@ -195,6 +197,7 @@ export async function ensureDatabaseSchema() {
         \`isRequested\` TINYINT(1) NOT NULL DEFAULT 0,
         \`visaOrContractNumber\` VARCHAR(191) NULL,
         \`isFlagged\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`flaggedAt\` DATETIME(3) NULL,
         \`Youtube_URL\` VARCHAR(191) NULL,
         \`quickVideoUrl\` LONGTEXT NULL,
         \`registeredAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -715,6 +718,75 @@ export async function ensureDatabaseSchema() {
     }
   } catch (healErr: any) {
     console.warn('⚠️ Auto-heal of QuickRegistration "verified" status failed:', healErr.message || healErr);
+  }
+
+  // 14. Support separating data between SKY and FENERO agencies
+  try {
+    console.log('🔄 Running FENERO/SKY database segregation migrations...');
+
+    // Alter User table to add major_agency if missing
+    try {
+      await db.execute(sql`ALTER TABLE \`User\` ADD COLUMN \`major_agency\` VARCHAR(191) NULL DEFAULT 'Sky'`);
+      console.log(`✅ Successfully added column 'major_agency' to User table.`);
+    } catch (_) {}
+
+    // Alter Candidate table to add major_agency if missing
+    try {
+      await db.execute(sql`ALTER TABLE \`Candidate\` ADD COLUMN \`major_agency\` VARCHAR(191) NULL DEFAULT 'Sky'`);
+      console.log(`✅ Successfully added column 'major_agency' to Candidate table.`);
+    } catch (_) {}
+
+    // Alter QuickRegistration table to add major_agency if missing
+    try {
+      await db.execute(sql`ALTER TABLE \`QuickRegistration\` ADD COLUMN \`major_agency\` VARCHAR(191) NULL DEFAULT 'Sky'`);
+      console.log(`✅ Successfully added column 'major_agency' to QuickRegistration table.`);
+    } catch (_) {}
+
+    // Alter Broker table to add major_agency and isVip columns if missing
+    try {
+      await db.execute(sql`ALTER TABLE \`Broker\` ADD COLUMN \`major_agency\` VARCHAR(191) NULL DEFAULT 'Sky'`);
+      console.log(`✅ Successfully added column 'major_agency' to Broker table.`);
+    } catch (_) {}
+
+    try {
+      await db.execute(sql`ALTER TABLE \`Broker\` ADD COLUMN \`isVip\` TINYINT(1) NOT NULL DEFAULT 0`);
+      console.log(`✅ Successfully added column 'isVip' to Broker table.`);
+    } catch (_) {}
+
+    // Alter Passport table to add major_agency column if missing
+    try {
+      await db.execute(sql`ALTER TABLE \`Passport\` ADD COLUMN \`major_agency\` VARCHAR(191) NULL DEFAULT 'Sky'`);
+      console.log(`✅ Successfully added column 'major_agency' to Passport table.`);
+    } catch (_) {}
+
+    // Alter Notification table to add major_agency column if missing
+    try {
+      await db.execute(sql`ALTER TABLE \`Notification\` ADD COLUMN \`major_agency\` VARCHAR(191) NULL DEFAULT 'Sky'`);
+      console.log(`✅ Successfully added column 'major_agency' to Notification table.`);
+    } catch (_) {}
+
+    // Update index on Broker table: Drop Broker_name_key, and add Broker_name_major_agency_key
+    try {
+      await db.execute(sql`ALTER TABLE \`Broker\` DROP INDEX \`Broker_name_key\``);
+      console.log(`✅ Dropped old unique index 'Broker_name_key' on Broker.`);
+    } catch (_) {}
+
+    try {
+      await db.execute(sql`ALTER TABLE \`Broker\` ADD UNIQUE KEY \`Broker_name_major_agency_key\` (\`name\`, \`major_agency\`)`);
+      console.log(`✅ Added new unique index 'Broker_name_major_agency_key' on Broker.`);
+    } catch (_) {}
+
+    // Update existing null major_agency columns to default 'Sky'
+    await db.execute(sql`UPDATE \`User\` SET \`major_agency\` = 'Sky' WHERE \`major_agency\` IS NULL OR \`major_agency\` = ''`);
+    await db.execute(sql`UPDATE \`Candidate\` SET \`major_agency\` = 'Sky' WHERE \`major_agency\` IS NULL OR \`major_agency\` = ''`);
+    await db.execute(sql`UPDATE \`QuickRegistration\` SET \`major_agency\` = 'Sky' WHERE \`major_agency\` IS NULL OR \`major_agency\` = ''`);
+    await db.execute(sql`UPDATE \`Broker\` SET \`major_agency\` = 'Sky' WHERE \`major_agency\` IS NULL OR \`major_agency\` = ''`);
+    await db.execute(sql`UPDATE \`Passport\` SET \`major_agency\` = 'Sky' WHERE \`major_agency\` IS NULL OR \`major_agency\` = ''`);
+    await db.execute(sql`UPDATE \`Notification\` SET \`major_agency\` = 'Sky' WHERE \`major_agency\` IS NULL OR \`major_agency\` = ''`);
+
+    console.log('✅ FENERO/SKY database segregation migrations complete.');
+  } catch (segErr: any) {
+    console.warn('⚠️ FENERO/SKY database segregation migrations failed:', segErr.message || segErr);
   }
 
   console.log('✅ Database self-healing complete.');

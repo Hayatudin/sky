@@ -1,24 +1,31 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { invoice, candidate, generatedCV, templatePrice } from '../db/schema';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, and } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
+import { getSession } from '../lib/auth-helper';
 
 const router = Router();
 
 // GET /api/invoices
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // MySQL 5.7 compatible — no lateral joins
-    const invoices = await db.select().from(invoice).orderBy(desc(invoice.createdAt));
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
 
-    if (invoices.length === 0) return res.json([]);
+    // MySQL 5.7 compatible — join candidate table to filter by user's agency
+    const rows = await db.select({
+      invoice: invoice,
+      candidate: candidate
+    })
+    .from(invoice)
+    .innerJoin(candidate, eq(invoice.candidateId, candidate.id))
+    .where(eq(candidate.majorAgency, userAgency))
+    .orderBy(desc(invoice.createdAt));
 
-    // Batch fetch candidates
-    const candidateIds = [...new Set(invoices.map(inv => inv.candidateId))];
-    const candidates = candidateIds.length > 0
-      ? await db.select().from(candidate).where(inArray(candidate.id, candidateIds))
-      : [];
+    if (rows.length === 0) return res.json([]);
+
+    const candidateIds = rows.map(r => r.candidate.id);
 
     // Batch fetch generatedCVs (only templateId needed)
     const cvs = candidateIds.length > 0
@@ -32,11 +39,12 @@ router.get('/', async (req: Request, res: Response) => {
       cvsMap.get(cv.candidateId)!.push({ templateId: cv.templateId });
     }
 
-    const candidateMap = new Map(candidates.map(c => [c.id, { ...c, generatedCVs: cvsMap.get(c.id) || [] }]));
-
-    const result = invoices.map(inv => ({
-      ...inv,
-      candidate: candidateMap.get(inv.candidateId) || null,
+    const result = rows.map(r => ({
+      ...r.invoice,
+      candidate: {
+        ...r.candidate,
+        generatedCVs: cvsMap.get(r.candidate.id) || []
+      }
     }));
 
     res.json(result);
@@ -49,6 +57,8 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/invoices
 router.post('/', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { candidateId, lmisQrCodeUrl, insuranceUrl, ticketUrl, deployedDate } = req.body;
 
     if (!candidateId || !lmisQrCodeUrl || !insuranceUrl || !ticketUrl) {
@@ -56,7 +66,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const cand = await db.query.candidate.findFirst({
-      where: eq(candidate.id, candidateId)
+      where: and(eq(candidate.id, candidateId), eq(candidate.majorAgency, userAgency))
     });
 
     if (!cand) {
@@ -120,6 +130,8 @@ router.post('/', async (req: Request, res: Response) => {
 // PATCH /api/invoices/:id
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const { isDelivered, isDownloaded } = req.body;
 
@@ -128,6 +140,13 @@ router.patch('/:id', async (req: Request, res: Response) => {
     });
 
     if (!existingInvoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const candCheck = await db.query.candidate.findFirst({
+      where: and(eq(candidate.id, existingInvoice.candidateId), eq(candidate.majorAgency, userAgency))
+    });
+    if (!candCheck) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
@@ -171,6 +190,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
 // PUT /api/invoices/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const { price, lmisQrCodeUrl, insuranceUrl, ticketUrl, deployedDate } = req.body;
 
@@ -179,6 +200,13 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
 
     if (!existingInvoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const candCheck = await db.query.candidate.findFirst({
+      where: and(eq(candidate.id, existingInvoice.candidateId), eq(candidate.majorAgency, userAgency))
+    });
+    if (!candCheck) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
@@ -247,12 +275,21 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/invoices/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     
     const existing = await db.query.invoice.findFirst({
       where: eq(invoice.id, id)
     });
     if (!existing) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const candCheck = await db.query.candidate.findFirst({
+      where: and(eq(candidate.id, existing.candidateId), eq(candidate.majorAgency, userAgency))
+    });
+    if (!candCheck) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 

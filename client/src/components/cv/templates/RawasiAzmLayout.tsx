@@ -15,6 +15,7 @@ export interface AgencyBranding {
   agencyName: string;
   email: string;
   tel: string;
+  headerImage?: string;
 }
 
 interface CVTemplateProps {
@@ -41,14 +42,20 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
     <div className="w-full max-w-[210mm] mx-auto bg-white text-black font-sans shadow-lg print:shadow-none" dir="ltr">
       <div className="p-[10mm] min-h-[297mm] box-border relative page-break-after-always">
         {/* Agency Header */}
-        <div className="text-center mb-1">
-          <h1 className="text-[14px] font-bold tracking-wide uppercase">{branding.agencyName}</h1>
-          <div className="border-t-[3.5px] border-[#800000] mt-1.5 mb-1" />
-          <div className="flex justify-between text-[16px] font-black px-1 mt-1">
-            <span>EMAIL:-{branding.email}</span>
-            <span>tel :{branding.tel}</span>
+        {branding.headerImage ? (
+          <div className="text-center mb-3">
+            <img src={branding.headerImage} alt={branding.agencyName} className="w-full h-auto object-contain max-h-[120px]" />
           </div>
-        </div>
+        ) : (
+          <div className="text-center mb-1">
+            <h1 className="text-[14px] font-bold tracking-wide uppercase">{branding.agencyName}</h1>
+            <div className="border-t-[3.5px] border-[#800000] mt-1.5 mb-1" />
+            <div className="flex justify-between text-[16px] font-black px-1 mt-1">
+              <span>EMAIL:-{branding.email}</span>
+              <span>tel :{branding.tel}</span>
+            </div>
+          </div>
+        )}
 
         {/* Broker Name */}
         <div className="text-left text-[14px] font-bold italic px-1 mb-1.5 uppercase">

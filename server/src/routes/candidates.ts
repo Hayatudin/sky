@@ -87,7 +87,10 @@ router.get('/', async (req: Request, res: Response) => {
       console.warn('Could not fetch brokers for candidates mapping:', err);
     }
 
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
     const dbCandidates = await db.select().from(candidate)
+      .where(eq(candidate.majorAgency, userAgency))
       .orderBy(sql`${candidate.registeredAt} DESC`);
 
     // Batch fetch generatedCVs
@@ -230,13 +233,18 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/candidates/promote-from-quick
 router.post('/promote-from-quick', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { quickRegistrationId } = req.body;
     if (!quickRegistrationId) {
       return res.status(400).json({ error: 'quickRegistrationId is required' });
     }
 
     const qr = await db.query.quickRegistration.findFirst({
-      where: eq(quickRegistration.id, quickRegistrationId)
+      where: and(
+        eq(quickRegistration.id, quickRegistrationId),
+        eq(quickRegistration.majorAgency, userAgency)
+      )
     });
     if (!qr) {
       return res.status(404).json({ error: 'Quick registration not found' });
@@ -244,7 +252,10 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
 
     const passportUpper = (qr.passportNumber || '').trim().toUpperCase();
     const targetCandidate = await db.query.candidate.findFirst({
-      where: (c, { eq }) => eq(sql`upper(${c.passportNumber})`, passportUpper)
+      where: (c, { eq, and }) => and(
+        eq(sql`upper(${c.passportNumber})`, passportUpper),
+        eq(c.majorAgency, userAgency)
+      )
     });
 
     if (!targetCandidate) {
@@ -292,6 +303,9 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
     if (qr.agency) {
       updateData.agency = qr.agency;
     }
+    if (qr.majorAgency) {
+      updateData.majorAgency = qr.majorAgency;
+    }
 
     await db.update(candidate)
       .set(updateData)
@@ -331,12 +345,14 @@ router.post('/', async (req: Request, res: Response) => {
     let userRole = null;
     console.log('[DEBUG] POST /candidates - body.registeredById:', body.registeredById);
 
+    let userAgency = 'Sky';
     try {
       const session = await getSession(req);
       if (session?.user?.id) {
         registeredById = session.user.id;
         userRole = (session?.user as any)?.role;
-        console.log('[DEBUG] Resolved registeredById from server session:', registeredById, 'User Name:', session.user.name);
+        userAgency = (session?.user as any)?.majorAgency || 'Sky';
+        console.log('[DEBUG] Resolved registeredById from server session:', registeredById, 'User Name:', session.user.name, 'Agency:', userAgency);
       }
     } catch (sessionError) {
       console.error('[DEBUG] Failed to get session in POST candidate route:', sessionError);
@@ -412,11 +428,15 @@ router.post('/', async (req: Request, res: Response) => {
           const newBrokerId = createId();
           await db.insert(broker).values({
             id: newBrokerId,
-            name: 'Calling'
+            name: 'Calling',
+            majorAgency: userAgency,
+            isVip: false
           });
-          callingBroker = { id: newBrokerId, name: 'Calling', isLocked: false, createdAt: new Date(), leaderId: null };
+          callingBroker = await db.query.broker.findFirst({
+            where: eq(broker.id, newBrokerId)
+          });
         }
-        finalBrokerId = callingBroker.id;
+        finalBrokerId = callingBroker?.id || null;
       } catch (brokerErr) {
         console.error('Failed to resolve or create Calling broker:', brokerErr);
       }
@@ -479,7 +499,7 @@ router.post('/', async (req: Request, res: Response) => {
       videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
       status: (req.body.isRequested || req.body.visaSelected || req.body.status === 'visa selected' || body.isRequested || body.visaSelected || body.status === 'visa selected') ? 'visa selected' : 'pending',
-      agency: body.agency || req.body.agency || 'Sky',
+      majorAgency: userAgency,
       salary: body.personalInfo?.salary || '1000SR',
       allowVideo: (body.allowVideo || req.body.allowVideo) ? true : false,
       registeredById,
@@ -574,11 +594,16 @@ router.post('/', async (req: Request, res: Response) => {
 // GET /api/candidates/by-passport/:passportNumber
 router.get('/by-passport/:passportNumber', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { passportNumber } = req.params;
     const passportUpper = passportNumber.trim().toUpperCase();
 
     const cand = await db.query.candidate.findFirst({
-      where: (c, { eq }) => eq(sql`upper(${c.passportNumber})`, passportUpper),
+      where: (c, { eq, and }) => and(
+        eq(sql`upper(${c.passportNumber})`, passportUpper),
+        eq(c.majorAgency, userAgency)
+      ),
       columns: { givenNames: true, surname: true }
     });
 
@@ -600,6 +625,7 @@ router.get('/by-passport/:passportNumber', async (req: Request, res: Response) =
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const role = (session?.user as any)?.role;
     const isSuperAdmin = role === 'super_admin';
     const { id } = req.params;
@@ -608,7 +634,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       where: eq(candidate.id, id),
     });
 
-    if (!c) return res.status(404).json({ error: 'Not found' });
+    if (!c || c.majorAgency !== userAgency) return res.status(404).json({ error: 'Not found' });
 
     // Fetch related data separately (MySQL 5.7 — no lateral joins)
     const [brokerData, latestCV, registeredByData] = await Promise.all([
@@ -747,11 +773,13 @@ router.put('/:id', async (req: Request, res: Response) => {
     let registeredById = body.registeredById || null;
     console.log('[DEBUG] PUT /candidates/:id - body.registeredById:', body.registeredById);
 
+    let userAgency = 'Sky';
     try {
       const session = await getSession(req);
       if (session?.user?.id) {
         registeredById = session.user.id;
-        console.log('[DEBUG] Resolved registeredById from server session in PUT:', registeredById);
+        userAgency = (session?.user as any)?.majorAgency || 'Sky';
+        console.log('[DEBUG] Resolved registeredById from server session in PUT:', registeredById, 'Agency:', userAgency);
       }
     } catch (sessionError) {
       console.error('[DEBUG] Failed to get session in PUT candidate route:', sessionError);
@@ -778,7 +806,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     ]);
 
     const existingCandidate = await db.query.candidate.findFirst({ where: eq(candidate.id, id) });
-    if (!existingCandidate) return res.status(404).json({ error: 'Candidate not found' });
+    if (!existingCandidate || existingCandidate.majorAgency !== userAgency) return res.status(404).json({ error: 'Candidate not found' });
 
     let visaDateVal = existingCandidate.visaDate;
     if (body.visaSelected) {
@@ -832,7 +860,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       status: body.status,
       isRequested: body.isRequested,
       visaSelected: body.visaSelected,
-      agency: body.agency,
+      majorAgency: userAgency,
       visaDate: visaDateVal,
       salary: body.personalInfo?.salary || '1000SR',
       allowVideo: body.allowVideo ? true : false,
@@ -932,6 +960,9 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     console.log(`[PATCH] /api/candidates/${id}`, body);
 
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
     if (body.medicalStatus === 'Unfit') {
       body.isRequested = true;
       // Delete CVs if they are UNFIT
@@ -979,7 +1010,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 
     const existingCandidate = await db.query.candidate.findFirst({ where: eq(candidate.id, id) });
-    if (!existingCandidate) return res.status(404).json({ error: 'Candidate not found' });
+    if (!existingCandidate || existingCandidate.majorAgency !== userAgency) return res.status(404).json({ error: 'Candidate not found' });
 
     let visaDateVal = body.visaDate;
     if (body.visaSelected !== undefined) {
@@ -987,6 +1018,15 @@ router.patch('/:id', async (req: Request, res: Response) => {
         visaDateVal = existingCandidate.visaDate || new Date();
       } else {
         visaDateVal = null;
+      }
+    }
+
+    let flaggedAtVal = body.flaggedAt;
+    if (body.isFlagged !== undefined) {
+      if (body.isFlagged) {
+        flaggedAtVal = (existingCandidate as any).flaggedAt || new Date();
+      } else {
+        flaggedAtVal = null;
       }
     }
 
@@ -1027,6 +1067,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     if (quickVideoUrlVal !== undefined) updateData.quickVideoUrl = quickVideoUrlVal;
     if (body.videoUrl !== undefined) updateData.videoUrl = sanitizeIncomingPath(body.videoUrl);
     if (visaDateVal !== undefined) updateData.visaDate = visaDateVal;
+    if (flaggedAtVal !== undefined) updateData.flaggedAt = flaggedAtVal;
     
     if (body.deployedDate !== undefined) {
       updateData.deployedDate = body.deployedDate ? new Date(body.deployedDate) : null;
@@ -1069,6 +1110,13 @@ router.patch('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
+    const existingCandidate = await db.query.candidate.findFirst({ where: eq(candidate.id, id) });
+    if (!existingCandidate || existingCandidate.majorAgency !== userAgency) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
 
     await db.transaction(async (tx) => {
       // 1. Delete generated CVs

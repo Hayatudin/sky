@@ -30,12 +30,14 @@ export const leader = mysqlTable('Leader', {
 // ==========================================
 export const broker = mysqlTable('Broker', {
   id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
-  name: varchar('name', { length: 191 }).notNull().unique(),
+  name: varchar('name', { length: 191 }).notNull(),
   isLocked: boolean('isLocked').notNull().default(false),
+  majorAgency: varchar('major_agency', { length: 191 }).default('Sky'),
+  isVip: boolean('isVip').notNull().default(false),
   createdAt: timestamp('createdAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
   leaderId: varchar('leaderId', { length: 191 }),
 }, (table) => ({
-  nameIdx: uniqueIndex('Broker_name_key').on(table.name),
+  nameAgencyUniqueIdx: uniqueIndex('Broker_name_major_agency_key').on(table.name, table.majorAgency),
   leaderIdIdx: index('Broker_leaderId_idx').on(table.leaderId),
 }));
 
@@ -95,6 +97,7 @@ export const candidate = mysqlTable('Candidate', {
   isRequested: boolean('isRequested').notNull().default(false),
   visaOrContractNumber: varchar('visaOrContractNumber', { length: 191 }),
   isFlagged: boolean('isFlagged').notNull().default(false),
+  flaggedAt: datetime('flaggedAt', { fsp: 3 }),
   videoUrl: varchar('Youtube_URL', { length: 191 }),
   quickVideoUrl: longtext('quickVideoUrl'),
   registeredAt: timestamp('registeredAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
@@ -102,7 +105,8 @@ export const candidate = mysqlTable('Candidate', {
   visaSelected: boolean('visaSelected').notNull().default(false),
   visaDate: datetime('visaDate', { fsp: 3 }),
   salary: varchar('salary', { length: 191 }).default('1000SR'),
-  agency: varchar('agency', { length: 191 }).default('Sky'),
+  agency: varchar('agency', { length: 191 }),
+  majorAgency: varchar('major_agency', { length: 191 }).default('Sky'),
   deployedDate: datetime('deployedDate', { fsp: 3 }),
   isLocked: boolean('isLocked').notNull().default(false),
   cvDownloaded: boolean('cvDownloaded').notNull().default(false),
@@ -156,6 +160,7 @@ export const notification = mysqlTable('Notification', {
   message: varchar('message', { length: 191 }).notNull(),
   isRead: boolean('isRead').notNull().default(false),
   candidateId: varchar('candidateId', { length: 191 }),
+  majorAgency: varchar('major_agency', { length: 191 }).default('Sky'),
   createdAt: timestamp('createdAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
 }, (table) => ({
   createdAtIdx: index('Notification_createdAt_idx').on(table.createdAt),
@@ -173,6 +178,7 @@ export const user = mysqlTable('User', {
   image: varchar('image', { length: 191 }),
   role: varchar('role', { length: 191 }).notNull().default('user'),
   agency: varchar('agency', { length: 191 }),
+  majorAgency: varchar('major_agency', { length: 191 }).default('Sky'),
   createdAt: timestamp('createdAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
   updatedAt: timestamp('updatedAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)`),
 }, (table) => ({
@@ -269,6 +275,7 @@ export const quickRegistration = mysqlTable('QuickRegistration', {
   candidateIdImageUrl: longtext('candidateIdImageUrl'),
   relativeIdImageUrl: longtext('relativeIdImageUrl'),
   agency: varchar('agency', { length: 191 }).default('Sky'),
+  majorAgency: varchar('major_agency', { length: 191 }).default('Sky'),
   videoUrl: varchar('videoUrl', { length: 500 }),
   languages: json('languages'),
   allowVideo: boolean('allowVideo').notNull().default(false),
@@ -323,6 +330,7 @@ export const passport = mysqlTable('Passport', {
   passportNumber: varchar('passportNumber', { length: 191 }).notNull().unique(),
   passportImageUrl: longtext('passportImageUrl'),
   status: varchar('status', { length: 191 }).notNull().default('Available'),
+  majorAgency: varchar('major_agency', { length: 191 }).default('Sky'),
   takenReason: varchar('takenReason', { length: 191 }),
   takenByName: varchar('takenByName', { length: 191 }),
   takenByPhone: varchar('takenByPhone', { length: 191 }),

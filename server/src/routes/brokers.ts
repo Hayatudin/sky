@@ -45,8 +45,17 @@ async function setBrokerIsLocked(id: string, locked: boolean): Promise<void> {
 // GET /api/brokers
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
     // MySQL 5.7 compatible — no lateral joins, manual lookups
-    const brokersList = await db.select().from(broker).orderBy(broker.name);
+    // Query brokers belonging to this agency or VIP brokers
+    const brokersList = await db.select().from(broker)
+      .where(or(eq(broker.majorAgency, userAgency), eq(broker.isVip, true)))
+      .orderBy(broker.name);
+
+    const vipBrokerIds = new Set(brokersList.filter(b => b.isVip).map(b => b.id));
+
     const leadersList = await db.select({ id: leader.id, name: leader.name }).from(leader);
     const leaderMap = new Map(leadersList.map(l => [l.id, l]));
     const lockMap = await getBrokerLockMap();
@@ -60,7 +69,15 @@ router.get('/', async (req: Request, res: Response) => {
       facePhotoUrl: candidate.facePhotoUrl,
       fullBodyPhotoUrl: candidate.fullBodyPhotoUrl,
       brokerId: candidate.brokerId,
+      majorAgency: candidate.majorAgency,
     }).from(candidate);
+
+    // Filter candidates: keep if they belong to this agency OR if they are assigned to a VIP broker
+    const filteredCandidates = allCandidates.filter(c => {
+      if (c.majorAgency === userAgency) return true;
+      if (c.brokerId && vipBrokerIds.has(c.brokerId)) return true;
+      return false;
+    });
 
     // Batch fetch all generatedCVs
     const allGeneratedCVs = await db.select({
@@ -76,7 +93,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     const candidatesByBrokerId = new Map<string, any[]>();
-    for (const c of allCandidates) {
+    for (const c of filteredCandidates) {
       const bid = c.brokerId || '__none__';
       if (!candidatesByBrokerId.has(bid)) candidatesByBrokerId.set(bid, []);
       candidatesByBrokerId.get(bid)!.push({
@@ -90,6 +107,8 @@ router.get('/', async (req: Request, res: Response) => {
       name: b.name,
       leaderId: b.leaderId,
       isLocked: lockMap[b.id] ?? b.isLocked ?? false,
+      isVip: b.isVip,
+      majorAgency: b.majorAgency,
       createdAt: typeof b.createdAt === 'string' ? b.createdAt : b.createdAt.toISOString(),
       candidates: candidatesByBrokerId.get(b.id) || [],
       leader: b.leaderId ? (leaderMap.get(b.leaderId) || null) : null,
@@ -106,9 +125,25 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/brokers
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name } = req.body;
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const role = (session?.user as any)?.role;
+    const isSuperAdmin = role === 'super_admin';
+
+    const { name, isVip } = req.body;
     
     if (!name) return res.status(400).json({ error: 'Broker name is required' });
+
+    let finalIsVip = false;
+    let finalAgency = userAgency;
+
+    if (isVip === true || isVip === 'true') {
+      if (!isSuperAdmin) {
+        return res.status(403).json({ error: 'Only super admins can create VIP brokers' });
+      }
+      finalIsVip = true;
+      finalAgency = 'Shared';
+    }
 
     // Generate CUID-like ID manually: cl + 23 alphanumeric characters = 25 chars
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -120,37 +155,40 @@ router.post('/', async (req: Request, res: Response) => {
 
     await db.insert(broker).values({
       id: brokerId,
-      name: name.trim()
+      name: name.trim(),
+      majorAgency: finalAgency,
+      isVip: finalIsVip,
     });
 
-    // Auto-assign new broker to 'Sky OFFICE' leader group
+    // Auto-assign new broker to matching Leader group ('Sky OFFICE' or 'Fenero OFFICE')
     try {
+      const leaderName = finalIsVip ? 'VIP OFFICE' : (userAgency === 'Fenero' ? 'Fenero OFFICE' : 'Sky OFFICE');
       const leaderRows = await db.select({ id: leader.id })
         .from(leader)
-        .where(eq(leader.name, 'Sky OFFICE'))
+        .where(eq(leader.name, leaderName))
         .limit(1);
 
-      let SkyLeaderId = null;
+      let officeLeaderId = null;
       if (leaderRows.length > 0) {
-        SkyLeaderId = leaderRows[0].id;
+        officeLeaderId = leaderRows[0].id;
       } else {
-        // Auto-create leader "Sky OFFICE" if missing
+        // Auto-create leader office if missing
         const newLeaderId = 'cl' + Array.from({length: 23}, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
         await db.insert(leader).values({
           id: newLeaderId,
-          name: 'Sky OFFICE'
+          name: leaderName
         });
-        SkyLeaderId = newLeaderId;
+        officeLeaderId = newLeaderId;
       }
       
-      if (SkyLeaderId) {
+      if (officeLeaderId) {
         await db.update(broker)
-          .set({ leaderId: SkyLeaderId })
+          .set({ leaderId: officeLeaderId })
           .where(eq(broker.id, brokerId));
-        console.log(`[BROKER-CREATE] Automatically assigned new broker "${name.trim()}" to Leader "Sky OFFICE"`);
+        console.log(`[BROKER-CREATE] Automatically assigned new broker "${name.trim()}" to Leader "${leaderName}"`);
       }
     } catch (e) {
-      console.warn('[BROKER-CREATE] Failed to auto-assign/create Sky OFFICE leader:', e);
+      console.warn('[BROKER-CREATE] Failed to auto-assign/create office leader:', e);
     }
     
     const createdBroker = await db.query.broker.findFirst({
@@ -166,7 +204,11 @@ router.post('/', async (req: Request, res: Response) => {
     if (error.message?.includes('Duplicate entry') || error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'A broker with this name already exists' });
     }
-    res.status(500).json({ error: 'Failed to create broker. Please try again.' });
+    // Changed to return detailed error to help diagnose issues in production
+    res.status(500).json({ 
+      error: 'Failed to create broker. Please try again.', 
+      details: error.message || String(error) 
+    });
   }
 });
 
@@ -211,10 +253,24 @@ router.post('/move-candidates-bulk', async (req: Request, res: Response) => {
 // GET /api/brokers/:id/candidates
 router.get('/:id/candidates', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const { search, interval, startDate, endDate } = req.query;
 
+    const brokerRecord = await db.query.broker.findFirst({
+      where: eq(broker.id, id),
+    });
+
+    if (!brokerRecord || (!brokerRecord.isVip && brokerRecord.majorAgency !== userAgency)) {
+      return res.status(404).json({ error: 'Broker not found' });
+    }
+
     const conditions: any[] = [eq(candidate.brokerId, id)];
+
+    if (!brokerRecord.isVip) {
+      conditions.push(eq(candidate.majorAgency, userAgency));
+    }
 
     if (interval && interval !== 'ALL') {
       const now = new Date();
@@ -239,12 +295,6 @@ router.get('/:id/candidates', async (req: Request, res: Response) => {
       );
     }
 
-    const brokerRecord = await db.query.broker.findFirst({
-      where: eq(broker.id, id),
-    });
-
-    if (!brokerRecord) return res.status(404).json({ error: 'Broker not found' });
-
     const candidatesList = await db.select().from(candidate)
       .where(and(...conditions))
       .orderBy(sql`${candidate.registeredAt} DESC`);
@@ -265,7 +315,6 @@ router.get('/:id/candidates', async (req: Request, res: Response) => {
     const isLocked = await getBrokerIsLocked(id);
 
     // Resolve requester role
-    const session = await getSession(req);
     const role = (session?.user as any)?.role;
     const isSuperAdmin = role === 'super_admin';
 
@@ -339,12 +388,20 @@ router.post('/:id/move-candidates', async (req: Request, res: Response) => {
 // DELETE /api/brokers/:id — Delete broker directly
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const role = (session?.user as any)?.role;
+    const isSuperAdmin = role === 'super_admin';
     const { id } = req.params;
 
     // Check if broker exists
     const brokerRecord = await db.query.broker.findFirst({ where: eq(broker.id, id) });
-    if (!brokerRecord) {
+    if (!brokerRecord || (!brokerRecord.isVip && brokerRecord.majorAgency !== userAgency)) {
       return res.status(404).json({ error: 'Broker not found' });
+    }
+
+    if (brokerRecord.isVip && !isSuperAdmin) {
+      return res.status(403).json({ error: 'Only super admins can delete VIP brokers' });
     }
 
     // Disconnect all candidates (set brokerId to null)
@@ -373,11 +430,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // PATCH /api/brokers/:id/toggle-lock — Lock/Unlock broker (hides/shows CVs)
 router.patch('/:id/toggle-lock', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
 
     // Find the broker
     const brokerRecord = await db.query.broker.findFirst({ where: eq(broker.id, id) });
-    if (!brokerRecord) {
+    if (!brokerRecord || (!brokerRecord.isVip && brokerRecord.majorAgency !== userAgency)) {
       return res.status(404).json({ error: 'Broker not found' });
     }
 
@@ -405,6 +464,10 @@ router.patch('/:id/toggle-lock', async (req: Request, res: Response) => {
 // POST /api/brokers/move-bulk — Move multiple brokers to a leader
 router.post('/move-bulk', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const role = (session?.user as any)?.role;
+    const isSuperAdmin = role === 'super_admin';
     const { brokerIds, leaderId } = req.body; // leaderId can be string or null
 
     if (!brokerIds || !Array.isArray(brokerIds) || brokerIds.length === 0) {
@@ -419,10 +482,15 @@ router.post('/move-bulk', async (req: Request, res: Response) => {
       }
     }
 
-    // Update the leaderId of all specified brokers
+    // Update the leaderId of all specified brokers that belong to the user's agency (unless superadmin)
+    let condition = inArray(broker.id, brokerIds);
+    if (!isSuperAdmin) {
+      condition = and(inArray(broker.id, brokerIds), eq(broker.majorAgency, userAgency)) as any;
+    }
+
     await db.update(broker)
       .set({ leaderId: leaderId || null })
-      .where(inArray(broker.id, brokerIds));
+      .where(condition);
 
     console.log(`[BROKER-MOVE-BULK] Moved ${brokerIds.length} brokers to leader: ${leaderId || 'None'}`);
 
@@ -436,12 +504,14 @@ router.post('/move-bulk', async (req: Request, res: Response) => {
 // PATCH /api/brokers/:id/leader — Assign or change broker's leader
 router.patch('/:id/leader', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const { leaderId } = req.body; // Can be string or null
 
     // Find the broker
     const brokerRecord = await db.query.broker.findFirst({ where: eq(broker.id, id) });
-    if (!brokerRecord) {
+    if (!brokerRecord || (!brokerRecord.isVip && brokerRecord.majorAgency !== userAgency)) {
       return res.status(404).json({ error: 'Broker not found' });
     }
 
@@ -484,6 +554,8 @@ router.patch('/:id/leader', async (req: Request, res: Response) => {
 // POST /api/brokers/:id/change-template — Bulk change CV template for all candidates under broker
 router.post('/:id/change-template', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
     const { id } = req.params;
     const { templateId } = req.body;
 
@@ -493,15 +565,20 @@ router.post('/:id/change-template', async (req: Request, res: Response) => {
 
     // Verify broker exists — MySQL 5.7 compatible (no lateral joins)
     const [brokerRecord] = await db.select().from(broker).where(eq(broker.id, id)).limit(1);
-    if (!brokerRecord) {
+    if (!brokerRecord || (!brokerRecord.isVip && brokerRecord.majorAgency !== userAgency)) {
       return res.status(404).json({ error: 'Broker not found' });
+    }
+
+    const candConditions = [eq(candidate.brokerId, id)];
+    if (!brokerRecord.isVip) {
+      candConditions.push(eq(candidate.majorAgency, userAgency));
     }
 
     const brokerCandidates = await db.select({
       id: candidate.id,
       facePhotoUrl: candidate.facePhotoUrl,
       fullBodyPhotoUrl: candidate.fullBodyPhotoUrl,
-    }).from(candidate).where(eq(candidate.brokerId, id));
+    }).from(candidate).where(and(...candConditions));
 
     const candidateIdsList = brokerCandidates.map(c => c.id);
     const existingCVs = candidateIdsList.length > 0

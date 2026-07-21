@@ -48,6 +48,7 @@ interface BrokerCandidate {
   visaSelected?: boolean;
   religion?: string | null;
   isFlagged?: boolean;
+  flaggedAt?: string | null;
   medicalStatus?: string;
   visaOrContractNumber?: string | null;
   cvDownloaded?: boolean;
@@ -1286,6 +1287,12 @@ export default function BrokerCandidatesPage() {
                 ) : (
                   <th className="px-6 py-4 hidden lg:table-cell font-semibold">Registered Date</th>
                 )}
+                {flaggedFilter === 'flagged' && (
+                  <>
+                    <th className="px-6 py-4 font-semibold">Date Flagged</th>
+                    <th className="px-6 py-4 font-semibold">Days Flagged</th>
+                  </>
+                )}
                 <th className="px-6 py-4 font-semibold">Open</th>
                 <th className="px-6 py-4 text-right pr-12 font-semibold">Actions</th>
               </tr>
@@ -1490,6 +1497,37 @@ export default function BrokerCandidatesPage() {
                           </span>
                         )}
                       </td>
+
+                      {flaggedFilter === 'flagged' && (() => {
+                        const targetDate = candidate.flaggedAt ? new Date(candidate.flaggedAt) : null;
+                        let daysAgoText = '-';
+                        if (targetDate) {
+                          const now = new Date();
+                          now.setHours(0, 0, 0, 0);
+                          const selected = new Date(targetDate);
+                          selected.setHours(0, 0, 0, 0);
+                          const diffTime = now.getTime() - selected.getTime();
+                          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                          if (diffDays <= 0) daysAgoText = 'Today';
+                          else if (diffDays === 1) daysAgoText = '1 day ago';
+                          else daysAgoText = `${diffDays} days ago`;
+                        }
+                        return (
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium text-text-secondary">
+                              {targetDate ? targetDate.toLocaleDateString() : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                              {targetDate ? (
+                                <span className="inline-flex items-center px-2 py-1 bg-red-50 text-red-700 border border-red-100 rounded-md text-xs font-semibold">
+                                  {daysAgoText}
+                                </span>
+                              ) : '-'}
+                            </td>
+                          </>
+                        );
+                      })()}
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => router.push(`/candidates/${candidate.id}`)}
