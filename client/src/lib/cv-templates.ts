@@ -3,8 +3,10 @@ import { Candidate } from '@/types';
 import RawasiTemplate from '@/components/cv/templates/RawasiTemplate';
 import AzmTemplate from '@/components/cv/templates/AzmTemplate';
 import MazayaTemplate from '@/components/cv/templates/MazayaTemplate';
+import NorthGateTemplate from '@/components/cv/templates/NorthGateTemplate';
+import DaeymanTemplate from '@/components/cv/templates/DaeymanTemplate';
 
-export type CVTemplateId = 'rawasi' | 'azm' | 'mazaya';
+export type CVTemplateId = 'rawasi' | 'azm' | 'mazaya' | 'northgate' | 'daeyman';
 
 export const DEFAULT_CV_TEMPLATE_ID: CVTemplateId = 'rawasi';
 
@@ -18,6 +20,7 @@ export interface CVTemplateDefinition {
   color: string;
   textColor: string;
   bgLight: string;
+  agency: 'Sky' | 'Fenero';
   component: React.ComponentType<{
     candidate: Candidate;
     facePhoto: string | null;
@@ -26,6 +29,7 @@ export interface CVTemplateDefinition {
 }
 
 export const CV_TEMPLATES: CVTemplateDefinition[] = [
+  // ── Sky Templates ──────────────────────────────────────────────────
   {
     id: 'rawasi',
     name: 'Rawasi',
@@ -36,6 +40,7 @@ export const CV_TEMPLATES: CVTemplateDefinition[] = [
     color: 'bg-primary',
     textColor: 'text-primary',
     bgLight: 'bg-primary-50',
+    agency: 'Sky',
     component: RawasiTemplate,
   },
   {
@@ -48,6 +53,7 @@ export const CV_TEMPLATES: CVTemplateDefinition[] = [
     color: 'bg-primary-dark',
     textColor: 'text-primary-dark',
     bgLight: 'bg-primary-50',
+    agency: 'Sky',
     component: AzmTemplate,
   },
   {
@@ -60,7 +66,35 @@ export const CV_TEMPLATES: CVTemplateDefinition[] = [
     color: 'bg-primary-light',
     textColor: 'text-primary-light',
     bgLight: 'bg-primary-50',
+    agency: 'Sky',
     component: MazayaTemplate,
+  },
+  // ── Fenero Templates ───────────────────────────────────────────────
+  {
+    id: 'northgate',
+    name: 'North Gate',
+    shortName: 'NorthGate',
+    fullName: 'NORTH GATE RECRUITMENT OFFICE',
+    category: 'Professional',
+    description: 'North Gate recruitment office',
+    color: 'bg-sky-600',
+    textColor: 'text-sky-700',
+    bgLight: 'bg-sky-50',
+    agency: 'Fenero',
+    component: NorthGateTemplate,
+  },
+  {
+    id: 'daeyman',
+    name: 'Daeyman Alawael',
+    shortName: 'Daeyman',
+    fullName: 'DAEYMAN ALAWAEL RECRUITMET AGENT',
+    category: 'Professional',
+    description: 'Daeyman Alawael recruitment agent',
+    color: 'bg-cyan-600',
+    textColor: 'text-cyan-700',
+    bgLight: 'bg-cyan-50',
+    agency: 'Fenero',
+    component: DaeymanTemplate,
   },
 ];
 
@@ -73,6 +107,19 @@ export const CV_TEMPLATE_NAMES: Record<CVTemplateId, string> = Object.fromEntrie
 export const CV_TEMPLATE_FULL_NAMES: Record<CVTemplateId, string> = Object.fromEntries(
   CV_TEMPLATES.map((t) => [t.id, t.fullName])
 ) as Record<CVTemplateId, string>;
+
+/** Return templates filtered by the user's majorAgency */
+export function getTemplatesForAgency(agency?: string | null): CVTemplateDefinition[] {
+  const a = agency || 'Sky';
+  return CV_TEMPLATES.filter((t) => t.agency === a);
+}
+
+/** Return the default template ID for a given agency */
+export function getDefaultTemplateForAgency(agency?: string | null): CVTemplateId {
+  const a = agency || 'Sky';
+  if (a === 'Fenero') return 'northgate';
+  return 'rawasi';
+}
 
 const LEGACY_TEMPLATE_MAP: Record<string, CVTemplateId> = {
   rawasi: 'rawasi',
@@ -89,6 +136,10 @@ const LEGACY_TEMPLATE_MAP: Record<string, CVTemplateId> = {
   'al-shablan': 'rawasi',
   alshablan: 'rawasi',
   vision: 'rawasi',
+  northgate: 'northgate',
+  'north-gate': 'northgate',
+  daeyman: 'daeyman',
+  'daeyman-alawael': 'daeyman',
 };
 
 export function normalizeTemplateId(id?: string | null): CVTemplateId {

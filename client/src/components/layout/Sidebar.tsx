@@ -51,22 +51,25 @@ interface SidebarProps {
   onNavigate?: () => void;
 }
 
-function SkyAgencyMark({ compact }: { compact?: boolean }) {
+function AgencyMark({ compact, agency }: { compact?: boolean; agency?: string }) {
+  const displayAgency = (agency || 'Sky').toUpperCase();
+  const badgeBg = displayAgency === 'FENERO' ? 'bg-indigo-600' : 'bg-primary';
+
   if (compact) {
     return (
-      <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-        <span className="text-white font-black text-xs tracking-tight">SKY</span>
+      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", badgeBg)}>
+        <span className="text-white font-black text-[10px] tracking-tight">{displayAgency}</span>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-3 min-w-0">
-      <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
-        <span className="text-white font-black text-xs tracking-tight">SKY</span>
+      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-lg", badgeBg)}>
+        <span className="text-white font-black text-[10px] tracking-tight">{displayAgency}</span>
       </div>
       <div className="min-w-0">
-        <p className="text-white font-bold text-[15px] leading-tight truncate">SKY Agency</p>
+        <p className="text-white font-bold text-[15px] leading-tight truncate">{displayAgency} Agency</p>
         <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider">Management System</p>
       </div>
     </div>
@@ -78,6 +81,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavig
   const { data: session, isPending } = useSession();
 
   const role = ((session?.user as any)?.role ?? 'user') as string;
+  const userAgency = ((session?.user as any)?.majorAgency ?? 'Sky') as string;
 
   const navItems = allNavItems.filter(item => {
     if (item.href === '/registration') return false; // Hide Registration tab
@@ -116,7 +120,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavig
       >
         {showLabels ? (
           <>
-            <SkyAgencyMark />
+            <AgencyMark agency={userAgency} />
             <div className="flex items-center gap-1">
               {isMobile && (
                 <button
@@ -139,7 +143,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavig
           </>
         ) : (
           <>
-            <SkyAgencyMark compact />
+            <AgencyMark agency={userAgency} compact />
             <button
               onClick={() => setIsCollapsed(false)}
               className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded-lg transition-colors w-full flex justify-center"

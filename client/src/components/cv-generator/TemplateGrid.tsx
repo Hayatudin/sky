@@ -234,17 +234,69 @@ function MazayaMiniPreview() {
   );
 }
 
+// ─── North Gate Preview ──────────────────────────────────────────────────────
+function NorthGateMiniPreview() {
+  return (
+    <div className="w-full h-full flex flex-col bg-white overflow-hidden">
+      <div className="shrink-0 p-1 bg-sky-50 border-b border-sky-200 text-center">
+        <div className="text-[5px] font-bold text-sky-800 uppercase">NORTH GATE</div>
+        <div className="text-[3px] text-sky-600 uppercase">Recruitment Office</div>
+      </div>
+      <div className="flex-1 p-2 flex gap-1.5">
+        <div className="w-1/3 bg-sky-100/50 rounded p-1 flex flex-col gap-1">
+          <div className="w-full aspect-[3/4] bg-sky-200/50 rounded" />
+          <div className="w-full h-2 bg-sky-200/30 rounded" />
+        </div>
+        <div className="flex-1 flex flex-col gap-1">
+          <div className="w-full h-2 bg-sky-100 rounded" />
+          <div className="w-3/4 h-2 bg-sky-100 rounded" />
+          <div className="w-5/6 h-2 bg-sky-100 rounded" />
+          <div className="w-2/3 h-2 bg-sky-100 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Daeyman Alawael Preview ────────────────────────────────────────────────
+function DaeymanMiniPreview() {
+  return (
+    <div className="w-full h-full flex flex-col bg-white overflow-hidden">
+      <div className="shrink-0 p-1 bg-teal-50 border-b border-teal-200 text-center">
+        <div className="text-[5px] font-bold text-teal-800 uppercase">DAEYMAN ALAWAEL</div>
+        <div className="text-[3px] text-teal-600 uppercase">Recruitment Agent</div>
+      </div>
+      <div className="flex-1 p-2 flex gap-1.5">
+        <div className="w-1/3 bg-teal-100/50 rounded p-1 flex flex-col gap-1">
+          <div className="w-full aspect-[3/4] bg-teal-200/50 rounded" />
+          <div className="w-full h-2 bg-teal-200/30 rounded" />
+        </div>
+        <div className="flex-1 flex flex-col gap-1">
+          <div className="w-full h-2 bg-teal-100 rounded" />
+          <div className="w-3/4 h-2 bg-teal-100 rounded" />
+          <div className="w-5/6 h-2 bg-teal-100 rounded" />
+          <div className="w-2/3 h-2 bg-teal-100 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   rawasi: RawasiMiniPreview,
   azm: AzmMiniPreview,
   mazaya: MazayaMiniPreview,
+  northgate: NorthGateMiniPreview,
+  daeyman: DaeymanMiniPreview,
 };
 
 // Per-template accent for the selection ring and dot
 const TEMPLATE_ACCENTS: Record<string, { dot: string; ring: string; shadow: string }> = {
-  rawasi:  { dot: 'bg-[#c9a227]',  ring: 'border-[#1a3266]', shadow: 'shadow-[#1a3266]/15' },
-  azm:     { dot: 'bg-emerald-600', ring: 'border-emerald-600', shadow: 'shadow-emerald-600/15' },
-  mazaya:  { dot: 'bg-[#2563a8]',  ring: 'border-[#2563a8]', shadow: 'shadow-[#2563a8]/15'  },
+  rawasi:    { dot: 'bg-[#c9a227]',  ring: 'border-[#1a3266]', shadow: 'shadow-[#1a3266]/15' },
+  azm:       { dot: 'bg-emerald-600', ring: 'border-emerald-600', shadow: 'shadow-emerald-600/15' },
+  mazaya:    { dot: 'bg-[#2563a8]',  ring: 'border-[#2563a8]', shadow: 'shadow-[#2563a8]/15'  },
+  northgate: { dot: 'bg-sky-600',    ring: 'border-sky-600', shadow: 'shadow-sky-600/15' },
+  daeyman:   { dot: 'bg-teal-600',   ring: 'border-teal-600', shadow: 'shadow-teal-600/15' },
 };
 
 export default function TemplateGrid({ templates, selectedId, onSelect }: TemplateGridProps) {

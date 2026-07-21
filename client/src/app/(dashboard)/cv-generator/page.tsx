@@ -9,17 +9,10 @@ import { cn, getFileUrl } from '@/lib/utils';
 import { FileText, CheckCircle2, User, Download, ChevronDown, FileDown, Image as ImageIcon, Camera, ArrowLeft } from 'lucide-react';
 import TemplateGrid from '@/components/cv-generator/TemplateGrid';
 import CVTemplateRenderer from '@/components/cv/CVTemplateRenderer';
-import { CV_TEMPLATES, DEFAULT_CV_TEMPLATE_ID } from '@/lib/cv-templates';
+import { getTemplatesForAgency, getDefaultTemplateForAgency } from '@/lib/cv-templates';
 import Button from '@/components/ui/Button';
 import { useQueryClient } from '@tanstack/react-query';
-
-const TEMPLATES = CV_TEMPLATES.map((t) => ({
-  id: t.id,
-  name: t.name,
-  category: t.category.toLowerCase() as 'classic' | 'modern' | 'professional' | 'minimal' | 'elegant',
-  description: t.description,
-  thumbnail: '',
-}));
+import { useSession } from '@/lib/auth-client';
 
 import { useCandidates } from '@/hooks/useCandidates';
 
@@ -27,6 +20,19 @@ function CVGeneratorContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const urlCandidateId = searchParams.get('candidateId');
+  const { data: session } = useSession();
+  const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
+  const agencyTemplates = React.useMemo(() => getTemplatesForAgency(userAgency), [userAgency]);
+  const TEMPLATES = React.useMemo(() => agencyTemplates.map((t) => ({
+    id: t.id,
+    name: t.name,
+    category: t.category.toLowerCase() as 'classic' | 'modern' | 'professional' | 'minimal' | 'elegant',
+    description: t.description,
+    thumbnail: '',
+  })), [agencyTemplates]);
+
+  const defaultTemplateId = React.useMemo(() => getDefaultTemplateForAgency(userAgency), [userAgency]);
 
   const { candidates: rawCandidates, isLoading, mutate: setCandidates } = useCandidates();
   // Guard against non-array responses (API errors, loading states)
@@ -34,7 +40,7 @@ function CVGeneratorContent() {
   const queryClient = useQueryClient();
   const nonCallingCandidates = React.useMemo(() => candidates.filter((c: Candidate) => c.broker?.name !== 'Calling'), [candidates]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(urlCandidateId);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(DEFAULT_CV_TEMPLATE_ID);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId);
   const [toast, setToast] = useState<string | null>(null);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
