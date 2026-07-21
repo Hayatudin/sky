@@ -84,9 +84,6 @@ router.get('/analytics', requireSuperAdmin, async (req: Request, res: Response) 
 // GET /api/users
 router.get('/', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
-
     const users = await db.select({
       id: user.id,
       name: user.name,
@@ -98,7 +95,6 @@ router.get('/', requireSuperAdmin, async (req: Request, res: Response) => {
       createdAt: user.createdAt,
     })
     .from(user)
-    .where(eq(user.majorAgency, userAgency))
     .orderBy(desc(user.createdAt));
     
     res.json(users);
