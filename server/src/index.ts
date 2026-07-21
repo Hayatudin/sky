@@ -8,6 +8,15 @@ import helmet from 'helmet';
 
 dotenv.config();
 
+// Prevent Node.js process crashes on cPanel from unhandled async errors or socket drops
+process.on('uncaughtException', (err) => {
+  console.error('🔥 [FATAL SINK] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ [FATAL SINK] Unhandled Promise Rejection at:', promise, 'reason:', reason);
+});
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 
@@ -396,13 +405,13 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   console.log(`🚀 Server ready at http://localhost:${PORT}`);
-  
-  // 1. Run database self-healing checks to inject missing tables/columns
-  try {
-    await ensureDatabaseSchema();
-  } catch (dbErr) {
-    console.error('❌ Failed to run database self-healing check on startup:', dbErr);
-  }
+
+  // Run database self-healing checks asynchronously in background so app boots instantly
+  setTimeout(() => {
+    ensureDatabaseSchema().catch((dbErr) => {
+      console.error('❌ Failed to run database self-healing check in background:', dbErr);
+    });
+  }, 3000);
 });
