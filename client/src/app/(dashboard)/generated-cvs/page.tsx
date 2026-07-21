@@ -1039,7 +1039,7 @@ function GeneratedCVsContent() {
 
             const rawTemplateId = candidate.latestCVTemplate || DEFAULT_CV_TEMPLATE_ID;
             const templateId = normalizeTemplateId(rawTemplateId);
-            const templateObj = TEMPLATES.find(t => t.id === templateId);
+            const templateObj = agencyTemplates.find(t => t.id === templateId) || CV_TEMPLATES.find(t => t.id === templateId);
             const templateName = templateObj ? templateObj.name.replace(/\s+/g, '_') : 'Rawasi';
 
             const safeName = `${namePart}_${templateName}_${pNo}`.replace(/[^a-zA-Z0-9_]/g, '');
@@ -1137,7 +1137,7 @@ function GeneratedCVsContent() {
           const correspondingCv = cvs.find(cv => cv.candidateId === c.id);
           const rawTemplateId = correspondingCv ? correspondingCv.templateId : DEFAULT_CV_TEMPLATE_ID;
           const templateId = normalizeTemplateId(rawTemplateId);
-          const FolderTemplate = TEMPLATES.find(t => t.id === templateId)?.component || getTemplateComponent();
+          const FolderTemplate = (agencyTemplates.find(t => t.id === templateId) || CV_TEMPLATES.find(t => t.id === templateId))?.component || getTemplateComponent();
           const facePhoto = getFileUrl(correspondingCv?.facePhotoUrl || c.facePhotoUrl || c.passportImageUrl);
           const fullBodyPhoto = getFileUrl(correspondingCv?.fullBodyPhotoUrl || c.fullBodyPhotoUrl);
 
