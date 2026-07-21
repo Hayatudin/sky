@@ -3,6 +3,7 @@ import mysql from 'mysql2/promise';
 import * as schema from './schema';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -23,26 +24,66 @@ if (isCPanel && !dbUrl.includes('127.0.0.1') && !dbUrl.includes('localhost')) {
   dbUrl = 'mysql://skyforoo_un:%40Sky132435@127.0.0.1:3306/skyforoo_db';
 }
 
-// Normalize localhost -> 127.0.0.1 for MySQL TCP connection reliability on cPanel / Linux
+// Strip ?ssl-mode=REQUIRED from URL — mysql2 handles SSL via pool options
 let cleanUrl = dbUrl.replace(/[?&]ssl-mode=[^&]*/i, '').replace(/\?$/, '');
-if (!cleanUrl.includes('aivencloud.com') && cleanUrl.includes('@localhost:')) {
-  cleanUrl = cleanUrl.replace('@localhost:', '@127.0.0.1:');
+
+// Check for Unix socket (common on cPanel / Linux production environments)
+const socketPaths = [
+  '/var/lib/mysql/mysql.sock',
+  '/tmp/mysql.sock',
+  '/var/run/mysqld/mysqld.sock',
+  '/var/run/mysql/mysql.sock',
+];
+const unixSocket = socketPaths.find(s => {
+  try { return fs.existsSync(s); } catch { return false; }
+});
+
+const isCloud = cleanUrl.includes('aivencloud.com') || cleanUrl.includes('rds.amazonaws.com');
+
+let poolOptions: mysql.PoolOptions;
+
+if (unixSocket && !isCloud) {
+  console.log(`🔌 DB target: Unix Socket (${unixSocket})`);
+  try {
+    const parsed = new URL(cleanUrl);
+    poolOptions = {
+      socketPath: unixSocket,
+      user: decodeURIComponent(parsed.username || 'skyforoo_un'),
+      password: decodeURIComponent(parsed.password || '@Sky132435'),
+      database: parsed.pathname ? parsed.pathname.replace(/^\//, '') : 'skyforoo_db',
+      connectionLimit: 10,
+      connectTimeout: 20000,
+    };
+  } catch {
+    poolOptions = {
+      socketPath: unixSocket,
+      user: 'skyforoo_un',
+      password: '@Sky132435',
+      database: 'skyforoo_db',
+      connectionLimit: 10,
+      connectTimeout: 20000,
+    };
+  }
+} else {
+  // Normalize localhost -> 127.0.0.1 for MySQL TCP reliability on Node.js
+  if (!isCloud && cleanUrl.includes('@localhost:')) {
+    cleanUrl = cleanUrl.replace('@localhost:', '@127.0.0.1:');
+  }
+
+  console.log('🔌 DB target:', cleanUrl.replace(/:([^:@]{3})[^:@]*@/, ':***@'), isCloud ? '[SSL]' : '[TCP/IP]');
+
+  poolOptions = {
+    uri: cleanUrl,
+    connectionLimit: 10,
+    connectTimeout: 20000,
+    ...(isCloud && {
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    }),
+  };
 }
 
-// SSL enabled only if external cloud host requires it
-const needsSsl = dbUrl.includes('aivencloud.com');
-
-console.log('🔌 DB target:', cleanUrl.replace(/:([^:@]{3})[^:@]*@/, ':***@'), needsSsl ? '[SSL]' : '[cPanel / Local MySQL]');
-
-const poolConnection = mysql.createPool({
-  uri: cleanUrl,
-  connectionLimit: 10,
-  connectTimeout: 20000,
-  ...(needsSsl && {
-    ssl: {
-      rejectUnauthorized: false,
-    },
-  }),
-});
+const poolConnection = mysql.createPool(poolOptions);
 
 export const db = drizzle(poolConnection, { schema, mode: 'default' });

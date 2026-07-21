@@ -11,6 +11,9 @@ export const authClient = createAuthClient({
       agency: {
         type: 'string',
       },
+      majorAgency: {
+        type: 'string',
+      },
     },
   },
 });
