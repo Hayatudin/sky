@@ -52,7 +52,7 @@ function LoginForm() {
 
         const { data, error: signUpError } = await withTimeout(
           signUp.email({ email, password, name: name.trim() }),
-          10000
+          25000
         );
 
         if (!signUpError && data) { router.push('/'); return; }
@@ -61,7 +61,7 @@ function LoginForm() {
         if (msg.toLowerCase().includes('already exists')) {
           setError('An account with this email already exists. Please sign in.');
         } else if (!msg) {
-          setError('Database unreachable — server is running but Aiven MySQL is not responding. Check DATABASE_URL in server/.env and restart the server.');
+          setError('Database unreachable — server is running but database is not responding. Check DATABASE_URL in server/.env and restart the server.');
         } else {
           setError(msg);
         }
@@ -71,7 +71,7 @@ function LoginForm() {
       // ── Sign In ──────────────────────────────────────────────────────────
       const { data: signInData, error: signInError } = await withTimeout(
         signIn.email({ email, password }),
-        10000
+        25000
       );
 
       if (!signInError && signInData) {
@@ -90,7 +90,7 @@ function LoginForm() {
 
       if (!signInMsg) {
         // Empty error = server responded but DB failed internally
-        setError('Database unreachable — server is up but cannot connect to Aiven MySQL. Check that DATABASE_URL is correct in server/.env and restart the server.');
+        setError('Database unreachable — server is up but cannot connect to MySQL database. Check DATABASE_URL in server/.env and restart the server.');
       } else if (
         signInMsg.toLowerCase().includes('invalid') ||
         signInMsg.toLowerCase().includes('password') ||
@@ -104,9 +104,9 @@ function LoginForm() {
     } catch (err: any) {
       const msg: string = err?.message || '';
       if (msg === 'TIMEOUT') {
-        setError('Request timed out — server is running but Aiven database is not responding. Check DATABASE_URL in server/.env and restart the server.');
+        setError('Request timed out — server is running but MySQL database is not responding. Check DATABASE_URL in server/.env and restart the server.');
       } else if (msg === 'Failed to fetch' || msg.includes('ECONNREFUSED')) {
-        setError('Cannot reach the server at http://localhost:4000 — make sure the backend is running (cd server && npm run dev).');
+        setError('Cannot reach backend server — please check backend server URL and connectivity.');
       } else {
         setError(msg || 'An unexpected error occurred.');
       }

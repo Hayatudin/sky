@@ -23,23 +23,23 @@ if (isCPanel && !dbUrl.includes('127.0.0.1') && !dbUrl.includes('localhost')) {
   dbUrl = 'mysql://skyforoo_un:%40Sky132435@127.0.0.1:3306/skyforoo_db';
 }
 
-// Strip ?ssl-mode=REQUIRED from URL — mysql2 doesn't support this query param.
-// SSL is handled via pool options below.
-const cleanUrl = dbUrl.replace(/[?&]ssl-mode=[^&]*/i, '').replace(/\?$/, '');
+// Normalize localhost -> 127.0.0.1 for MySQL TCP connection reliability on cPanel / Linux
+let cleanUrl = dbUrl.replace(/[?&]ssl-mode=[^&]*/i, '').replace(/\?$/, '');
+if (!cleanUrl.includes('aivencloud.com') && cleanUrl.includes('@localhost:')) {
+  cleanUrl = cleanUrl.replace('@localhost:', '@127.0.0.1:');
+}
 
-// Only enable SSL for Aiven cloud — cPanel localhost does not need SSL
+// SSL enabled only if external cloud host requires it
 const needsSsl = dbUrl.includes('aivencloud.com');
 
-console.log('🔌 DB target:', cleanUrl.replace(/:([^:@]{3})[^:@]*@/, ':***@'), needsSsl ? '[SSL]' : '[no SSL]');
+console.log('🔌 DB target:', cleanUrl.replace(/:([^:@]{3})[^:@]*@/, ':***@'), needsSsl ? '[SSL]' : '[cPanel / Local MySQL]');
 
 const poolConnection = mysql.createPool({
   uri: cleanUrl,
-  connectionLimit: 5,
-  connectTimeout: 10000,
+  connectionLimit: 10,
+  connectTimeout: 20000,
   ...(needsSsl && {
     ssl: {
-      // Aiven uses its own CA — set rejectUnauthorized to false for compatibility
-      // This still encrypts the connection, just doesn't verify the CA chain
       rejectUnauthorized: false,
     },
   }),
