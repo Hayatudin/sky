@@ -110,14 +110,17 @@ export const CV_TEMPLATE_FULL_NAMES: Record<CVTemplateId, string> = Object.fromE
 
 /** Return templates filtered by the user's majorAgency */
 export function getTemplatesForAgency(agency?: string | null): CVTemplateDefinition[] {
-  const a = agency || 'Sky';
-  return CV_TEMPLATES.filter((t) => t.agency === a);
+  const a = (agency || 'Sky').trim();
+  const isFenero = a.toLowerCase().includes('fenero');
+  const targetAgency = isFenero ? 'Fenero' : 'Sky';
+  return CV_TEMPLATES.filter((t) => t.agency === targetAgency);
 }
 
 /** Return the default template ID for a given agency */
 export function getDefaultTemplateForAgency(agency?: string | null): CVTemplateId {
-  const a = agency || 'Sky';
-  if (a === 'Fenero') return 'northgate';
+  const a = (agency || 'Sky').trim();
+  const isFenero = a.toLowerCase().includes('fenero');
+  if (isFenero) return 'northgate';
   return 'rawasi';
 }
 

@@ -52,13 +52,15 @@ interface SidebarProps {
 }
 
 function AgencyMark({ compact, agency }: { compact?: boolean; agency?: string }) {
-  const displayAgency = (agency || 'Sky').toUpperCase();
-  const badgeBg = displayAgency === 'FENERO' ? 'bg-indigo-600' : 'bg-primary';
+  const displayAgency = (agency || 'Sky').trim();
+  const isFenero = displayAgency.toLowerCase().includes('fenero');
+  const nameToShow = isFenero ? 'FENERO' : 'SKY';
+  const badgeBg = isFenero ? 'bg-indigo-600' : 'bg-primary';
 
   if (compact) {
     return (
-      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", badgeBg)}>
-        <span className="text-white font-black text-[10px] tracking-tight">{displayAgency}</span>
+      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-lg", badgeBg)}>
+        <span className="text-white font-black text-[10px] tracking-tight">{nameToShow}</span>
       </div>
     );
   }
@@ -66,10 +68,10 @@ function AgencyMark({ compact, agency }: { compact?: boolean; agency?: string })
   return (
     <div className="flex items-center gap-3 min-w-0">
       <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-lg", badgeBg)}>
-        <span className="text-white font-black text-[10px] tracking-tight">{displayAgency}</span>
+        <span className="text-white font-black text-[10px] tracking-tight">{nameToShow}</span>
       </div>
       <div className="min-w-0">
-        <p className="text-white font-bold text-[15px] leading-tight truncate">{displayAgency} Agency</p>
+        <p className="text-white font-bold text-[15px] leading-tight truncate">{nameToShow} Agency</p>
         <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider">Management System</p>
       </div>
     </div>
@@ -78,10 +80,10 @@ function AgencyMark({ compact, agency }: { compact?: boolean; agency?: string })
 
 export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const { data: session, isPending } = useSession();
+  const { data: session } = useSession();
 
   const role = ((session?.user as any)?.role ?? 'user') as string;
-  const userAgency = ((session?.user as any)?.majorAgency ?? 'Sky') as string;
+  const userAgency = ((session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky') as string;
 
   const navItems = allNavItems.filter(item => {
     if (item.href === '/registration') return false; // Hide Registration tab

@@ -115,6 +115,10 @@ export default function Topbar({ onMobileMenuToggle, isSidebarCollapsed, onSideb
   };
 
   const role = (session?.user as any)?.role ?? 'user';
+  const userAgency = ((session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky') as string;
+  const isFenero = userAgency.toLowerCase().includes('fenero');
+  const agencyName = isFenero ? 'FENERO' : 'SKY';
+  const badgeBg = isFenero ? 'bg-indigo-600' : 'bg-primary';
 
   return (
     <header className="sticky top-0 z-40 h-14 sm:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-4 md:px-6 gap-3">
@@ -138,11 +142,11 @@ export default function Topbar({ onMobileMenuToggle, isSidebarCollapsed, onSideb
         )}
 
         <div className="hidden sm:flex items-center gap-2.5 pl-1">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <span className="text-white font-black text-[10px]">SKY</span>
+          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", badgeBg)}>
+            <span className="text-white font-black text-[10px]">{agencyName}</span>
           </div>
           <div className="leading-tight">
-            <p className="text-sm font-bold text-slate-800">SKY Agency</p>
+            <p className="text-sm font-bold text-slate-800">{agencyName} Agency</p>
             <p className="text-[10px] text-slate-400 font-medium hidden md:block">Foreign Employment System</p>
           </div>
         </div>

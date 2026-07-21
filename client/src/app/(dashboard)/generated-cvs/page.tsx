@@ -13,11 +13,10 @@ import {
 import { cn, getFileUrl } from '@/lib/utils';
 import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
-import { CV_TEMPLATES, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId, getTemplateName } from '@/lib/cv-templates';
+import { CV_TEMPLATES, getTemplatesForAgency, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId, getTemplateName } from '@/lib/cv-templates';
 import { clearCandidatesCache } from '@/hooks/useCandidates';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
-
-const TEMPLATES = CV_TEMPLATES;
+import { useSession } from '@/lib/auth-client';
 
 // ── Action Dropdown — portal with fixed positioning so it escapes overflow:hidden ──
 function ActionMenu({
@@ -122,8 +121,11 @@ function ChangeTemplateModal({
   onClose: () => void;
   isLoading: boolean;
 }) {
+  const { data: session } = useSession();
+  const userAgency = (session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky';
+  const agencyTemplates = getTemplatesForAgency(userAgency);
   const [selected, setSelected] = useState<string | null>(null);
-  const others = TEMPLATES.filter(t => t.id !== currentTemplateId);
+  const others = agencyTemplates.filter(t => t.id !== currentTemplateId);
 
   // Add Enter key trigger
   useEffect(() => {
@@ -295,6 +297,10 @@ function DeleteModal({
 function GeneratedCVsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const userAgency = (session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky';
+  const agencyTemplates = React.useMemo(() => getTemplatesForAgency(userAgency), [userAgency]);
+
   const [cvs, setCvs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -510,7 +516,7 @@ function GeneratedCVsContent() {
       }
       
       if (!res.ok) throw new Error('Failed');
-      const newTemplateName = TEMPLATES.find(t => t.id === newTemplateId)?.name;
+      const newTemplateName = agencyTemplates.find(t => t.id === newTemplateId)?.name;
       setCvs(prev => prev.map(c => c.id === changeTarget.id ? { ...c, templateId: newTemplateId, candidate: c.candidate ? { ...c.candidate, cvDownloaded: false } : c.candidate } : c));
       clearCandidatesCache();
       showToast(`Moved to "${newTemplateName}" folder`);
@@ -580,7 +586,7 @@ function GeneratedCVsContent() {
     clearCandidatesCache();
     setSelectedCVIds(new Set());
     setActionLoading(false);
-    const newTemplateName = TEMPLATES.find(t => t.id === newTemplateId)?.name;
+    const newTemplateName = agencyTemplates.find(t => t.id === newTemplateId)?.name;
     showToast(`${successCount} CV${successCount !== 1 ? 's' : ''} moved to "${newTemplateName}"`);
     setSelectedFolder(newTemplateId);
   };
@@ -745,7 +751,7 @@ function GeneratedCVsContent() {
   }, []);
 
   // ── Group by template and filter out locked broker candidates ─────────────
-  const processedFolders = TEMPLATES.map(t => {
+  const processedFolders = agencyTemplates.map(t => {
     const folderCvs = cvs.filter(c => c.templateId === t.id && c.candidate?.isLocked !== true && c.candidate?.broker?.isLocked !== true);
     return {
       ...t,
@@ -853,7 +859,7 @@ function GeneratedCVsContent() {
         textColor: 'text-rose-600',
         bgLight: 'bg-rose-50',
       }
-    : TEMPLATES.find(t => t.id === selectedFolder)!;
+    : (agencyTemplates.find(t => t.id === selectedFolder) || CV_TEMPLATES.find(t => t.id === selectedFolder))!;
 
   const allFolderCVs = isBackupFolder
     ? cvs.filter(c => c.candidate?.isLocked === true || c.candidate?.broker?.isLocked === true)

@@ -21,7 +21,7 @@ function CVGeneratorContent() {
   const router = useRouter();
   const urlCandidateId = searchParams.get('candidateId');
   const { data: session } = useSession();
-  const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+  const userAgency = (session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky';
 
   const agencyTemplates = React.useMemo(() => getTemplatesForAgency(userAgency), [userAgency]);
   const TEMPLATES = React.useMemo(() => agencyTemplates.map((t) => ({
