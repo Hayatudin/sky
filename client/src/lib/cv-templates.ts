@@ -1,13 +1,12 @@
 import React from 'react';
 import { Candidate } from '@/types';
-import AlmersahTemplate from '@/components/cv/templates/AlmersahTemplate';
-import AlmalaTemplate from '@/components/cv/templates/AlmalaTemplate';
+import RawasiTemplate from '@/components/cv/templates/RawasiTemplate';
 import AzmTemplate from '@/components/cv/templates/AzmTemplate';
 import MazayaTemplate from '@/components/cv/templates/MazayaTemplate';
 
-export type CVTemplateId = 'almersah' | 'almala' | 'azm' | 'mazaya';
+export type CVTemplateId = 'rawasi' | 'azm' | 'mazaya';
 
-export const DEFAULT_CV_TEMPLATE_ID: CVTemplateId = 'almersah';
+export const DEFAULT_CV_TEMPLATE_ID: CVTemplateId = 'rawasi';
 
 export interface CVTemplateDefinition {
   id: CVTemplateId;
@@ -28,28 +27,16 @@ export interface CVTemplateDefinition {
 
 export const CV_TEMPLATES: CVTemplateDefinition[] = [
   {
-    id: 'almersah',
-    name: 'Almersah',
-    shortName: 'Almersah',
-    fullName: 'ALMERSAH AGENCY',
+    id: 'rawasi',
+    name: 'Rawasi',
+    shortName: 'Rawasi',
+    fullName: 'RAWASI ALINJAZ RECRUITMENT',
     category: 'Classic',
-    description: 'Almersah agency',
+    description: 'Rawasi Alinjaz agency',
     color: 'bg-primary',
     textColor: 'text-primary',
     bgLight: 'bg-primary-50',
-    component: AlmersahTemplate,
-  },
-  {
-    id: 'almala',
-    name: 'Almala',
-    shortName: 'Almala',
-    fullName: 'ALMALA RECRUITMENT AGENCY',
-    category: 'Classic',
-    description: 'Almala agency',
-    color: 'bg-primary',
-    textColor: 'text-primary',
-    bgLight: 'bg-primary-50',
-    component: AlmalaTemplate,
+    component: RawasiTemplate,
   },
   {
     id: 'azm',
@@ -88,17 +75,20 @@ export const CV_TEMPLATE_FULL_NAMES: Record<CVTemplateId, string> = Object.fromE
 ) as Record<CVTemplateId, string>;
 
 const LEGACY_TEMPLATE_MAP: Record<string, CVTemplateId> = {
-  rawasi: 'almersah',
-  alm: 'almersah',
-  almala: 'almala',
-  ka7: 'almersah',
-  ku2: 'almersah',
+  rawasi: 'rawasi',
+  ra: 'rawasi',
+  almersah: 'rawasi',
+  almala: 'rawasi',
+  alm: 'rawasi',
+  azm: 'azm',
+  mazaya: 'mazaya',
   ma: 'mazaya',
-  ra: 'almersah',
-  ussus: 'almersah',
-  'al-shablan': 'almersah',
-  alshablan: 'almersah',
-  vision: 'almersah',
+  ka7: 'rawasi',
+  ku2: 'rawasi',
+  ussus: 'rawasi',
+  'al-shablan': 'rawasi',
+  alshablan: 'rawasi',
+  vision: 'rawasi',
 };
 
 export function normalizeTemplateId(id?: string | null): CVTemplateId {

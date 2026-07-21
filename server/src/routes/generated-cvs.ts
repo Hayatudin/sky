@@ -3,6 +3,7 @@ import { db } from '../db';
 import { broker, candidate, generatedCV } from '../db/schema';
 import { eq, and, not, desc, inArray, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
+import { getSession } from '../lib/auth-helper';
 
 const router = Router();
 
@@ -106,6 +107,9 @@ async function getBrokerLockMap(): Promise<Record<string, boolean>> {
 // GET /api/generated-cvs
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+
     // MySQL 5.7 compatible — no lateral joins
     const generatedCVsList = await db.select().from(generatedCV)
       .orderBy(desc(generatedCV.createdAt));
@@ -116,7 +120,12 @@ router.get('/', async (req: Request, res: Response) => {
 
     const candidateIds = [...new Set(generatedCVsList.map(cv => cv.candidateId))];
     const candidates = candidateIds.length > 0
-      ? await db.select().from(candidate).where(inArray(candidate.id, candidateIds))
+      ? await db.select().from(candidate).where(
+          and(
+            inArray(candidate.id, candidateIds),
+            eq(candidate.majorAgency, userAgency)
+          )
+        )
       : [];
 
     const brokerIds = [...new Set(candidates.map((c: any) => c.brokerId).filter(Boolean))] as string[];
@@ -131,17 +140,19 @@ router.get('/', async (req: Request, res: Response) => {
 
     const lockMap = await getBrokerLockMap();
 
-    const mappedCVs = generatedCVsList.map((cv: any) => {
-      const cand = candidateMap.get(cv.candidateId);
-      const formattedCandidateObj = formatCandidate(cand);
-      if (formattedCandidateObj) {
-        formattedCandidateObj.cvDownloaded = cand?.cvDownloaded ?? false;
-        if (formattedCandidateObj.broker) {
-          formattedCandidateObj.broker.isLocked = lockMap[formattedCandidateObj.broker.id] ?? false;
+    const mappedCVs = generatedCVsList
+      .filter((cv: any) => candidateMap.has(cv.candidateId))
+      .map((cv: any) => {
+        const cand = candidateMap.get(cv.candidateId);
+        const formattedCandidateObj = formatCandidate(cand);
+        if (formattedCandidateObj) {
+          formattedCandidateObj.cvDownloaded = cand?.cvDownloaded ?? false;
+          if (formattedCandidateObj.broker) {
+            formattedCandidateObj.broker.isLocked = lockMap[formattedCandidateObj.broker.id] ?? false;
+          }
         }
-      }
-      return { ...cv, candidate: formattedCandidateObj };
-    });
+        return { ...cv, candidate: formattedCandidateObj };
+      });
 
     res.json(mappedCVs);
   } catch (error: any) {
