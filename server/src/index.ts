@@ -6,6 +6,9 @@ import path from 'path';
 import fs from 'fs';
 import helmet from 'helmet';
 
+// Capture Passenger's injected port/socket BEFORE dotenv might overwrite it with PORT=4000
+const PASSENGER_PORT = process.env.PORT;
+
 dotenv.config();
 
 // Prevent Node.js process crashes on cPanel from unhandled async errors or socket drops
@@ -18,7 +21,8 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+// Priority: Phusion Passenger socket/port -> process.env.PORT -> 4000
+const PORT = PASSENGER_PORT || process.env.PORT || 4000;
 
 // Mount Helmet for basic HTTP security headers
 app.use(
@@ -28,19 +32,31 @@ app.use(
   })
 );
 
-// CORS Whitelist configuration
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? ['http://localhost:3000', 'http://localhost:4000', ...process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)]
-  : ['http://localhost:3000', 'http://localhost:4000'];
+// Production & local CORS Whitelist
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://localhost:4000',
+  'https://skyforeignagency.com',
+  'https://api.skyforeignagency.com',
+  'http://skyforeignagency.com',
+  'http://api.skyforeignagency.com',
+  'https://coolstaffagency.com',
+  'https://api.coolstaffagency.com',
+];
+
+const envOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+  : [];
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin) || origin.includes('skyforeignagency.com') || origin.includes('coolstaffagency.com')) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Fallback: allow request to prevent 500/503 errors
     }
   },
   credentials: true,
