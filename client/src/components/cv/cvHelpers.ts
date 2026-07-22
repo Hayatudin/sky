@@ -38,32 +38,37 @@ export function getFullName(candidate: Candidate) {
   return `${candidate.passportData?.givenNames || ''} ${candidate.passportData?.surname || ''}`.trim();
 }
 
-/** Extracts a clean nationality without using destination experience countries (e.g. "BAHRAINYEARS OF EXPERIENCE: 1" -> "ETHIOPIAN") */
-export function getCleanNationality(candidate: Candidate): string {
-  const raw = candidate.passportData?.nationality || (candidate as any).nationality || '';
-  const issuing = candidate.passportData?.issuingCountry || (candidate as any).issuingCountry || '';
+/** Extracts a clean nationality without using destination experience countries or 'Experience' strings (e.g. "ETHIOPIA" -> "ETHIOPIAN") */
+export function getCleanNationality(candidate: Candidate | any): string {
+  if (!candidate) return 'ETHIOPIAN';
+  const pd = candidate.passportData || candidate;
+  const pi = candidate.personalInfo || candidate;
 
-  const resolveFromIssuing = (defaultVal = 'ETHIOPIAN') => {
-    if (!issuing) return defaultVal;
-    const cleanIssuing = issuing.toUpperCase().trim();
-    if (cleanIssuing === 'ETH' || cleanIssuing.includes('ETHIOPIA')) return 'ETHIOPIAN';
-    if (cleanIssuing === 'UGA' || cleanIssuing.includes('UGANDA')) return 'UGANDAN';
-    if (cleanIssuing === 'KEN' || cleanIssuing.includes('KENYA')) return 'KENYAN';
-    if (cleanIssuing === 'PHL' || cleanIssuing.includes('PHILIPPINES')) return 'FILIPINO';
-    if (cleanIssuing === 'IDN' || cleanIssuing.includes('INDONESIA')) return 'INDONESIAN';
-    if (cleanIssuing === 'BGD' || cleanIssuing.includes('BANGLADESH')) return 'BANGLADESHI';
-    if (cleanIssuing === 'IND' || cleanIssuing.includes('INDIA')) return 'INDIAN';
-    return cleanIssuing;
+  const raw = pd?.nationality || candidate?.nationality || '';
+  const issuing = pd?.issuingCountry || candidate?.issuingCountry || '';
+  const country = pi?.country || candidate?.country || '';
+
+  const resolveFromCountry = (c?: string) => {
+    if (!c) return '';
+    const upper = c.toUpperCase().trim();
+    if (upper === 'ETH' || upper.includes('ETHIOPIA')) return 'ETHIOPIAN';
+    if (upper === 'UGA' || upper.includes('UGANDA')) return 'UGANDAN';
+    if (upper === 'KEN' || upper.includes('KENYA')) return 'KENYAN';
+    if (upper === 'PHL' || upper.includes('PHILIPPINES')) return 'FILIPINO';
+    if (upper === 'IDN' || upper.includes('INDONESIA')) return 'INDONESIAN';
+    if (upper === 'BGD' || upper.includes('BANGLADESH')) return 'BANGLADESHI';
+    if (upper === 'IND' || upper.includes('INDIA')) return 'INDIAN';
+    return upper;
   };
 
   // Known Gulf / destination countries for employment abroad (work experience locations, not worker nationalities)
-  const destCountries = ['BAHRAIN', 'SAUDI', 'KSA', 'UAE', 'DUBAI', 'ABU DHABI', 'KUWAIT', 'QATAR', 'OMAN', 'JORDAN', 'LEBANON', 'BEIRUT'];
+  const destCountries = ['BAHRAIN', 'SAUDI', 'KSA', 'UAE', 'DUBAI', 'ABU DHABI', 'KUWAIT', 'QATAR', 'OMAN', 'JORDAN', 'LEBANON', 'BEIRUT', 'EXPERIENCE'];
 
-  // Check if raw nationality string contains an experience pattern (e.g. "BAHRAINYEARS OF EXPERIENCE: 1")
-  const hasExpPattern = /\bYEARS?\s*(?:OF\s*)?EXPERIENCE\b/i.test(raw);
+  // Check if raw nationality string contains an experience pattern or bad value like "Experience" or "BAHRAINYEARS..."
+  const hasExpPattern = /\b(?:YEARS?\s*(?:OF\s*)?EXPERIENCE|EXPERIENCE)\b/i.test(raw);
 
   if (hasExpPattern) {
-    return resolveFromIssuing('ETHIOPIAN');
+    return resolveFromCountry(country) || resolveFromCountry(issuing) || 'ETHIOPIAN';
   }
 
   let cleaned = raw.trim().toUpperCase();
@@ -71,17 +76,10 @@ export function getCleanNationality(candidate: Candidate): string {
 
   // If nationality itself is a destination country (like BAHRAIN, SAUDI, KUWAIT), it was mistakenly filled with work experience country
   if (destCountries.some((c) => cleaned === c || cleaned.startsWith(c))) {
-    return resolveFromIssuing('ETHIOPIAN');
+    return resolveFromCountry(country) || resolveFromCountry(issuing) || 'ETHIOPIAN';
   }
 
-  // Handle standard nationality resolution
-  if (cleaned === 'ETH' || cleaned.includes('ETHIOPIA')) return 'ETHIOPIAN';
-  if (cleaned === 'UGA' || cleaned.includes('UGANDA')) return 'UGANDAN';
-  if (cleaned === 'KEN' || cleaned.includes('KENYA')) return 'KENYAN';
-  if (cleaned === 'PHL' || cleaned.includes('PHILIPPINES')) return 'FILIPINO';
-  if (cleaned === 'IDN' || cleaned.includes('INDONESIA')) return 'INDONESIAN';
-
-  return cleaned || resolveFromIssuing('ETHIOPIAN');
+  return resolveFromCountry(cleaned) || resolveFromCountry(country) || resolveFromCountry(issuing) || 'ETHIOPIAN';
 }
 
 export function getExperienceSummary(candidate: Candidate) {

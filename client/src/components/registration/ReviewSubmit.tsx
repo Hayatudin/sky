@@ -6,6 +6,8 @@ import { formatDate } from '@/lib/utils';
 import Badge from '@/components/ui/Badge';
 import { User, Plane, Heart, GraduationCap, Briefcase, Phone, MapPin } from 'lucide-react';
 
+import { getCleanNationality } from '@/components/cv/cvHelpers';
+
 interface ReviewSubmitProps {
   passportData: PassportData;
   personalInfo: CandidatePersonalInfo;
@@ -68,7 +70,7 @@ export default function ReviewSubmit({ passportData, personalInfo, facePhoto, pa
           <Section title="Passport Details" icon={<Plane size={16} className="text-primary" />}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label="Passport Number" value={passportData.passportNumber} />
-              <Field label="Nationality" value={passportData.nationality} />
+              <Field label="Nationality" value={getCleanNationality({ passportData, personalInfo })} />
               <Field label="Place of Birth" value={passportData.placeOfBirth || personalInfo.city} />
               <Field label="Date of Birth" value={formatDate(passportData.dateOfBirth)} />
               <Field label="Gender" value={passportData.gender} />

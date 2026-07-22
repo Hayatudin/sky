@@ -14,6 +14,7 @@ import { getFileUrl, getDownloadUrl, cleanLabourId } from '@/lib/utils';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
+import { getCleanNationality } from '@/components/cv/cvHelpers';
 
 const InfoItem = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number | undefined }) => (
   <div className="group flex flex-col py-3 px-4 rounded-2xl hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10 min-w-0">
@@ -385,7 +386,7 @@ export default function CandidateDetailPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <InfoItem icon={FileText} label="Passport Number" value={pd.passportNumber} />
-              <InfoItem icon={Globe} label="Nationality" value={pd.nationality} />
+              <InfoItem icon={Globe} label="Nationality" value={getCleanNationality(candidate)} />
               <InfoItem icon={MapPin} label="Issuing Country" value={pd.issuingCountry} />
               <InfoItem icon={MapPin} label="Place of Birth" value={pd.placeOfBirth} />
               <InfoItem icon={Calendar} label="Date of Birth" value={pd.dateOfBirth ? new Date(pd.dateOfBirth).toLocaleDateString() : ''} />

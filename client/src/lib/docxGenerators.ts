@@ -1,6 +1,7 @@
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, AlignmentType, VerticalAlign, BorderStyle, WidthType, HeightRule, TextDirection, Header, TableAnchorType, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, HorizontalPositionAlign, VerticalPositionAlign, TextWrappingType, ShadingType } from 'docx';
 import { getFileUrl } from './utils';
-import { Candidate } from '../types';
+import { Candidate } from '@/types';
+import { getCleanNationality } from '@/components/cv/cvHelpers';
 import QRCode from 'qrcode';
 
 // Helper to generate QR code as PNG ArrayBuffer
@@ -319,7 +320,7 @@ export async function generateAlShablanNativeDocx(candidate: Candidate, facePhot
                               })
                             ]
                           }),
-                          createDataRow("Nationality", candidate.passportData?.nationality?.toUpperCase() || ""),
+                          createDataRow("Nationality", getCleanNationality(candidate)),
                           createDataRow("Date of Birth", formatDate(candidate.passportData?.dateOfBirth)),
                           createDataRow("Address", (candidate.personalInfo?.address || candidate.personalInfo?.city || "").toUpperCase()),
                           createDataRow("Marital Status", candidate.personalInfo?.maritalStatus || ""),
