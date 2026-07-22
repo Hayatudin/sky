@@ -38,19 +38,50 @@ export function getFullName(candidate: Candidate) {
   return `${candidate.passportData?.givenNames || ''} ${candidate.passportData?.surname || ''}`.trim();
 }
 
-/** Extracts a clean nationality without any appended experience text (e.g. "BAHRAINYEARS OF EXPERIENCE: 1" -> "BAHRAIN") */
+/** Extracts a clean nationality without using destination experience countries (e.g. "BAHRAINYEARS OF EXPERIENCE: 1" -> "ETHIOPIAN") */
 export function getCleanNationality(candidate: Candidate): string {
   const raw = candidate.passportData?.nationality || (candidate as any).nationality || '';
-  if (!raw) return 'ETHIOPIAN';
+  const issuing = candidate.passportData?.issuingCountry || (candidate as any).issuingCountry || '';
 
-  // Match and strip any "YEARS OF EXPERIENCE..." string appended to nationality
-  const match = raw.match(/^(.*?)(?:\s*YEARS?\s*(?:OF\s*)?EXPERIENCE.*)$/i);
-  let cleaned = match ? match[1].trim() : raw.trim();
+  const resolveFromIssuing = (defaultVal = 'ETHIOPIAN') => {
+    if (!issuing) return defaultVal;
+    const cleanIssuing = issuing.toUpperCase().trim();
+    if (cleanIssuing === 'ETH' || cleanIssuing.includes('ETHIOPIA')) return 'ETHIOPIAN';
+    if (cleanIssuing === 'UGA' || cleanIssuing.includes('UGANDA')) return 'UGANDAN';
+    if (cleanIssuing === 'KEN' || cleanIssuing.includes('KENYA')) return 'KENYAN';
+    if (cleanIssuing === 'PHL' || cleanIssuing.includes('PHILIPPINES')) return 'FILIPINO';
+    if (cleanIssuing === 'IDN' || cleanIssuing.includes('INDONESIA')) return 'INDONESIAN';
+    if (cleanIssuing === 'BGD' || cleanIssuing.includes('BANGLADESH')) return 'BANGLADESHI';
+    if (cleanIssuing === 'IND' || cleanIssuing.includes('INDIA')) return 'INDIAN';
+    return cleanIssuing;
+  };
 
-  // Strip trailing punctuation/dashes
+  // Known Gulf / destination countries for employment abroad (work experience locations, not worker nationalities)
+  const destCountries = ['BAHRAIN', 'SAUDI', 'KSA', 'UAE', 'DUBAI', 'ABU DHABI', 'KUWAIT', 'QATAR', 'OMAN', 'JORDAN', 'LEBANON', 'BEIRUT'];
+
+  // Check if raw nationality string contains an experience pattern (e.g. "BAHRAINYEARS OF EXPERIENCE: 1")
+  const hasExpPattern = /\bYEARS?\s*(?:OF\s*)?EXPERIENCE\b/i.test(raw);
+
+  if (hasExpPattern) {
+    return resolveFromIssuing('ETHIOPIAN');
+  }
+
+  let cleaned = raw.trim().toUpperCase();
   cleaned = cleaned.replace(/[\s\:\-]+$/, '').trim();
 
-  return cleaned.toUpperCase() || 'ETHIOPIAN';
+  // If nationality itself is a destination country (like BAHRAIN, SAUDI, KUWAIT), it was mistakenly filled with work experience country
+  if (destCountries.some((c) => cleaned === c || cleaned.startsWith(c))) {
+    return resolveFromIssuing('ETHIOPIAN');
+  }
+
+  // Handle standard nationality resolution
+  if (cleaned === 'ETH' || cleaned.includes('ETHIOPIA')) return 'ETHIOPIAN';
+  if (cleaned === 'UGA' || cleaned.includes('UGANDA')) return 'UGANDAN';
+  if (cleaned === 'KEN' || cleaned.includes('KENYA')) return 'KENYAN';
+  if (cleaned === 'PHL' || cleaned.includes('PHILIPPINES')) return 'FILIPINO';
+  if (cleaned === 'IDN' || cleaned.includes('INDONESIA')) return 'INDONESIAN';
+
+  return cleaned || resolveFromIssuing('ETHIOPIAN');
 }
 
 export function getExperienceSummary(candidate: Candidate) {
