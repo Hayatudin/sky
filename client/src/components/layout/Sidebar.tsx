@@ -44,6 +44,8 @@ const allNavItems = [
   { label: 'Users', href: '/users', icon: ShieldCheck },
 ];
 
+import { getUserMajorAgency } from '@/lib/cv-templates';
+
 interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -83,7 +85,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavig
   const { data: session, isPending } = useSession();
 
   const role = ((session?.user as any)?.role ?? 'user') as string;
-  const userAgency = ((session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky') as string;
+  const userAgency = getUserMajorAgency(session?.user);
 
   const navItems = allNavItems.filter(item => {
     if (item.href === '/registration') return false; // Hide Registration tab

@@ -6,6 +6,7 @@ import { Search, Bell, ChevronDown, User, FileText, X, Loader2, CheckCheck, Menu
 import { cn, getFileUrl } from '@/lib/utils';
 import { useSession, signOut } from '@/lib/auth-client';
 import { api } from '@/lib/api';
+import { getUserMajorAgency } from '@/lib/cv-templates';
 
 interface TopbarProps {
   onMobileMenuToggle?: () => void;
@@ -115,7 +116,7 @@ export default function Topbar({ onMobileMenuToggle, isSidebarCollapsed, onSideb
   };
 
   const role = (session?.user as any)?.role ?? 'user';
-  const userAgency = ((session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky') as string;
+  const userAgency = getUserMajorAgency(session?.user);
   const isFenero = userAgency.toLowerCase().includes('fenero');
   const agencyName = isFenero ? 'FENERO' : 'SKY';
   const badgeBg = isFenero ? 'bg-indigo-600' : 'bg-primary';

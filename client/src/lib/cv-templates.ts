@@ -108,18 +108,36 @@ export const CV_TEMPLATE_FULL_NAMES: Record<CVTemplateId, string> = Object.fromE
   CV_TEMPLATES.map((t) => [t.id, t.fullName])
 ) as Record<CVTemplateId, string>;
 
+/** Robustly extract major agency from user object (Fenero vs Sky) */
+export function getUserMajorAgency(user: any): 'Fenero' | 'Sky' {
+  if (!user) return 'Sky';
+  const major = user.majorAgency || user.major_agency || user.agency || '';
+  if (typeof major === 'string' && major.toLowerCase().includes('fenero')) {
+    return 'Fenero';
+  }
+  const email = user.email || '';
+  if (typeof email === 'string' && email.toLowerCase().includes('fenero')) {
+    return 'Fenero';
+  }
+  const name = user.name || '';
+  if (typeof name === 'string' && name.toLowerCase().includes('fenero')) {
+    return 'Fenero';
+  }
+  return 'Sky';
+}
+
 /** Return templates filtered by the user's majorAgency */
-export function getTemplatesForAgency(agency?: string | null): CVTemplateDefinition[] {
-  const a = (agency || 'Sky').trim();
-  const isFenero = a.toLowerCase().includes('fenero');
+export function getTemplatesForAgency(agency?: string | null | any): CVTemplateDefinition[] {
+  const agencyName = typeof agency === 'object' ? getUserMajorAgency(agency) : (agency || 'Sky');
+  const isFenero = typeof agencyName === 'string' && agencyName.toLowerCase().includes('fenero');
   const targetAgency = isFenero ? 'Fenero' : 'Sky';
   return CV_TEMPLATES.filter((t) => t.agency === targetAgency);
 }
 
 /** Return the default template ID for a given agency */
-export function getDefaultTemplateForAgency(agency?: string | null): CVTemplateId {
-  const a = (agency || 'Sky').trim();
-  const isFenero = a.toLowerCase().includes('fenero');
+export function getDefaultTemplateForAgency(agency?: string | null | any): CVTemplateId {
+  const agencyName = typeof agency === 'object' ? getUserMajorAgency(agency) : (agency || 'Sky');
+  const isFenero = typeof agencyName === 'string' && agencyName.toLowerCase().includes('fenero');
   if (isFenero) return 'northgate';
   return 'rawasi';
 }

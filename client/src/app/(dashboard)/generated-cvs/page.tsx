@@ -13,7 +13,7 @@ import {
 import { cn, getFileUrl } from '@/lib/utils';
 import { api } from '@/lib/api';
 import Button from '@/components/ui/Button';
-import { CV_TEMPLATES, getTemplatesForAgency, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId, getTemplateName } from '@/lib/cv-templates';
+import { CV_TEMPLATES, getTemplatesForAgency, getUserMajorAgency, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId, getTemplateName } from '@/lib/cv-templates';
 import { clearCandidatesCache } from '@/hooks/useCandidates';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 import { useSession } from '@/lib/auth-client';
@@ -122,7 +122,7 @@ function ChangeTemplateModal({
   isLoading: boolean;
 }) {
   const { data: session } = useSession();
-  const userAgency = (session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky';
+  const userAgency = getUserMajorAgency(session?.user);
   const agencyTemplates = getTemplatesForAgency(userAgency);
   const [selected, setSelected] = useState<string | null>(null);
   const others = agencyTemplates.filter(t => t.id !== currentTemplateId);
@@ -298,7 +298,7 @@ function GeneratedCVsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const userAgency = (session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky';
+  const userAgency = getUserMajorAgency(session?.user);
   const agencyTemplates = React.useMemo(() => getTemplatesForAgency(userAgency), [userAgency]);
 
   const [cvs, setCvs] = useState<any[]>([]);

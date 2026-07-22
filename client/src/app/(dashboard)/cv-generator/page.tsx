@@ -9,7 +9,7 @@ import { cn, getFileUrl } from '@/lib/utils';
 import { FileText, CheckCircle2, User, Download, ChevronDown, FileDown, Image as ImageIcon, Camera, ArrowLeft } from 'lucide-react';
 import TemplateGrid from '@/components/cv-generator/TemplateGrid';
 import CVTemplateRenderer from '@/components/cv/CVTemplateRenderer';
-import { getTemplatesForAgency, getDefaultTemplateForAgency } from '@/lib/cv-templates';
+import { getTemplatesForAgency, getDefaultTemplateForAgency, getUserMajorAgency } from '@/lib/cv-templates';
 import Button from '@/components/ui/Button';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from '@/lib/auth-client';
@@ -21,7 +21,7 @@ function CVGeneratorContent() {
   const router = useRouter();
   const urlCandidateId = searchParams.get('candidateId');
   const { data: session } = useSession();
-  const userAgency = (session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky';
+  const userAgency = getUserMajorAgency(session?.user);
 
   const agencyTemplates = React.useMemo(() => getTemplatesForAgency(userAgency), [userAgency]);
   const TEMPLATES = React.useMemo(() => agencyTemplates.map((t) => ({
@@ -41,6 +41,13 @@ function CVGeneratorContent() {
   const nonCallingCandidates = React.useMemo(() => candidates.filter((c: Candidate) => c.broker?.name !== 'Calling'), [candidates]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(urlCandidateId);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId);
+
+  // Sync selectedTemplateId if userAgency resolves asynchronously or selected template is not allowed for agency
+  React.useEffect(() => {
+    if (agencyTemplates.length > 0 && !agencyTemplates.some(t => t.id === selectedTemplateId)) {
+      setSelectedTemplateId(defaultTemplateId);
+    }
+  }, [agencyTemplates, defaultTemplateId, selectedTemplateId]);
   const [toast, setToast] = useState<string | null>(null);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
