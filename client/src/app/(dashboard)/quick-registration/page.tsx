@@ -17,7 +17,7 @@ import Input from '@/components/ui/Input';
 import FileUpload from '@/components/ui/FileUpload';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { languageOptions } from '@/data/mockData';
-import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
+import { CV_TEMPLATE_OPTIONS, getUserMajorAgency } from '@/lib/cv-templates';
 import { compressImage } from '@/lib/utils';
 
 const emptyPassportData: PassportData = {
@@ -69,6 +69,8 @@ export default function QuickRegistrationPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
+  const userMajorAgency = getUserMajorAgency(session?.user);
+  const isFenero = userMajorAgency.toLowerCase().includes('fenero');
   const isCalling = (session?.user as any)?.role === 'calling';
   const isKadra = session?.user?.email === 'kadra@gmail.com';
 
@@ -277,7 +279,7 @@ export default function QuickRegistrationPage() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
 
   const handleSave = async () => {
-    if (!passportImage) {
+    if (!isFenero && !passportImage) {
       setError('Passport photo upload is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -344,13 +346,7 @@ export default function QuickRegistrationPage() {
       return;
     }
 
-    if (selectedLanguages.length === 0) {
-      setError('At least one language must be selected.');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    if (!cocDocumentUrl) {
+    if (!isFenero && !cocDocumentUrl) {
       setError('COC (Certificate of Competence) document is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -362,13 +358,22 @@ export default function QuickRegistrationPage() {
       return;
     }
 
-    if (!candidateIdImageUrl) {
+    if (isFenero) {
+      const cleanLabour = labourId.trim();
+      if (!/^\d{10}$/.test(cleanLabour)) {
+        setError('Labour ID must be exactly 10 digits.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+
+    if (!isFenero && !candidateIdImageUrl) {
       setError('Candidate ID image is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    if (!relativeIdImageUrl) {
+    if (!isFenero && !relativeIdImageUrl) {
       setError('Relative ID image is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -376,7 +381,7 @@ export default function QuickRegistrationPage() {
 
     const userEmail = session?.user?.email;
     const isKadra = userEmail === 'kadra@gmail.com';
-    if (isKadra && !videoUrl) {
+    if (!isFenero && isKadra && !videoUrl) {
       setError('Candidate Video is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -913,15 +918,34 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCocDocumentUrl(base64))}
               onClear={() => setCocDocumentUrl(null)}
               helperText="COC Document — Max 50MB"
-              required={true}
+              required={!isFenero}
             />
-            <Input
-              label="Labour ID Number"
-              placeholder="Enter Labour ID Number"
-              value={labourId || ''}
-              onChange={(e) => setLabourId(e.target.value)}
-              required={true}
-            />
+            <div>
+              <Input
+                label="Labour ID Number"
+                placeholder={isFenero ? 'Enter exactly 10 digits' : 'Enter Labour ID Number'}
+                value={labourId || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (isFenero) {
+                    // Only allow digits, max 10
+                    const digitsOnly = val.replace(/\D/g, '').slice(0, 10);
+                    setLabourId(digitsOnly);
+                  } else {
+                    setLabourId(val);
+                  }
+                }}
+                required={true}
+              />
+              {isFenero && labourId && labourId.trim().length > 0 && labourId.trim().length !== 10 && (
+                <p className="text-xs text-amber-600 mt-1 font-medium">
+                  Labour ID must be exactly 10 digits ({labourId.trim().length}/10)
+                </p>
+              )}
+              {isFenero && labourId && labourId.trim().length === 10 && (
+                <p className="text-xs text-green-600 mt-1 font-medium">✓ Valid (10/10 digits)</p>
+              )}
+            </div>
             <FileUpload
               label="Candidate ID"
               shape="rect"
@@ -930,7 +954,7 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCandidateIdImageUrl(base64))}
               onClear={() => setCandidateIdImageUrl(null)}
               helperText="Candidate ID Image — Max 50MB"
-              required={true}
+              required={!isFenero}
             />
             <FileUpload
               label="Relative ID"
@@ -940,9 +964,9 @@ export default function QuickRegistrationPage() {
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setRelativeIdImageUrl(base64))}
               onClear={() => setRelativeIdImageUrl(null)}
               helperText="Relative ID Image — Max 50MB"
-              required={true}
+              required={!isFenero}
             />
-            {!isCalling && (
+            {!isCalling && !isFenero && (
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video {isKadra && <span className="text-red-500">*</span>}</label>
                 {videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) ? (
