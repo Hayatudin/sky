@@ -6,6 +6,7 @@ import {
   calculateAge,
   formatPassportDate,
   getFullName,
+  getCleanNationality,
   getExperienceSummary,
   hasLang,
   hasSkill,
@@ -146,7 +147,7 @@ export default function RawasiAzmLayout({ candidate, facePhoto, fullBodyPhoto, b
               <tbody>
                 <tr>
                   <td className={`${cellBorder} px-1.5 py-1 ${labelClass} w-[30%]`}>Nationality</td>
-                  <td className={`${cellBorder} px-1.5 py-1 text-center font-semibold w-[40%] uppercase`}>{candidate.passportData?.nationality}</td>
+                  <td className={`${cellBorder} px-1.5 py-1 text-center font-semibold w-[40%] uppercase`}>{getCleanNationality(candidate)}</td>
                   <td className={`${cellBorder} px-1.5 py-1 text-right font-bold w-[30%]`} dir="rtl">الجنسية</td>
                 </tr>
                 <tr>

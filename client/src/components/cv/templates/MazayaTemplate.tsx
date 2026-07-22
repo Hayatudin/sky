@@ -6,6 +6,7 @@ import {
   calculateAge,
   formatPassportDate,
   getFullName,
+  getCleanNationality,
   getExperienceSummary,
   getPositionWithSalary,
   hasLang,
@@ -132,7 +133,7 @@ export default function MazayaTemplate({ candidate, facePhoto, fullBodyPhoto }: 
                 </thead>
                 <tbody>
                   {[
-                    ['Nationality', candidate.passportData?.nationality, 'الجنسيه'],
+                    ['Nationality', getCleanNationality(candidate), 'الجنسيه'],
                     ['Passport No.', candidate.passportData?.passportNumber, 'رقم جواز السفر', true],
                     ['Religion', candidate.personalInfo?.religion, 'الديانة'],
                     ['Date of Birth', formatPassportDate(candidate.passportData?.dateOfBirth), 'تاريخ الولادة'],
