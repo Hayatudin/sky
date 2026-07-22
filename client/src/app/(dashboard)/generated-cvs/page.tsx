@@ -1404,7 +1404,7 @@ function GeneratedCVsContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {activeCVs.map(cv => {
               const isSelected = selectedCVIds.has(cv.id);
-              const CardTemplate = TEMPLATES.find(t => t.id === cv.templateId)?.component || getTemplateComponent();
+              const CardTemplate = (agencyTemplates.find(t => t.id === cv.templateId) || CV_TEMPLATES.find(t => t.id === cv.templateId))?.component || getTemplateComponent();
               const isLocked = cv.candidate?.isLocked || cv.candidate?.broker?.isLocked;
               const safeCandidate = cv.candidate ? makeSafeCandidate(cv.candidate) : null;
               return (
@@ -1536,7 +1536,7 @@ function GeneratedCVsContent() {
 
         {/* Hidden full-resolution CV render for download capture */}
         {downloadingCv && (() => {
-          const DlTemplate = TEMPLATES.find(t => t.id === downloadingCv.templateId)?.component || getTemplateComponent();
+          const DlTemplate = (agencyTemplates.find(t => t.id === downloadingCv.templateId) || CV_TEMPLATES.find(t => t.id === downloadingCv.templateId))?.component || getTemplateComponent();
           return (
             <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: 800, zIndex: -1 }}>
               <div ref={cvRenderRef}>
@@ -1587,7 +1587,7 @@ function GeneratedCVsContent() {
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {TEMPLATES.filter(t => t.id !== selectedFolder).map(template => {
+                {agencyTemplates.filter(t => t.id !== selectedFolder).map(template => {
                   const TC = template.component;
                   const sampleCv = activeCVs.find(c => selectedCVIds.has(c.id));
                   return (
@@ -1636,7 +1636,7 @@ function GeneratedCVsContent() {
       )}
       {/* Preview Modal */}
       {previewCv && (() => {
-        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
+        const PrevTemplate = (agencyTemplates.find(t => t.id === previewCv.templateId) || CV_TEMPLATES.find(t => t.id === previewCv.templateId))?.component || getTemplateComponent();
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setPreviewCv(null)}>
             <div className="relative max-h-[95vh] overflow-auto bg-white rounded-xl shadow-2xl flex items-start justify-center" onClick={e => e.stopPropagation()}>

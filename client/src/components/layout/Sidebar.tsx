@@ -80,7 +80,7 @@ function AgencyMark({ compact, agency }: { compact?: boolean; agency?: string })
 
 export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
 
   const role = ((session?.user as any)?.role ?? 'user') as string;
   const userAgency = ((session?.user as any)?.majorAgency || (session?.user as any)?.major_agency || (session?.user as any)?.agency || 'Sky') as string;
