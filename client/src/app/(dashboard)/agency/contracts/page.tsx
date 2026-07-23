@@ -129,7 +129,8 @@ export default function AgencyContractsPage() {
       let estimatedHeight = 160;
       if (dropdownType === 'status') estimatedHeight = 240;
       if (dropdownType === 'embassy') estimatedHeight = 160;
-      if (dropdownType === 'lmis') estimatedHeight = 160;
+      if (dropdownType === 'lmis') estimatedHeight = 200;
+      if (dropdownType === 'coc') estimatedHeight = 200;
       
       const spaceBelow = window.innerHeight - rect.bottom;
       const alignUp = spaceBelow < estimatedHeight && rect.top > estimatedHeight;
@@ -722,7 +723,7 @@ export default function AgencyContractsPage() {
     } else if (type === 'coc') {
       menuContent = (
         <div className="py-1">
-          {['NONE', 'DONE', 'NOT ONLINE', 'Not approved'].map((status) => (
+          {['NONE', 'DONE', 'NOT ONLINE', 'Not approved', 'Other office'].map((status) => (
             <button
               key={status}
               onClick={() => handleUpdateCandidate(cand.id, { cocStatus: status === 'NONE' ? 'No' : (status === 'DONE' ? 'Yes' : status) })}
@@ -739,7 +740,7 @@ export default function AgencyContractsPage() {
     } else if (type === 'lmis') {
       menuContent = (
         <div className="py-1">
-          {['Pending', 'checked', 'verified', 'issued'].map((status) => (
+          {['Pending', 'Draft', 'checked', 'verified', 'issued'].map((status) => (
             <button
               key={status}
               onClick={() => handleUpdateCandidate(cand.id, { lmisStatus: status })}
@@ -1084,6 +1085,7 @@ export default function AgencyContractsPage() {
                                 c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
                                 c.cocStatus === 'Not approved' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
+                                c.cocStatus === 'Other office' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                                 'bg-slate-50 text-slate-700 border-slate-200'
                               }`}
                             >
@@ -1103,6 +1105,7 @@ export default function AgencyContractsPage() {
                               c.cocStatus === 'Yes' || c.cocStatus === 'DONE' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                               c.cocStatus === 'NOT ONLINE' ? 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]' :
                               c.cocStatus === 'Not approved' ? 'bg-[#fef2f2] text-[#dc2626] border-[#fca5a5]' :
+                              c.cocStatus === 'Other office' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                               'bg-slate-50 text-slate-700 border-slate-200'
                             }`}
                           >
@@ -1122,6 +1125,7 @@ export default function AgencyContractsPage() {
                                 c.lmisStatus === 'issued' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                                 c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                 c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                c.lmisStatus === 'Draft' ? 'bg-slate-100 text-slate-700 border-slate-300' :
                                 'bg-amber-50 text-amber-700 border-amber-200'
                               }`}
                             >
@@ -1141,6 +1145,7 @@ export default function AgencyContractsPage() {
                               c.lmisStatus === 'issued' ? 'bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]' :
                               c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                               c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                              c.lmisStatus === 'Draft' ? 'bg-slate-100 text-slate-700 border-slate-300' :
                               'bg-amber-50 text-amber-700 border-amber-200'
                             }`}
                           >
