@@ -4,6 +4,7 @@ import { candidate, generatedCV, notification, user, broker, invoice } from '../
 import { eq, and, or, sql, inArray } from 'drizzle-orm';
 import { getSession } from '../lib/auth-helper';
 import { encryptPath } from '../lib/crypto';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
 const router = Router();
 
@@ -149,8 +150,10 @@ router.get('/candidates', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'User is not assigned to any agency' });
     }
 
+    const userAgency = getMajorAgencyFromServerUser(session.user);
     const { agency } = req.query;
     const conditions: any[] = [
+      eq(candidate.majorAgency, userAgency),
       or(
         eq(candidate.agencySelected, true),
         eq(candidate.visaSelected, true),
@@ -270,8 +273,10 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'User is not assigned to any agency' });
     }
 
+    const userAgency = getMajorAgencyFromServerUser(session.user);
     const { agency } = req.query;
     const conditions: any[] = [
+      eq(candidate.majorAgency, userAgency),
       eq(candidate.agencySelected, false),
       sql`exists (select 1 from ${generatedCV} where \`candidateId\` = ${candidate.id})`
     ];
@@ -396,8 +401,9 @@ router.post('/candidates/:id/select', async (req: Request, res: Response) => {
       }
     }
 
+    const userAgency = getMajorAgencyFromServerUser(session.user);
     const cand = await db.query.candidate.findFirst({
-      where: eq(candidate.id, id)
+      where: and(eq(candidate.id, id), eq(candidate.majorAgency, userAgency))
     });
 
     if (!cand) {

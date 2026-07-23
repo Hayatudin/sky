@@ -108,7 +108,7 @@ async function getBrokerLockMap(): Promise<Record<string, boolean>> {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     // MySQL 5.7 compatible — no lateral joins
     const generatedCVsList = await db.select().from(generatedCV)

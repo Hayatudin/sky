@@ -3,12 +3,17 @@ import { db } from '../db';
 import { generatedCV } from '../db/schema';
 import { inArray, sql } from 'drizzle-orm';
 import ExcelJS from 'exceljs';
+import { getSession } from '../lib/auth-helper';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
 const router = express.Router();
 
 // GET deployments list (visaSelected = true, has deployedDate on candidate)
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
+
     const rawCandidates = (await db.execute(sql`
       SELECT c.id, c.givenNames, c.surname, c.passportNumber, c.deployedDate,
              b.name AS brokerName,
@@ -17,6 +22,7 @@ router.get('/', async (req: Request, res: Response) => {
       LEFT JOIN \`Broker\` b ON c.brokerId = b.id
       WHERE c.visaSelected = 1
         AND c.deployedDate IS NOT NULL
+        AND c.major_agency = ${userAgency}
       ORDER BY c.deployedDate DESC
     `))[0] as unknown as any[];
 
@@ -62,6 +68,9 @@ router.get('/', async (req: Request, res: Response) => {
 // POST export Excel
 router.post('/export', async (req: Request, res: Response) => {
   try {
+    const session = await getSession(req);
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
+
     const rawCandidates = (await db.execute(sql`
       SELECT c.id, c.givenNames, c.surname, c.passportNumber, c.deployedDate,
              b.name AS brokerName
@@ -69,6 +78,7 @@ router.post('/export', async (req: Request, res: Response) => {
       LEFT JOIN \`Broker\` b ON c.brokerId = b.id
       WHERE c.visaSelected = 1
         AND c.deployedDate IS NOT NULL
+        AND c.major_agency = ${userAgency}
       ORDER BY c.deployedDate DESC
     `))[0] as unknown as any[];
 

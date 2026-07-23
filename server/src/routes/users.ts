@@ -5,6 +5,7 @@ import { eq, desc, isNotNull, sql, and } from 'drizzle-orm';
 import { auth } from '../lib/auth';
 import { authenticateSession, requireSuperAdmin } from '../middlewares/auth';
 import { getSession } from '../lib/auth-helper';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.use(authenticateSession);
 router.get('/analytics', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     const users = await db.select({
       id: user.id,
@@ -108,7 +109,7 @@ router.get('/', requireSuperAdmin, async (req: Request, res: Response) => {
 router.post('/', requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { name, email, password, role, agency, majorAgency } = req.body;
 
     if (!name || !email || !password) {

@@ -3,6 +3,7 @@ import { db } from '../db';
 import { broker, leader, candidate, quickRegistration, generatedCV } from '../db/schema';
 import { eq, inArray, and, gte, lte, or, like, sql } from 'drizzle-orm';
 import { getSession } from '../lib/auth-helper';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
 const router = Router();
 
@@ -46,7 +47,7 @@ async function setBrokerIsLocked(id: string, locked: boolean): Promise<void> {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     // MySQL 5.7 compatible — no lateral joins, manual lookups
     // Query brokers belonging to this agency or VIP brokers
@@ -72,12 +73,8 @@ router.get('/', async (req: Request, res: Response) => {
       majorAgency: candidate.majorAgency,
     }).from(candidate);
 
-    // Filter candidates: keep if they belong to this agency OR if they are assigned to a VIP broker
-    const filteredCandidates = allCandidates.filter(c => {
-      if (c.majorAgency === userAgency) return true;
-      if (c.brokerId && vipBrokerIds.has(c.brokerId)) return true;
-      return false;
-    });
+    // Filter candidates: keep if they belong to this agency
+    const filteredCandidates = allCandidates.filter(c => c.majorAgency === userAgency);
 
     // Batch fetch all generatedCVs
     const allGeneratedCVs = await db.select({

@@ -4,6 +4,7 @@ import { quickRegistration, candidate, user, broker, passport } from '../db/sche
 import { eq, or, sql, inArray, and } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 import { createId } from '@paralleldrive/cuid2';
 import { getNextShelfNo } from './passports';
 
@@ -169,7 +170,7 @@ router.get('/generate-client', (req: Request, res: Response) => {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     const regs = await db.select().from(quickRegistration)
       .where(eq(quickRegistration.majorAgency, userAgency))
@@ -200,7 +201,7 @@ router.post('/', async (req: Request, res: Response) => {
       const session = await getSession(req);
       if (session?.user?.id) {
         registeredById = session.user.id;
-        userAgency = (session?.user as any)?.majorAgency || 'Sky';
+        userAgency = getMajorAgencyFromServerUser(session?.user);
         console.log('[DEBUG] Resolved registeredById from server session in quick-reg:', registeredById, 'Agency:', userAgency);
       }
     } catch (sessionError) {
@@ -313,7 +314,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
     const body = req.body;
 
@@ -403,7 +404,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.get('/by-passport/:passportNumber', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { passportNumber } = req.params;
     const passportUpper = passportNumber.trim().toUpperCase();
 
@@ -428,7 +429,7 @@ router.get('/by-passport/:passportNumber', async (req: Request, res: Response) =
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
     const reg = await fetchQR(id);
     if (!reg || reg.majorAgency !== userAgency) return res.status(404).json({ error: 'Not found' });
@@ -443,7 +444,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
     
     const existing = await db.query.quickRegistration.findFirst({

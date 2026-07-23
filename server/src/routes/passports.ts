@@ -4,6 +4,7 @@ import { passport } from '../db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 import fs from 'fs';
 import path from 'path';
 
@@ -67,7 +68,7 @@ export const getNextShelfNo = async (): Promise<string> => {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     const passports = await db.select().from(passport)
       .where(eq(passport.majorAgency, userAgency))
@@ -83,7 +84,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { passportNumber, fullName, passportImageUrl } = req.body;
 
     if (!passportNumber || !passportNumber.trim()) {
@@ -135,7 +136,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.patch('/:id/taken', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
     const { takenReason, takenByName, takenByPhone } = req.body;
 
@@ -177,7 +178,7 @@ router.patch('/:id/taken', async (req: Request, res: Response) => {
 router.patch('/:id/return', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
 
     const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
@@ -205,7 +206,7 @@ router.patch('/:id/return', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
 
     const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });

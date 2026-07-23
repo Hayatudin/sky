@@ -5,6 +5,7 @@ import { eq, inArray, and, or, like, sql, not, isNotNull } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
 import { encryptPath, sanitizeIncomingPath } from '../lib/crypto';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 import { createId } from '@paralleldrive/cuid2';
 import fs from 'fs';
 import path from 'path';
@@ -87,7 +88,7 @@ router.get('/', async (req: Request, res: Response) => {
       console.warn('Could not fetch brokers for candidates mapping:', err);
     }
 
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     const dbCandidates = await db.select().from(candidate)
       .where(eq(candidate.majorAgency, userAgency))
@@ -234,7 +235,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/promote-from-quick', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { quickRegistrationId } = req.body;
     if (!quickRegistrationId) {
       return res.status(400).json({ error: 'quickRegistrationId is required' });
@@ -351,7 +352,7 @@ router.post('/', async (req: Request, res: Response) => {
       if (session?.user?.id) {
         registeredById = session.user.id;
         userRole = (session?.user as any)?.role;
-        userAgency = (session?.user as any)?.majorAgency || 'Sky';
+        userAgency = getMajorAgencyFromServerUser(session?.user);
         console.log('[DEBUG] Resolved registeredById from server session:', registeredById, 'User Name:', session.user.name, 'Agency:', userAgency);
       }
     } catch (sessionError) {
@@ -595,7 +596,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/by-passport/:passportNumber', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { passportNumber } = req.params;
     const passportUpper = passportNumber.trim().toUpperCase();
 
@@ -625,7 +626,7 @@ router.get('/by-passport/:passportNumber', async (req: Request, res: Response) =
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const role = (session?.user as any)?.role;
     const isSuperAdmin = role === 'super_admin';
     const { id } = req.params;
@@ -778,7 +779,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       const session = await getSession(req);
       if (session?.user?.id) {
         registeredById = session.user.id;
-        userAgency = (session?.user as any)?.majorAgency || 'Sky';
+        userAgency = getMajorAgencyFromServerUser(session?.user);
         console.log('[DEBUG] Resolved registeredById from server session in PUT:', registeredById, 'Agency:', userAgency);
       }
     } catch (sessionError) {
@@ -961,7 +962,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     console.log(`[PATCH] /api/candidates/${id}`, body);
 
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     if (body.medicalStatus === 'Unfit') {
       body.isRequested = true;
@@ -1111,7 +1112,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     const existingCandidate = await db.query.candidate.findFirst({ where: eq(candidate.id, id) });
     if (!existingCandidate || existingCandidate.majorAgency !== userAgency) {

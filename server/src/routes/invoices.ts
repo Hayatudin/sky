@@ -4,6 +4,7 @@ import { invoice, candidate, generatedCV, templatePrice } from '../db/schema';
 import { eq, desc, inArray, and } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ const router = Router();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
 
     // MySQL 5.7 compatible — join candidate table to filter by user's agency
     const rows = await db.select({
@@ -58,7 +59,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { candidateId, lmisQrCodeUrl, insuranceUrl, ticketUrl, deployedDate } = req.body;
 
     if (!candidateId || !lmisQrCodeUrl || !insuranceUrl || !ticketUrl) {
@@ -131,7 +132,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
     const { isDelivered, isDownloaded } = req.body;
 
@@ -191,7 +192,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
     const { price, lmisQrCodeUrl, insuranceUrl, ticketUrl, deployedDate } = req.body;
 
@@ -276,7 +277,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
-    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const userAgency = getMajorAgencyFromServerUser(session?.user);
     const { id } = req.params;
     
     const existing = await db.query.invoice.findFirst({
