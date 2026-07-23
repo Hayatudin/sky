@@ -305,6 +305,8 @@ function GeneratedCVsContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [religionFilter, setReligionFilter] = useState<string>('');
+  const [maritalFilter, setMaritalFilter] = useState<'all' | 'single' | 'married'>('all');
+  const [childrenFilter, setChildrenFilter] = useState<'all' | 'yes' | 'no'>('all');
   const [flagFilter, setFlagFilter] = useState<'all' | 'flagged' | 'unflagged'>('all');
   const [minAgeFilter, setMinAgeFilter] = useState<string>('');
   const [maxAgeFilter, setMaxAgeFilter] = useState<string>('');
@@ -879,6 +881,21 @@ function GeneratedCVsContent() {
       if (religionFilter === 'muslim' && rel !== 'muslim') return false;
       if (religionFilter === 'non-muslim' && (rel === 'muslim' || rel === '')) return false;
     }
+
+    const marital = (cv.candidate?.personalInfo?.maritalStatus || cv.candidate?.maritalStatus || '').toString().toLowerCase().trim();
+    const numKids = Number(cv.candidate?.personalInfo?.numberOfChildren ?? cv.candidate?.numberOfChildren ?? 0);
+
+    if (maritalFilter === 'single') {
+      if (marital !== 'single') return false;
+    } else if (maritalFilter === 'married') {
+      if (marital !== 'married') return false;
+
+      if (childrenFilter === 'yes') {
+        if (numKids <= 0) return false;
+      } else if (childrenFilter === 'no') {
+        if (numKids > 0) return false;
+      }
+    }
     if (flagFilter === 'flagged' && !cv.candidate?.isFlagged) return false;
     if (flagFilter === 'unflagged' && cv.candidate?.isFlagged) return false;
 
@@ -1156,12 +1173,12 @@ function GeneratedCVsContent() {
         {/* Breadcrumb + Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4">
-            <button onClick={() => { setSelectedFolder(null); setReligionFilter(''); setFlagFilter('all'); setSearchQuery(''); }} className="p-2 rounded-lg hover:bg-surface border border-border transition-colors text-text-secondary hover:text-text-primary">
+            <button onClick={() => { setSelectedFolder(null); setReligionFilter(''); setMaritalFilter('all'); setChildrenFilter('all'); setFlagFilter('all'); setSearchQuery(''); }} className="p-2 rounded-lg hover:bg-surface border border-border transition-colors text-text-secondary hover:text-text-primary">
               <ArrowLeft size={18} />
             </button>
             <div>
               <div className="flex items-center gap-1.5 text-xs text-text-tertiary mb-0.5">
-                <span className="hover:text-primary cursor-pointer" onClick={() => { setSelectedFolder(null); setReligionFilter(''); setFlagFilter('all'); }}>Folders</span>
+                <span className="hover:text-primary cursor-pointer" onClick={() => { setSelectedFolder(null); setReligionFilter(''); setMaritalFilter('all'); setChildrenFilter('all'); setFlagFilter('all'); }}>Folders</span>
                 <ChevronRight size={12} />
                 <span className="text-text-primary font-medium">{activeTemplate.name}</span>
               </div>
@@ -1264,6 +1281,40 @@ function GeneratedCVsContent() {
                 <option value="non-muslim">Non-Muslim</option>
               </select>
             </div>
+
+            {/* Marital Status Filter */}
+            <div className="w-40">
+              <select
+                value={maritalFilter}
+                onChange={e => {
+                  const val = e.target.value as 'all' | 'single' | 'married';
+                  setMaritalFilter(val);
+                  if (val !== 'married') {
+                    setChildrenFilter('all');
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-border bg-surface text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer font-medium"
+              >
+                <option value="all">Marital Status</option>
+                <option value="single">Single</option>
+                <option value="married">Married</option>
+              </select>
+            </div>
+
+            {/* Children Filter - appears when Married is selected */}
+            {maritalFilter === 'married' && (
+              <div className="w-44 animate-fade-in">
+                <select
+                  value={childrenFilter}
+                  onChange={e => setChildrenFilter(e.target.value as 'all' | 'yes' | 'no')}
+                  className="w-full px-3 py-2 rounded-xl border border-primary/40 bg-primary-50/50 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer font-medium"
+                >
+                  <option value="all">Children Filter</option>
+                  <option value="yes">Have children</option>
+                  <option value="no">Don't have children</option>
+                </select>
+              </div>
+            )}
 
             {/* Flag Filter */}
             <div className="w-36">
