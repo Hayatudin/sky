@@ -4,6 +4,7 @@ import { broker, candidate, generatedCV } from '../db/schema';
 import { eq, and, not, desc, inArray, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
+import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
 const router = Router();
 
