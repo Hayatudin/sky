@@ -17,11 +17,27 @@ export const DASHBOARD_ROLES: Role[] = [
   'calling',
 ];
 
+import { getUserMajorAgency } from '@/lib/cv-templates';
+
+// Helper: check if a user can access the Calling option based on agency rules
+export function canAccessCalling(user: any): boolean {
+  if (!user) return false;
+  const major = getUserMajorAgency(user);
+  const isFenero = major.toLowerCase().includes('fenero');
+  if (isFenero) return true; // All Fenero users can access
+
+  // For SKY major_agency: Only kadra@gmail.com, super_admin, and calling role
+  const email = (user.email || '').toLowerCase().trim();
+  const role = user.role;
+  return email === 'kadra@gmail.com' || role === 'super_admin' || role === 'calling';
+}
+
 // Route → which roles can see/access it
 export const ROUTE_ACCESS: Record<string, Role[]> = {
   '/dashboard': ['super_admin', 'processor', 'coordinator', 'accountant', 'genaral', 'calling'],
   '/candidates': ['super_admin', 'processor', 'coordinator', 'genaral', 'calling'],
   '/quick-registration': ['super_admin', 'genaral', 'calling'],
+  '/calling': ['super_admin', 'registrar', 'processor', 'coordinator', 'accountant', 'video_uploader', 'agency', 'genaral', 'calling', 'user'],
   '/quick-registered': ['super_admin', 'registrar', 'processor', 'genaral'],
   '/requested': ['super_admin', 'coordinator', 'accountant', 'genaral'],
   '/fit-candidates': [], // temporarily hidden — re-enable by restoring: ['super_admin', 'coordinator', 'genaral']

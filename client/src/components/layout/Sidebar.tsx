@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useSession, signOut } from '@/lib/auth-client';
-import { ROUTE_ACCESS, ROLE_CONFIG, type Role } from '@/lib/role-config';
+import { ROUTE_ACCESS, ROLE_CONFIG, canAccessCalling, type Role } from '@/lib/role-config';
 import {
   LayoutDashboard,
   UserPlus,
@@ -21,11 +21,13 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Phone,
 } from 'lucide-react';
 
 const allNavItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Entry', href: '/quick-registration', icon: ClipboardList },
+  { label: 'Calling', href: '/calling', icon: Phone },
   { label: 'Records', href: '/quick-registered', icon: Users },
   { label: 'Available Passport', href: '/available-passport', icon: FolderOpen },
   { label: 'Registration', href: '/registration', icon: UserPlus },
@@ -89,6 +91,9 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavig
 
   const navItems = allNavItems.filter(item => {
     if (item.href === '/registration') return false; // Hide Registration tab
+    if (item.href === '/calling') {
+      return canAccessCalling(session?.user);
+    }
     const allowedRoles = ROUTE_ACCESS[item.href];
     if (!allowedRoles) return false;
     return allowedRoles.includes(role as Role);
