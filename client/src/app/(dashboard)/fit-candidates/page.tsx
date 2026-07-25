@@ -17,18 +17,19 @@ import { Candidate } from '@/types';
 import { useCandidates, clearCandidatesCache } from '@/hooks/useCandidates';
 import { cn, getFileUrl } from '@/lib/utils';
 
-import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
+import { getTemplatesForAgency, getTemplateOptionsForAgency, getUserMajorAgency, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
-
-const TEMPLATES = CV_TEMPLATES;
-
-const AGENCIES = [
-  { id: 'all', name: 'All' },
-  ...CV_TEMPLATE_OPTIONS,
-];
+import { useSession } from '@/lib/auth-client';
 
 export default function FitCandidatesPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const userAgency = getUserMajorAgency(session?.user);
+  const TEMPLATES = getTemplatesForAgency(userAgency);
+  const AGENCIES = [
+    { id: 'all', name: 'All' },
+    ...getTemplateOptionsForAgency(userAgency),
+  ];
   const { candidates: allCandidates, isLoading, mutate } = useCandidates();
   const [searchQuery, setSearchQuery] = useState('');
   const [languageFilter, setLanguageFilter] = useState('');
@@ -1246,16 +1247,14 @@ export default function FitCandidatesPage() {
 
       {/* Change Template Modal */}
       {changeTarget && (() => {
-        const isBulk = changeTarget === 'bulk';
-        const currentTmpl = isBulk ? '' : (getNormalizedTemplateId(changeTarget) || '');
-
         return (
           <ChangeTemplateModal
-            candidate={isBulk ? { passportData: { givenNames: 'Selected', surname: 'Candidates' } } : changeTarget}
-            currentTemplateId={currentTmpl}
+            candidate={changeTarget === 'bulk' ? { passportData: { givenNames: 'Selected', surname: 'Candidates' } } : changeTarget}
+            currentTemplateId={changeTarget === 'bulk' ? '' : (getNormalizedTemplateId(changeTarget) || '')}
             onChange={handleConfirmChange}
             onClose={() => setChangeTarget(null)}
             isLoading={actionLoading}
+            templates={getTemplatesForAgency(getUserMajorAgency(session?.user))}
           />
         );
       })()}
@@ -1349,13 +1348,16 @@ function ChangeTemplateModal({
   onChange,
   onClose,
   isLoading,
+  templates,
 }: {
   candidate: any;
   currentTemplateId: string;
   onChange: (newTemplateId: string) => void;
   onClose: () => void;
   isLoading: boolean;
+  templates: any[];
 }) {
+  const TEMPLATES = templates;
   const [selected, setSelected] = useState<string | null>(null);
 
   // Add Enter key trigger

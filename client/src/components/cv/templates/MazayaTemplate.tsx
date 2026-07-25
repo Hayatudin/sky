@@ -50,6 +50,11 @@ export default function MazayaTemplate({ candidate, facePhoto, fullBodyPhoto }: 
           </h1>
         </div>
 
+        {/* Broker Name */}
+        <div className="text-left text-[14px] font-bold italic px-1 mb-1.5 uppercase">
+          {candidate.broker?.name || ''}
+        </div>
+
         {/* Face + Application */}
           <div className="flex gap-2 mb-2">
             <div className="w-[160px] shrink-0">

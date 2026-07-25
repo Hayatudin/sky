@@ -14,9 +14,7 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { authClient } from '@/lib/auth-client';
 
 import { useCandidates } from '@/hooks/useCandidates';
-import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
-
-const TEMPLATES = CV_TEMPLATE_OPTIONS;
+import { getTemplateOptionsForAgency, getUserMajorAgency } from '@/lib/cv-templates';
 
 function isLabourIdFile(val: string | null | undefined): boolean {
   if (!val) return false;
@@ -39,6 +37,7 @@ export default function CandidatesPage() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const isSuperAdmin = (session?.user as any)?.role === 'super_admin';
+  const TEMPLATES = getTemplateOptionsForAgency(getUserMajorAgency(session?.user));
   const { candidates, isLoading, error, mutate: setCandidates } = useCandidates();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');

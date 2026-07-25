@@ -1,20 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { FileText, Loader2, CheckCircle2, Eye, Download, AlertCircle, FileCheck, Circle, Edit3, Filter, Trash2, RotateCcw } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { generateInvoicePdf } from '@/lib/invoicePdfGenerator';
 import { useInvoices } from '@/hooks/useInvoices';
-import { CV_TEMPLATES } from '@/lib/cv-templates';
-
-const TEMPLATES: Record<string, { name: string; fullName: string }> = {
-  all: { name: 'ALL', fullName: '' },
-  ...Object.fromEntries(CV_TEMPLATES.map((t) => [t.id, { name: t.name, fullName: t.fullName }])),
-};
+import { getTemplatesForAgency, getUserMajorAgency } from '@/lib/cv-templates';
+import { useSession } from '@/lib/auth-client';
 
 export default function InvoicePage() {
+  const { data: session } = useSession();
+  const userAgency = getUserMajorAgency(session?.user);
+
+  const TEMPLATES: Record<string, { name: string; fullName: string }> = useMemo(() => {
+    const filtered = getTemplatesForAgency(userAgency);
+    return {
+      all: { name: 'ALL', fullName: '' },
+      ...Object.fromEntries(filtered.map((t) => [t.id, { name: t.name, fullName: t.fullName }])),
+    };
+  }, [userAgency]);
+
   const { invoices, isLoading: isQueryLoading, mutate: mutateInvoices } = useInvoices();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const isLoading = isQueryLoading || isBulkUpdating;

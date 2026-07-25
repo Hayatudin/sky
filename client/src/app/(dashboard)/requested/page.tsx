@@ -14,9 +14,8 @@ import { cn } from '@/lib/utils';
 import { useCandidates } from '@/hooks/useCandidates';
 import { useBrokers } from '@/hooks/useBrokers';
 import { useQueryClient } from '@tanstack/react-query';
-import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
-
-const TEMPLATES = CV_TEMPLATE_OPTIONS;
+import { getTemplateOptionsForAgency, getUserMajorAgency } from '@/lib/cv-templates';
+import { useSession } from '@/lib/auth-client';
 
 function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () => void, onSuccess: () => void, brokers: any[] }) {
   // Basic & Visa Info
@@ -315,6 +314,8 @@ function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () 
 
 export default function RequestedPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const TEMPLATES = getTemplateOptionsForAgency(getUserMajorAgency(session?.user));
   const { candidates: allCandidates, isLoading, mutate } = useCandidates();
   const { brokers } = useBrokers();
   const queryClient = useQueryClient();

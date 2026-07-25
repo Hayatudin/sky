@@ -9,7 +9,8 @@ import {
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { ROLE_CONFIG, type Role } from '@/lib/role-config';
-import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
+import { getTemplateOptionsForAgency, getUserMajorAgency } from '@/lib/cv-templates';
+import { useSession } from '@/lib/auth-client';
   
 interface UserRow {
   id: string;
@@ -22,8 +23,6 @@ interface UserRow {
   createdAt: string;
 }
    
-const AGENCIES = CV_TEMPLATE_OPTIONS;
-
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'user', label: 'User' },
   { value: 'video_uploader', label: 'Video Uploader' },
@@ -44,7 +43,7 @@ const roleBadge = (role: Role) => {
 };
 
 // ── Create User Modal ─────────────────────────────────────────────────────────
-function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateUserModal({ onClose, onCreated, agencies }: { onClose: () => void; onCreated: () => void; agencies: { id: string; name: string }[] }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -136,7 +135,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Agency Template</label>
               <select value={agency} onChange={e => setAgency(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white cursor-pointer">
-                {AGENCIES.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {agencies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
           )}
@@ -161,13 +160,15 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
 function AgencySelectModal({
   currentAgency,
   onClose,
-  onSave
+  onSave,
+  agencies
 }: {
   currentAgency?: string | null;
   onClose: () => void;
   onSave: (agency: string) => void;
+  agencies: { id: string; name: string }[];
 }) {
-  const [selected, setSelected] = useState(currentAgency || 'ussus');
+  const [selected, setSelected] = useState(currentAgency || agencies[0]?.id || 'ussus');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -186,7 +187,7 @@ function AgencySelectModal({
               onChange={e => setSelected(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white cursor-pointer"
             >
-              {AGENCIES.map(a => (
+              {agencies.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
@@ -213,6 +214,10 @@ function AgencySelectModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function UsersPage() {
+  const { data: session } = useSession();
+  const userAgency = getUserMajorAgency(session?.user);
+  const AGENCIES = getTemplateOptionsForAgency(userAgency);
+
   const [users, setUsers] = useState<UserRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -528,6 +533,7 @@ export default function UsersPage() {
         <CreateUserModal
           onClose={() => setShowCreate(false)}
           onCreated={fetchUsers}
+          agencies={AGENCIES}
         />
       )}
 
@@ -537,6 +543,7 @@ export default function UsersPage() {
           currentAgency={agencyModalTarget.currentAgency}
           onClose={() => setAgencyModalTarget(null)}
           onSave={(agency) => updateRole(agencyModalTarget.userId, agencyModalTarget.role, agency)}
+          agencies={AGENCIES}
         />
       )}
 

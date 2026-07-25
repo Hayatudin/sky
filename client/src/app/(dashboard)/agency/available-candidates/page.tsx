@@ -22,15 +22,8 @@ import { getFileUrl } from '@/lib/utils';
 import { Candidate } from '@/types';
 import { useSession } from '@/lib/auth-client';
 
-import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, CV_TEMPLATE_NAMES, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent } from '@/lib/cv-templates';
+import { getTemplatesForAgency, getTemplateOptionsForAgency, getUserMajorAgency, CV_TEMPLATE_NAMES, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent } from '@/lib/cv-templates';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
-
-const TEMPLATES = CV_TEMPLATES;
-
-const AGENCIES = [
-  { id: 'all', name: 'All Agencies' },
-  ...CV_TEMPLATE_OPTIONS,
-];
 
 const AGENCY_MAP: Record<string, string> = CV_TEMPLATE_NAMES;
 
@@ -145,6 +138,14 @@ const getExperienceDisplay = (workExperience: any): string => {
 };
 
 export default function AvailableCandidatesPage() {
+  const { data: session } = useSession();
+  const userAgency = getUserMajorAgency(session?.user);
+  const TEMPLATES = getTemplatesForAgency(userAgency);
+  const AGENCIES = [
+    { id: 'all', name: 'All Agencies' },
+    ...getTemplateOptionsForAgency(userAgency),
+  ];
+
   const [candidates, setCandidates] = useState<AvailableCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +158,6 @@ export default function AvailableCandidatesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAgency, setSelectedAgency] = useState<string>('all');
 
-  const { data: session } = useSession();
   const userRole = ((session?.user as any)?.role ?? 'user') as string;
   const isSuperAdmin = userRole === 'super_admin';
 

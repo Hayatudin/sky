@@ -14,7 +14,7 @@ import Input from '@/components/ui/Input';
 import { Broker, Leader } from '@/types';
 import { useSession } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
-import { CV_TEMPLATE_OPTIONS } from '@/lib/cv-templates';
+import { getTemplateOptionsForAgency, getUserMajorAgency, CV_TEMPLATES } from '@/lib/cv-templates';
 
 export default function LeaderBrokersPage() {
   const params = useParams();
@@ -167,7 +167,7 @@ export default function LeaderBrokersPage() {
       safeCVs.forEach((cv: any) => {
         if (cv.templateId) {
           const cleanId = cv.templateId.replace('tmpl-', '').toLowerCase();
-          const templateObj = TEMPLATES.find(t => t.id === cleanId);
+          const templateObj = CV_TEMPLATES.find(t => t.id === cleanId);
           if (templateObj) {
             templatesSet.add(templateObj.name);
           } else {
@@ -951,25 +951,28 @@ export default function LeaderBrokersPage() {
           onChange={handleConfirmChangeTemplate}
           onClose={() => setSelectedBrokerForTemplate(null)}
           isLoading={isChangingTemplate}
+          templates={getTemplateOptionsForAgency(getUserMajorAgency(session?.user))}
         />
       )}
     </div>
   );
 }
 
-const TEMPLATES = CV_TEMPLATE_OPTIONS;
 
 function ChangeTemplateModal({
   brokerName,
   onChange,
   onClose,
   isLoading,
+  templates,
 }: {
   brokerName: string;
   onChange: (newTemplateId: string) => void;
   onClose: () => void;
   isLoading: boolean;
+  templates: { id: string; name: string }[];
 }) {
+  const TEMPLATES = templates;
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {

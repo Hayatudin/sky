@@ -17,15 +17,8 @@ import { api } from '@/lib/api';
 import { getFileUrl, cn } from '@/lib/utils';
 import { useSession } from '@/lib/auth-client';
 
-import { CV_TEMPLATES, CV_TEMPLATE_OPTIONS, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
+import { getTemplatesForAgency, getTemplateOptionsForAgency, getUserMajorAgency, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
-
-const TEMPLATES = CV_TEMPLATES;
-
-const AGENCIES = [
-  { id: 'all', name: 'All' },
-  ...CV_TEMPLATE_OPTIONS,
-];
 
 interface BrokerCandidate {
   id: string;
@@ -63,6 +56,12 @@ export default function BrokerCandidatesPage() {
   const brokerId = params.id as string;
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
+  const userAgency = getUserMajorAgency(session?.user);
+  const TEMPLATES = getTemplatesForAgency(userAgency);
+  const AGENCIES = [
+    { id: 'all', name: 'All' },
+    ...getTemplateOptionsForAgency(userAgency),
+  ];
 
   const [broker, setBroker] = useState<Broker | null>(null);
   const [candidates, setCandidates] = useState<BrokerCandidate[]>([]);
@@ -1707,13 +1706,14 @@ export default function BrokerCandidatesPage() {
             onChange={handleConfirmChangeTemplate}
             onClose={() => setTemplateChangeTarget(null)}
             isLoading={isChangingTemplate}
+            templates={getTemplatesForAgency(getUserMajorAgency(session?.user))}
           />
         );
       })()}
 
       {/* Preview CV Modal */}
       {previewCv && (() => {
-        const PrevTemplate = TEMPLATES.find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
+        const PrevTemplate = getTemplatesForAgency(getUserMajorAgency(session?.user)).find(t => t.id === previewCv.templateId)?.component || getTemplateComponent();
         return (
           <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fade-in" onClick={() => setPreviewCv(null)}>
             <div className="relative my-8 bg-white rounded-xl shadow-2xl flex flex-col items-center max-w-full scale-in" onClick={e => e.stopPropagation()}>
@@ -2091,13 +2091,16 @@ function ChangeTemplateModal({
   onChange,
   onClose,
   isLoading,
+  templates,
 }: {
   candidate: any;
   currentTemplateId: string;
   onChange: (newTemplateId: string) => void;
   onClose: () => void;
   isLoading: boolean;
+  templates: any[];
 }) {
+  const TEMPLATES = templates;
   const [selected, setSelected] = useState<string | null>(null);
 
   // Add Enter key trigger

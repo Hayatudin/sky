@@ -17,7 +17,7 @@ import Input from '@/components/ui/Input';
 import FileUpload from '@/components/ui/FileUpload';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { languageOptions } from '@/data/mockData';
-import { CV_TEMPLATE_OPTIONS, getUserMajorAgency } from '@/lib/cv-templates';
+import { getTemplateOptionsForAgency, getUserMajorAgency } from '@/lib/cv-templates';
 import { compressImage } from '@/lib/utils';
 
 const emptyPassportData: PassportData = {
@@ -26,7 +26,7 @@ const emptyPassportData: PassportData = {
   dateOfIssue: '', dateOfExpiry: '', placeOfBirth: '',
 };
 
-const OFFICES = CV_TEMPLATE_OPTIONS;
+// OFFICES is now computed inside the component based on user's majorAgency
 
 const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
   return new Promise((resolve) => {
@@ -71,6 +71,7 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
   const { data: session } = useSession();
   const userMajorAgency = getUserMajorAgency(session?.user);
   const isFenero = userMajorAgency.toLowerCase().includes('fenero');
+  const OFFICES = getTemplateOptionsForAgency(userMajorAgency);
   const isCalling = forceCalling || (session?.user as any)?.role === 'calling';
   const isKadra = session?.user?.email === 'kadra@gmail.com';
 
@@ -360,8 +361,8 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
 
     if (isFenero) {
       const cleanLabour = labourId.trim();
-      if (!/^\d{10}$/.test(cleanLabour)) {
-        setError('Labour ID must be exactly 10 digits.');
+      if (!/^[a-zA-Z0-9]{10}$/.test(cleanLabour)) {
+        setError('Labour ID must be exactly 10 characters (letters and numbers).');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -922,15 +923,15 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
             />
             <div>
               <Input
-                label="Labour ID Number"
-                placeholder={isFenero ? 'Enter exactly 10 digits' : 'Enter Labour ID Number'}
+                label="Labour ID"
+                placeholder={'Enter Labour ID'}
                 value={labourId || ''}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (isFenero) {
-                    // Only allow digits, max 10
-                    const digitsOnly = val.replace(/\D/g, '').slice(0, 10);
-                    setLabourId(digitsOnly);
+                    // Allow alphanumeric, max 10
+                    const alphaNumOnly = val.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+                    setLabourId(alphaNumOnly);
                   } else {
                     setLabourId(val);
                   }
@@ -939,11 +940,11 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
               />
               {isFenero && labourId && labourId.trim().length > 0 && labourId.trim().length !== 10 && (
                 <p className="text-xs text-amber-600 mt-1 font-medium">
-                  Labour ID must be exactly 10 digits ({labourId.trim().length}/10)
+                  Labour ID must be exactly 10 characters ({labourId.trim().length}/10)
                 </p>
               )}
               {isFenero && labourId && labourId.trim().length === 10 && (
-                <p className="text-xs text-green-600 mt-1 font-medium">✓ Valid (10/10 digits)</p>
+                <p className="text-xs text-green-600 mt-1 font-medium">✓ Valid (10/10 characters)</p>
               )}
             </div>
             <FileUpload

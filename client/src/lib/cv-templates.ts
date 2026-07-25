@@ -100,6 +100,11 @@ export const CV_TEMPLATES: CVTemplateDefinition[] = [
 
 export const CV_TEMPLATE_OPTIONS = CV_TEMPLATES.map(({ id, name }) => ({ id, name }));
 
+/** Return template options filtered by majorAgency (Sky or Fenero) */
+export function getTemplateOptionsForAgency(agency?: string | null | any): { id: string; name: string }[] {
+  return getTemplatesForAgency(agency).map(({ id, name }) => ({ id, name }));
+}
+
 export const CV_TEMPLATE_NAMES: Record<CVTemplateId, string> = Object.fromEntries(
   CV_TEMPLATES.map((t) => [t.id, t.name])
 ) as Record<CVTemplateId, string>;
