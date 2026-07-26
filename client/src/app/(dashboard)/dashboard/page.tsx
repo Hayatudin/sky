@@ -164,11 +164,6 @@ export default function DashboardPage() {
           <p className="text-text-secondary text-sm sm:text-base mt-1">Overview of candidate registrations and quick actions</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          {canSee('/registration') && (
-            <Link href="/registration" className="hidden sm:block">
-              <Button variant="primary" icon={<UserPlus size={16} />}>ADD CANDIDATE</Button>
-            </Link>
-          )}
           {canSee('/quick-registration') && (
             <Link href="/quick-registration" className="sm:hidden w-full">
               <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all active:scale-[0.98]">
@@ -375,7 +370,7 @@ export default function DashboardPage() {
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan={7} className="px-6 py-10 text-center text-text-tertiary">No candidates registered yet. Click &quot;Add Candidate&quot; to get started.</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-10 text-center text-text-tertiary">No candidates registered yet. Click &quot;Entry&quot; to get started.</td></tr>
                 )}
               </tbody>
             </table>

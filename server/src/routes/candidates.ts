@@ -286,7 +286,14 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
     if (qr.candidateIdImageUrl) updateData.candidateIdImageUrl = qr.candidateIdImageUrl;
     if (qr.relativeIdImageUrl) updateData.relativeIdImageUrl = qr.relativeIdImageUrl;
     if (qr.languages) updateData.languages = parseJson(qr.languages);
-    if (qr.jobExperience) updateData.workExperience = parseJson(qr.jobExperience);
+    if (qr.jobExperience) {
+      const parsedExp = parseJson(qr.jobExperience);
+      updateData.workExperience = parsedExp;
+      const isExp = Array.isArray(parsedExp) && parsedExp.some((e: any) => e.experienceStatus === 'Have experience' || e.country || (e.yearsOfExperience && e.yearsOfExperience !== '0'));
+      if (isExp) {
+        updateData.salary = '1200SR';
+      }
+    }
     if (qr.religion) updateData.religion = qr.religion;
     if (qr.maritalStatus) updateData.maritalStatus = qr.maritalStatus;
     if (qr.numberOfChildren !== undefined && qr.numberOfChildren !== null) updateData.numberOfChildren = qr.numberOfChildren;

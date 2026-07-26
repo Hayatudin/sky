@@ -21,7 +21,8 @@ async function loadImageAsBase64(url: string): Promise<string> {
 export async function generateInvoicePdf(
   candidates: InvoiceCandidate[],
   templateFullName: string,
-  invoiceNumber: string
+  invoiceNumber: string,
+  userAgency?: string
 ) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = 210;
@@ -29,19 +30,24 @@ export async function generateInvoicePdf(
   const marginR = 10;
   const contentW = pageW - marginL - marginR;
 
-  // Load images
-  const [headerImg, signatureImg, stampImg] = await Promise.all([
-    loadImageAsBase64('/coolstaff-header.jpg'),
+  // Load signature & stamp images (Header image removed as requested)
+  const [signatureImg, stampImg] = await Promise.all([
     loadImageAsBase64('/coolstaff-signature.png'),
     loadImageAsBase64('/coolstaff-stamp.png'),
   ]);
 
-  // ── Header Image ──
-  // The header image is wide – scale to fit content width
-  const headerH = 28;
-  doc.addImage(headerImg, 'JPEG', marginL, 5, contentW, headerH);
+  // ── Header Heading Text ──
+  const isFenero = (userAgency || '').toLowerCase().includes('fenero');
+  const agencyHeadingText = isFenero
+    ? 'Penro Foreign Employment Agency'
+    : 'Sky Foreign Employment Agency';
 
-  let y = 38;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(30, 41, 59);
+  doc.text(agencyHeadingText, marginL, 18);
+
+  let y = 28;
 
   // ── DATE line (right-aligned) ──
   const today = new Date();

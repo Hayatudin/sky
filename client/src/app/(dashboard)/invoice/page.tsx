@@ -210,7 +210,7 @@ export default function InvoicePage() {
 
       const templateFullName = TEMPLATES[selectedTemplateId]?.fullName || '';
 
-      await generateInvoicePdf(candidatesToInvoice, templateFullName, invoiceNumber);
+      await generateInvoicePdf(candidatesToInvoice, templateFullName, invoiceNumber, userAgency);
 
       // If downloading from Available tab, mark them as downloaded on the database
       if (statusTab === 'available') {

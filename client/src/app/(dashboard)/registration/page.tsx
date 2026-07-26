@@ -59,6 +59,42 @@ const emptyPassportData: PassportData = {
   dateOfExpiry: '', placeOfBirth: '',
 };
 
+const parseQuickRegistrationExperience = (jobExpData: any) => {
+  if (!jobExpData) return { workExperience: [], isExperienced: false };
+  let arr: any[] = [];
+  if (Array.isArray(jobExpData)) {
+    arr = jobExpData;
+  } else if (typeof jobExpData === 'string') {
+    try {
+      const parsed = JSON.parse(jobExpData);
+      if (Array.isArray(parsed)) arr = parsed;
+    } catch {}
+  }
+  if (arr.length === 0) return { workExperience: [], isExperienced: false };
+
+  const first = arr[0];
+  const isExperienced = first?.experienceStatus === 'Have experience' ||
+                        first?.experienceStatus === 'Yes' ||
+                        (!!first?.country && first?.country.trim() !== '') ||
+                        (!!first?.yearsOfExperience && first?.yearsOfExperience !== '0');
+
+  if (isExperienced) {
+    const formattedExp = arr.map((item: any) => ({
+      experienceStatus: 'Have experience',
+      country: (item.country || '').toUpperCase(),
+      yearsOfExperience: item.yearsOfExperience || item.period || item.years || ''
+    }));
+    return { workExperience: formattedExp, isExperienced: true };
+  } else {
+    const formattedExp = [{
+      experienceStatus: 'No experience',
+      country: '',
+      yearsOfExperience: '0'
+    }];
+    return { workExperience: formattedExp, isExperienced: false };
+  }
+};
+
 const emptyPersonalInfo: CandidatePersonalInfo = {
   idNumber: '', job: '', maritalStatus: '', numberOfChildren: 0, religion: '', bloodType: '',
   height: '160', weight: '55', phone: '', email: '', address: '', city: '',
@@ -217,16 +253,12 @@ function RegistrationContent() {
         relativeIdImageUrl: quickRegistration.relativeIdImageUrl || '',
         additionalPhones: prev.additionalPhones,
         workExperience: (() => {
-          if (!quickRegistration || !quickRegistration.jobExperience) return prev.workExperience;
-          const val = quickRegistration.jobExperience;
-          if (Array.isArray(val)) return val;
-          if (typeof val === 'string') {
-            try {
-              const parsed = JSON.parse(val);
-              if (Array.isArray(parsed)) return parsed;
-            } catch {}
-          }
-          return prev.workExperience;
+          const { workExperience: quickWorkExp } = parseQuickRegistrationExperience(quickRegistration.jobExperience);
+          return quickWorkExp.length > 0 ? quickWorkExp : prev.workExperience;
+        })(),
+        salary: (() => {
+          const { isExperienced } = parseQuickRegistrationExperience(quickRegistration.jobExperience);
+          return isExperienced ? '1200SR' : '1000SR';
         })(),
       }));
 
@@ -310,6 +342,8 @@ function RegistrationContent() {
           placeOfBirth: '',
         });
         
+        const { workExperience: quickWorkExp, isExperienced } = parseQuickRegistrationExperience(data.jobExperience);
+
         setPersonalInfo(prev => ({
           ...prev,
           religion: data.religion || '',
@@ -318,7 +352,8 @@ function RegistrationContent() {
           educationLevel: '',
           brokerId: data.brokerId || '',
           additionalPhones: [],
-          workExperience: [],
+          workExperience: quickWorkExp,
+          salary: isExperienced ? '1200SR' : '1000SR',
           cocDocumentUrl: data.cocDocumentUrl || '',
           labourId: data.labourId || '',
           candidateIdImageUrl: data.candidateIdImageUrl || '',
@@ -560,6 +595,18 @@ function RegistrationContent() {
           labourId: (quickReg ? quickReg.labourId : '') || prev.labourId || '',
           candidateIdImageUrl: (quickReg ? quickReg.candidateIdImageUrl : '') || prev.candidateIdImageUrl || '',
           relativeIdImageUrl: (quickReg ? quickReg.relativeIdImageUrl : '') || prev.relativeIdImageUrl || '',
+          workExperience: (() => {
+            const { workExperience: quickWorkExp } = parseQuickRegistrationExperience(quickReg?.jobExperience);
+            if (quickWorkExp.length > 0) return quickWorkExp;
+            const cvWorkExp = data.workExperience && Array.isArray(data.workExperience) ? data.workExperience : [];
+            return cvWorkExp.length > 0 ? cvWorkExp : prev.workExperience;
+          })(),
+          salary: (() => {
+            const { isExperienced: isQuickExp } = parseQuickRegistrationExperience(quickReg?.jobExperience);
+            const cvWorkExp = data.workExperience && Array.isArray(data.workExperience) ? data.workExperience : [];
+            const isCvExp = cvWorkExp.some((e: any) => e.experienceStatus === 'Have experience' || e.country || (e.yearsOfExperience && e.yearsOfExperience !== '0'));
+            return (isQuickExp || isCvExp) ? '1200SR' : (prev.salary || '1000SR');
+          })(),
         };
       });
 

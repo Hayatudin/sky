@@ -53,19 +53,32 @@ export default function PersonalInfoForm({ data, onChange, passportData, onPassp
   // Work Experience Handlers
   const addExperience = () => {
     const newExp: WorkExperienceEntry = { experienceStatus: 'Have experience', country: '', yearsOfExperience: '' };
-    onChange('workExperience', [...(data.workExperience || []), newExp]);
+    const updated = [...(data.workExperience || []), newExp];
+    onChange('workExperience', updated);
+    if (data.salary === '1000SR' || !data.salary) {
+      onChange('salary', '1200SR');
+    }
   };
 
   const updateExperience = (index: number, field: keyof WorkExperienceEntry, value: string) => {
     const updated = [...(data.workExperience || [])];
     updated[index] = { ...updated[index], [field]: field === 'country' ? value.toUpperCase() : value };
     onChange('workExperience', updated);
+
+    const hasExp = updated.some(e => e.experienceStatus === 'Have experience' || e.country || (e.yearsOfExperience && e.yearsOfExperience !== '0'));
+    if (hasExp && (data.salary === '1000SR' || !data.salary)) {
+      onChange('salary', '1200SR');
+    }
   };
 
   const removeExperience = (index: number) => {
     const updated = [...(data.workExperience || [])];
     updated.splice(index, 1);
     onChange('workExperience', updated);
+    const hasRemainingExp = updated.some(e => e.experienceStatus === 'Have experience' || e.country || (e.yearsOfExperience && e.yearsOfExperience !== '0'));
+    if (!hasRemainingExp && data.salary === '1200SR') {
+      onChange('salary', '1000SR');
+    }
   };
 
   // Ensure there's at least one empty experience object to render the fields
