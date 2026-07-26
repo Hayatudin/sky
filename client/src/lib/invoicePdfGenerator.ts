@@ -39,8 +39,8 @@ export async function generateInvoicePdf(
   // ── Header Heading Text ──
   const isFenero = (userAgency || '').toLowerCase().includes('fenero');
   const agencyHeadingText = isFenero
-    ? 'Penro Foreign Employment Agency'
-    : 'Sky Foreign Employment Agency';
+    ? 'FENERO Foreign Employment Agency'
+    : 'SKY Foreign Employment Agency';
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
@@ -104,7 +104,7 @@ export async function generateInvoicePdf(
   doc.setFont('helvetica', 'bold');
   for (const col of colDefs) {
     const textX = col.align === 'right' ? col.x + col.w - 2 :
-                  col.align === 'center' ? col.x + col.w / 2 : col.x + 2;
+      col.align === 'center' ? col.x + col.w / 2 : col.x + 2;
     doc.text(col.header, textX, y + 5, { align: col.align });
     // Draw column border
     doc.line(col.x, y, col.x, y + headerRowH);
@@ -154,14 +154,14 @@ export async function generateInvoicePdf(
     for (let j = 0; j < colDefs.length; j++) {
       const col = colDefs[j];
       const textX = col.align === 'right' ? col.x + col.w - 2 :
-                    col.align === 'center' ? col.x + col.w / 2 : col.x + 2;
-      
+        col.align === 'center' ? col.x + col.w / 2 : col.x + 2;
+
       // Truncate long names
       let cellText = rowData[j];
       if (j === 1 && cellText.length > 28) {
         cellText = cellText.substring(0, 26) + '..';
       }
-      
+
       doc.text(cellText, textX, y + 4.5, { align: col.align });
       // Column separator
       doc.line(col.x, y, col.x, y + rowH);
