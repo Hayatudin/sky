@@ -73,6 +73,10 @@ export interface Candidate {
   visaSelected?: boolean;
   salary?: string;
   visaOrContractNumber?: string | null;
+  sponsorName?: string | null;
+  destination?: string | null;
+  lmisStatus?: string | null;
+  embassyStatus?: string | null;
   isFlagged?: boolean;
   flaggedAt?: string | null;
   videoUrl?: string | null;

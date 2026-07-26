@@ -542,8 +542,9 @@ export default function BrokerCandidatesPage() {
       try {
         if (isCancelledRef.current) throw new Error('Cancelled');
         const htmlToImage = await import('html-to-image');
-        const safeName = (downloadingCv.candidate?.surname || downloadingCv.candidate?.passportData?.surname || 'CV').replace(/[^a-zA-Z0-9]/g, '');
-        const fileName = `CV_${safeName}_${downloadingCv.templateId.toUpperCase()}`;
+        const firstName = (downloadingCv.candidate?.passportData?.givenNames || downloadingCv.candidate?.givenNames || 'CV').replace(/[^a-zA-Z0-9]/g, '');
+        const brokerName = (downloadingCv.candidate?.broker?.name || 'NoBroker').replace(/[^a-zA-Z0-9]/g, '');
+        const fileName = `${firstName}_${brokerName}`;
 
         const origH = el.style.height; const origO = el.style.overflow;
         el.style.height = 'auto'; el.style.overflow = 'visible';

@@ -923,7 +923,7 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
             />
             <div>
               <Input
-                label="Labour ID"
+                label="Labour I"
                 placeholder={'Enter Labour ID'}
                 value={labourId || ''}
                 onChange={(e) => {

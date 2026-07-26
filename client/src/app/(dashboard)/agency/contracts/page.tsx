@@ -67,6 +67,8 @@ interface AgencyCandidate {
   lmisStatus?: string | null;
   embassyStatus?: string | null;
   sponsorName?: string | null;
+  destination?: string | null;
+  deployedDate?: string | null;
   visaOrContractNumber?: string | null;
 }
 
@@ -112,6 +114,8 @@ export default function AgencyContractsPage() {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null);
   const [sponsorInputVal, setSponsorInputVal] = useState<string>('');
+  const [editingDestinationId, setEditingDestinationId] = useState<string | null>(null);
+  const [destinationInputVal, setDestinationInputVal] = useState<string>('');
   const [dropdownCoords, setDropdownCoords] = useState<{
     top: number;
     left: number;
@@ -433,6 +437,7 @@ export default function AgencyContractsPage() {
           lmisStatus: updatedData.lmisStatus ?? c.lmisStatus,
           embassyStatus: updatedData.embassyStatus ?? c.embassyStatus,
           sponsorName: updatedData.sponsorName ?? c.sponsorName,
+          destination: updatedData.destination ?? c.destination,
           visaOrContractNumber: updatedData.visaOrContractNumber ?? c.visaOrContractNumber
         } : c)
       );
@@ -450,6 +455,11 @@ export default function AgencyContractsPage() {
   const handleSaveSponsor = async (id: string, name: string) => {
     setEditingSponsorId(null);
     await handleUpdateCandidate(id, { sponsorName: name.trim() || null });
+  };
+
+  const handleSaveDestination = async (id: string, name: string) => {
+    setEditingDestinationId(null);
+    await handleUpdateCandidate(id, { destination: name.trim() || null });
   };
 
   // Helper to determine if date is within next 7 days
@@ -600,7 +610,7 @@ export default function AgencyContractsPage() {
   // CSV/Excel Exporter (Excel/WPS Compatible with Auto-fitting Widths)
   const handleExportCSV = () => {
     const headers = [
-      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DEPLOYMENT DATE'
+      'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DESTINATION', 'DEPLOYMENT DATE'
     ];
 
     const rows = filteredCandidates.map((c, i) => {
@@ -617,8 +627,9 @@ export default function AgencyContractsPage() {
         c.embassyStatus || 'ready to embassy',
         c.broker?.name || 'calling',
         getCandidateAgencyName(c),
-        c.sponsorName || '—',
-        formatToMDY(c.travelDate)
+        c.sponsorName || '-',
+        c.destination || '-',
+        c.deployedDate ? new Date(c.deployedDate).toLocaleDateString() : '-'
       ];
     });
 
@@ -738,9 +749,13 @@ export default function AgencyContractsPage() {
         </div>
       );
     } else if (type === 'lmis') {
+      const lmisOptions = [
+        'Pending', 'Draft', 'checked', 'verified', 'issued',
+        ...(userAgency?.toLowerCase().includes('fenero') ? ['Not tested'] : [])
+      ];
       menuContent = (
         <div className="py-1">
-          {['Pending', 'Draft', 'checked', 'verified', 'issued'].map((status) => (
+          {lmisOptions.map((status) => (
             <button
               key={status}
               onClick={() => handleUpdateCandidate(cand.id, { lmisStatus: status })}
@@ -981,6 +996,7 @@ export default function AgencyContractsPage() {
                 <th className="px-2 py-2.5 font-semibold text-left">ID NAME</th>
                 <th className="px-2 py-2.5 font-semibold text-left">office</th>
                 <th className="px-2 py-2.5 font-semibold text-center">SPONSOR NAME</th>
+                <th className="px-2 py-2.5 font-semibold text-center">DESTINATION</th>
                 <th className="px-2 py-2.5 font-semibold text-center">DEPLOYMENT DATE</th>
               </tr>
             </thead>
@@ -1126,6 +1142,7 @@ export default function AgencyContractsPage() {
                                 c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                 c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                                 c.lmisStatus === 'Draft' ? 'bg-slate-100 text-slate-700 border-slate-300' :
+                                c.lmisStatus === 'Not tested' ? 'bg-red-50 text-red-700 border-red-200' :
                                 'bg-amber-50 text-amber-700 border-amber-200'
                               }`}
                             >
@@ -1146,6 +1163,7 @@ export default function AgencyContractsPage() {
                               c.lmisStatus === 'verified' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                               c.lmisStatus === 'checked' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                               c.lmisStatus === 'Draft' ? 'bg-slate-100 text-slate-700 border-slate-300' :
+                              c.lmisStatus === 'Not tested' ? 'bg-red-50 text-red-700 border-red-200' :
                               'bg-amber-50 text-amber-700 border-amber-200'
                             }`}
                           >
@@ -1254,6 +1272,66 @@ export default function AgencyContractsPage() {
                             onClick={() => {
                               setEditingSponsorId(c.id);
                               setSponsorInputVal('');
+                            }}
+                            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-primary-50 text-primary border border-primary-200 text-[10px] font-black cursor-pointer hover:bg-primary-100/70 transition-all select-none whitespace-nowrap"
+                          >
+                            <span>+ Add</span>
+                          </button>
+                        ) : (
+                          <span className="text-text-tertiary text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* DESTINATION */}
+                      <td className="px-2 py-2 text-center">
+                        {editingDestinationId === c.id ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <input
+                              type="text"
+                              value={destinationInputVal}
+                              onChange={(e) => setDestinationInputVal(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveDestination(c.id, destinationInputVal);
+                                } else if (e.key === 'Escape') {
+                                  setEditingDestinationId(null);
+                                }
+                              }}
+                              autoFocus
+                              className="px-1.5 py-0.5 text-[11px] border border-primary/30 rounded bg-white text-text-primary w-24 font-bold uppercase focus:outline-none focus:border-primary"
+                            />
+                            <button
+                              onClick={() => handleSaveDestination(c.id, destinationInputVal)}
+                              className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+                            >
+                              <Check size={10} className="font-bold" />
+                            </button>
+                            <button
+                              onClick={() => setEditingDestinationId(null)}
+                              className="p-0.5 text-red-600 hover:bg-red-50 rounded cursor-pointer"
+                            >
+                              <X size={10} className="font-bold" />
+                            </button>
+                          </div>
+                        ) : c.destination ? (
+                          <div 
+                            onClick={() => {
+                              if (canEdit) {
+                                setEditingDestinationId(c.id);
+                                setDestinationInputVal(c.destination || '');
+                              }
+                            }}
+                            className={`${canEdit ? 'cursor-pointer hover:bg-gray-100/70' : ''} px-2 py-1 rounded transition-colors inline-block`}
+                          >
+                            <span className="font-bold text-text-secondary text-[11px] uppercase whitespace-nowrap">
+                              {c.destination}
+                            </span>
+                          </div>
+                        ) : canEdit ? (
+                          <button
+                            onClick={() => {
+                              setEditingDestinationId(c.id);
+                              setDestinationInputVal('');
                             }}
                             className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-primary-50 text-primary border border-primary-200 text-[10px] font-black cursor-pointer hover:bg-primary-100/70 transition-all select-none whitespace-nowrap"
                           >

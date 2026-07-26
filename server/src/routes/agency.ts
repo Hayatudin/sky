@@ -241,7 +241,9 @@ router.get('/candidates', async (req: Request, res: Response) => {
         lmisStatus: c.lmisStatus || 'Pending',
         embassyStatus: c.embassyStatus || 'ready to embassy',
         visaOrContractNumber: c.visaOrContractNumber || null,
-        sponsorName: c.sponsorName || null
+        sponsorName: c.sponsorName || null,
+        destination: c.destination || null,
+        deployedDate: c.deployedDate || null
       };
     }));
 
@@ -460,7 +462,9 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       flightStatus,
       lmisStatus,
       embassyStatus,
-      sponsorName
+      sponsorName,
+      destination,
+      deployedDate
     } = req.body;
 
     const agencyName = await resolveAndHealAgency(session.user);
@@ -496,6 +500,8 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     if (lmisStatus !== undefined) updateData.lmisStatus = lmisStatus;
     if (embassyStatus !== undefined) updateData.embassyStatus = embassyStatus;
     if (sponsorName !== undefined) updateData.sponsorName = sponsorName;
+    if (destination !== undefined) updateData.destination = destination;
+    if (deployedDate !== undefined) updateData.deployedDate = deployedDate;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No valid candidate fields recognized for update. Received payload: ' + JSON.stringify(req.body) });
