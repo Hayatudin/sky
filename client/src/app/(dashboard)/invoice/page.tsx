@@ -35,6 +35,32 @@ export default function InvoicePage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('all');
   const [statusTab, setStatusTab] = useState<'available' | 'downloaded'>('available');
 
+  const [agencyPrices, setAgencyPrices] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        const res = await api('/api/settings/prices');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const map: Record<string, string> = {};
+          data.forEach((p: any) => {
+            if (p.templateId && p.price) {
+              const tid = String(p.templateId).toLowerCase();
+              const cleanTid = tid.replace(/^tmpl-/, '');
+              map[tid] = p.price;
+              map[cleanTid] = p.price;
+            }
+          });
+          setAgencyPrices(map);
+        }
+      } catch (err) {
+        console.error('Failed to fetch agency prices in invoice page:', err);
+      }
+    };
+    fetchPrices();
+  }, []);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedTemplateId, statusTab]);
@@ -189,9 +215,15 @@ export default function InvoicePage() {
       }
 
       // Map to the format needed by the PDF generator
-      const candidatesToInvoice = targetInvoices.map((inv, index) => {
-        let priceNum = parseFloat(inv.price.replace(/[^0-9.]/g, ''));
-        if (isNaN(priceNum)) priceNum = 0;
+      const candidatesToInvoice = targetInvoices.map((inv) => {
+        let priceNum = parseFloat((inv.price || '').replace(/[^0-9.]/g, ''));
+        if (isNaN(priceNum) || priceNum === 0) {
+          const cvs = inv.candidate?.generatedCVs || [];
+          const rawTid = cvs[0]?.templateId || inv.candidate?.latestCVTemplate || inv.candidate?.agency || '';
+          const cleanTid = String(rawTid).replace(/^tmpl-/, '').toLowerCase();
+          const fallbackStr = agencyPrices[rawTid.toLowerCase()] || agencyPrices[cleanTid] || agencyPrices[inv.candidate?.agency?.toLowerCase() || ''] || '0';
+          priceNum = parseFloat(fallbackStr.replace(/[^0-9.]/g, '')) || 0;
+        }
 
         let formattedDate = 'N/A';
         if (inv.deployedDate) {

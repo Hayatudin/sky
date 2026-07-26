@@ -8,6 +8,62 @@ import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
 const router = Router();
 
+const resolvePriceForCandidate = async (candId: string, candRecord?: any): Promise<string> => {
+  try {
+    const allPrices = await db.select().from(templatePrice);
+    if (!allPrices || allPrices.length === 0) return candRecord?.price || "0";
+
+    const priceMap = new Map<string, string>();
+    allPrices.forEach(p => {
+      if (p.templateId && p.price) {
+        const tid = p.templateId.toLowerCase();
+        const cleanTid = tid.replace(/^tmpl-/, '');
+        priceMap.set(tid, p.price);
+        priceMap.set(cleanTid, p.price);
+      }
+    });
+
+    const cvs = await db.query.generatedCV.findMany({
+      where: eq(generatedCV.candidateId, candId),
+      orderBy: (gc, { desc }) => [desc(gc.createdAt)],
+      limit: 1
+    });
+
+    const keysToTry: string[] = [];
+    if (cvs.length > 0 && cvs[0].templateId) {
+      const tid = cvs[0].templateId.toLowerCase();
+      const cleanTid = tid.replace(/^tmpl-/, '');
+      keysToTry.push(tid, cleanTid);
+    }
+
+    if (candRecord) {
+      if (candRecord.latestCVTemplate) {
+        const tid = String(candRecord.latestCVTemplate).toLowerCase();
+        const cleanTid = tid.replace(/^tmpl-/, '');
+        keysToTry.push(tid, cleanTid);
+      }
+      if (candRecord.agency) {
+        const agencyClean = String(candRecord.agency).toLowerCase().replace(/^tmpl-/, '');
+        keysToTry.push(agencyClean);
+      }
+    }
+
+    for (const key of keysToTry) {
+      if (priceMap.has(key)) {
+        const val = priceMap.get(key);
+        if (val && val !== '0' && val !== '') return val;
+      }
+    }
+
+    if (candRecord?.price && candRecord.price !== '0') {
+      return candRecord.price;
+    }
+  } catch (e) {
+    console.error('Error resolving template price:', e);
+  }
+  return candRecord?.price || "0";
+};
+
 // GET /api/invoices
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -40,12 +96,25 @@ router.get('/', async (req: Request, res: Response) => {
       cvsMap.get(cv.candidateId)!.push({ templateId: cv.templateId });
     }
 
-    const result = rows.map(r => ({
-      ...r.invoice,
-      candidate: {
-        ...r.candidate,
-        generatedCVs: cvsMap.get(r.candidate.id) || []
+    const result = await Promise.all(rows.map(async r => {
+      let finalPrice = r.invoice.price;
+
+      if (!finalPrice || finalPrice === "0" || finalPrice === "0.00") {
+        const resolved = await resolvePriceForCandidate(r.candidate.id, r.candidate);
+        if (resolved && resolved !== "0") {
+          finalPrice = resolved;
+          db.update(invoice).set({ price: resolved }).where(eq(invoice.id, r.invoice.id)).catch(() => {});
+        }
       }
+
+      return {
+        ...r.invoice,
+        price: finalPrice,
+        candidate: {
+          ...r.candidate,
+          generatedCVs: cvsMap.get(r.candidate.id) || []
+        }
+      };
     }));
 
     res.json(result);
@@ -74,24 +143,8 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Candidate not found' });
     }
 
-    // Determine price based on the most recent generated CV template for this candidate
-    let price = "0";
-    try {
-      const cvs = await db.query.generatedCV.findMany({
-        where: eq(generatedCV.candidateId, candidateId),
-        orderBy: (gc, { desc }) => [desc(gc.createdAt)],
-        limit: 1
-      });
-      if (cvs.length > 0) {
-        const latestTemplate = cvs[0].templateId;
-        const prices = await db.query.templatePrice.findFirst({
-          where: eq(templatePrice.templateId, latestTemplate)
-        });
-        if (prices) {
-          price = prices.price;
-        }
-      }
-    } catch (_) { /* ignore if no table or no CVs */ }
+    // Determine price based on settings & candidate template
+    const price = await resolvePriceForCandidate(candidateId, cand);
 
     // Upload files
     const [lmisPath, insurancePath, ticketPath] = await Promise.all([
