@@ -75,6 +75,7 @@ export interface Candidate {
   visaOrContractNumber?: string | null;
   sponsorName?: string | null;
   destination?: string | null;
+  applicationNumber?: string | null;
   lmisStatus?: string | null;
   embassyStatus?: string | null;
   isFlagged?: boolean;

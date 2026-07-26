@@ -40,6 +40,7 @@ const allNavItems = [
   { label: 'Contracts', href: '/agency/contracts', icon: ClipboardList },
   { label: 'Invoice', href: '/invoice', icon: FileText },
   { label: 'Candidate Deployment', href: '/deployments', icon: ClipboardList },
+  { label: 'Wakala', href: '/wakala', icon: FileText },
   { label: 'Brokers', href: '/brokers', icon: Users },
   { label: 'Settings', href: '/settings', icon: Settings },
   { label: 'Backup CVs', href: '/backup', icon: FolderOpen },
@@ -93,6 +94,9 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, isMobile, onNavig
     if (item.href === '/registration') return false; // Hide Registration tab
     if (item.href === '/calling') {
       return canAccessCalling(session?.user);
+    }
+    if (item.href === '/wakala') {
+      return userAgency.toLowerCase().includes('fenero');
     }
     const allowedRoles = ROUTE_ACCESS[item.href];
     if (!allowedRoles) return false;

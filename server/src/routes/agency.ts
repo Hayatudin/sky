@@ -243,6 +243,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
         visaOrContractNumber: c.visaOrContractNumber || null,
         sponsorName: c.sponsorName || null,
         destination: c.destination || null,
+        applicationNumber: c.applicationNumber || null,
         deployedDate: c.deployedDate || null
       };
     }));
@@ -464,6 +465,7 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       embassyStatus,
       sponsorName,
       destination,
+      applicationNumber,
       deployedDate
     } = req.body;
 
@@ -501,6 +503,7 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     if (embassyStatus !== undefined) updateData.embassyStatus = embassyStatus;
     if (sponsorName !== undefined) updateData.sponsorName = sponsorName;
     if (destination !== undefined) updateData.destination = destination;
+    if (applicationNumber !== undefined) updateData.applicationNumber = applicationNumber;
     if (deployedDate !== undefined) updateData.deployedDate = deployedDate;
 
     if (Object.keys(updateData).length === 0) {

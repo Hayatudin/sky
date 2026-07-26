@@ -52,6 +52,7 @@ export const ROUTE_ACCESS: Record<string, Role[]> = {
   '/users': ['super_admin'],
   '/agency/available-candidates': ['agency'],
   '/agency/contracts': ['super_admin', 'agency', 'processor', 'coordinator', 'accountant', 'genaral'],
+  '/wakala': ['super_admin', 'agency', 'processor', 'coordinator', 'accountant', 'genaral', 'calling', 'user', 'registrar', 'video_uploader'],
   '/available-passport': ['super_admin', 'genaral'],
 };
 
