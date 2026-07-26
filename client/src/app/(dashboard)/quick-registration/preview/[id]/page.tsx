@@ -4,7 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Copy, Check, ArrowLeft, Loader2, User, Calendar, Globe, Briefcase, GraduationCap, Heart, Baby, Phone, BookOpen, Users, Upload, Image as ImageIcon, FileText, Save, RefreshCw, AlertCircle, Trash2, Video, Edit2, Plus, X, CheckCircle2 } from 'lucide-react';
-import { getFileUrl, cleanLabourId } from '@/lib/utils';
+import { getFileUrl, cleanLabourId, cn } from '@/lib/utils';
 import { useBrokers } from '@/hooks/useBrokers';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -314,6 +314,30 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
     }
   };
 
+  const [dragTarget, setDragTarget] = useState<string | null>(null);
+
+  const handleDragOver = (e: React.DragEvent, field: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragTarget(field);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragTarget(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, field: 'coc' | 'labour' | 'candidateId' | 'relativeId' | 'video') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragTarget(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFileChange(field, file);
+    }
+  };
+
   const handleFileChange = (field: 'coc' | 'labour' | 'candidateId' | 'relativeId' | 'video', file: File) => {
     const limit = 50 * 1024 * 1024;
     if (file.size > limit) {
@@ -488,7 +512,21 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
         </div>
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* COC Document */}
-          <div className="border border-border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all hover:border-primary/20 hover:bg-gray-100/50">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'coc')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'coc')}
+            className={cn(
+              "border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all relative overflow-hidden",
+              dragTarget === 'coc' ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "border-border hover:border-primary/20 hover:bg-gray-100/50"
+            )}
+          >
+            {dragTarget === 'coc' && (
+              <div className="absolute inset-0 bg-primary/10 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1.5 z-20 pointer-events-none border-2 border-dashed border-primary rounded-xl">
+                <Upload size={24} className="text-primary animate-bounce" />
+                <span className="text-xs font-bold text-primary">Drop COC document here</span>
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">COC Document</p>
@@ -561,7 +599,21 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
           </div>
 
           {/* Candidate ID Image */}
-          <div className="border border-border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all hover:border-primary/20 hover:bg-gray-100/50">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'candidateId')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'candidateId')}
+            className={cn(
+              "border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all relative overflow-hidden",
+              dragTarget === 'candidateId' ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "border-border hover:border-primary/20 hover:bg-gray-100/50"
+            )}
+          >
+            {dragTarget === 'candidateId' && (
+              <div className="absolute inset-0 bg-primary/10 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1.5 z-20 pointer-events-none border-2 border-dashed border-primary rounded-xl">
+                <Upload size={24} className="text-primary animate-bounce" />
+                <span className="text-xs font-bold text-primary">Drop Candidate ID image here</span>
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Candidate ID Image</p>
@@ -607,7 +659,21 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
           </div>
 
           {/* Relative ID Image */}
-          <div className="border border-border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all hover:border-primary/20 hover:bg-gray-100/50">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'relativeId')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'relativeId')}
+            className={cn(
+              "border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all relative overflow-hidden",
+              dragTarget === 'relativeId' ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "border-border hover:border-primary/20 hover:bg-gray-100/50"
+            )}
+          >
+            {dragTarget === 'relativeId' && (
+              <div className="absolute inset-0 bg-primary/10 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1.5 z-20 pointer-events-none border-2 border-dashed border-primary rounded-xl">
+                <Upload size={24} className="text-primary animate-bounce" />
+                <span className="text-xs font-bold text-primary">Drop Relative ID image here</span>
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Relative ID Image</p>
@@ -653,7 +719,21 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
           </div>
 
           {/* Candidate Video */}
-          <div className="border border-border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all hover:border-primary/20 hover:bg-gray-100/50 sm:col-span-2">
+          <div
+            onDragOver={(e) => handleDragOver(e, 'video')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'video')}
+            className={cn(
+              "border rounded-xl p-4 bg-gray-50/50 flex flex-col justify-between group transition-all sm:col-span-2 relative overflow-hidden",
+              dragTarget === 'video' ? "border-primary bg-primary/10 ring-2 ring-primary/30" : "border-border hover:border-primary/20 hover:bg-gray-100/50"
+            )}
+          >
+            {dragTarget === 'video' && (
+              <div className="absolute inset-0 bg-primary/10 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1.5 z-20 pointer-events-none border-2 border-dashed border-primary rounded-xl">
+                <Upload size={28} className="text-primary animate-bounce" />
+                <span className="text-xs font-bold text-primary">Drop video file here</span>
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary flex items-center gap-1.5"><Video size={12} /> Candidate Video</p>

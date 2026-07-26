@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { passport } from '../db/schema';
+import { passport, quickRegistration, candidate } from '../db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
@@ -97,8 +97,34 @@ router.post('/', async (req: Request, res: Response) => {
     const cleanPassportNumber = passportNumber.trim().toUpperCase();
     const cleanFullName = fullName.trim().toUpperCase();
 
-    // Upload image to local disk / cloud
-    const savedImageUrl = await uploadToLocal(passportImageUrl, 'passports');
+    // Check if passport already exists in Passport, QuickRegistration, or Candidate table
+    const existingP = await db.query.passport.findFirst({
+      where: (p, { eq, and }) => and(
+        eq(sql`upper(${p.passportNumber})`, cleanPassportNumber),
+        eq(p.majorAgency, userAgency)
+      )
+    });
+
+    const existingQR = await db.query.quickRegistration.findFirst({
+      where: (qr, { eq, and }) => and(
+        eq(sql`upper(${qr.passportNumber})`, cleanPassportNumber),
+        eq(qr.majorAgency, userAgency)
+      )
+    });
+
+    const existingCand = await db.query.candidate.findFirst({
+      where: (c, { eq, and }) => and(
+        eq(sql`upper(${c.passportNumber})`, cleanPassportNumber),
+        eq(c.majorAgency, userAgency)
+      )
+    });
+
+    if (existingP || existingQR || existingCand) {
+      return res.status(400).json({ error: 'The passport already exists.' });
+    }
+
+    // Upload image to local disk / cloud (optional)
+    const savedImageUrl = passportImageUrl ? await uploadToLocal(passportImageUrl, 'passports') : null;
 
     // Generate unique sequential shelfNo
     const shelfNo = await getNextShelfNo();
@@ -116,7 +142,7 @@ router.post('/', async (req: Request, res: Response) => {
       });
     } catch (insertErr: any) {
       if (insertErr.message?.includes('Duplicate entry') || insertErr.code === 'ER_DUP_ENTRY') {
-        return res.status(400).json({ error: 'A passport with this Passport Number is already registered.' });
+        return res.status(400).json({ error: 'The passport already exists.' });
       }
       throw insertErr;
     }

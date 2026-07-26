@@ -208,7 +208,14 @@ router.post('/', async (req: Request, res: Response) => {
       console.error('[DEBUG] Failed to get session in POST quick-reg route:', sessionError);
     }
 
-    // Check for duplicates in QuickRegistration for the user's agency
+    // Check for duplicates in Passport table (Available Passports), QuickRegistration, or Candidate for the user's agency
+    const existingPassportInTable = await db.query.passport.findFirst({
+      where: (p, { eq, and }) => and(
+        eq(sql`upper(${p.passportNumber})`, passportUpper),
+        eq(p.majorAgency, userAgency)
+      )
+    });
+
     const existingQr = await db.query.quickRegistration.findFirst({
       where: (qr, { eq, and }) => and(
         eq(sql`upper(${qr.passportNumber})`, passportUpper),
@@ -216,11 +223,6 @@ router.post('/', async (req: Request, res: Response) => {
       )
     });
 
-    if (existingQr) {
-      return res.status(400).json({ error: 'A quick registration with this passport number already exists.' });
-    }
-
-    // Check for duplicates in full Candidates for the user's agency
     const existingCandidate = await db.query.candidate.findFirst({
       where: (c, { eq, and }) => and(
         eq(sql`upper(${c.passportNumber})`, passportUpper),
@@ -228,8 +230,8 @@ router.post('/', async (req: Request, res: Response) => {
       )
     });
 
-    if (existingCandidate) {
-      return res.status(400).json({ error: 'A full candidate registration with this passport number already exists.' });
+    if (existingPassportInTable || existingQr || existingCandidate) {
+      return res.status(400).json({ error: 'The passport already exists.' });
     }
 
     const [

@@ -14,6 +14,8 @@ import {
   HeartPulse,
   AlertTriangle,
   Undo2,
+  Plus,
+  Upload,
 } from 'lucide-react';
 import { cn, getFileUrl } from '@/lib/utils';
 import { usePassports, Passport } from '@/hooks/usePassports';
@@ -35,6 +37,50 @@ export default function AvailablePassportPage() {
   // Return Confirmation Modal State
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returnPassport, setReturnPassport] = useState<Passport | null>(null);
+
+  // Register Passport Modal State
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [regFullName, setRegFullName] = useState('');
+  const [regPassportNumber, setRegPassportNumber] = useState('');
+  const [regPassportImage, setRegPassportImage] = useState<string | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+
+  const handleRegisterPassportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regFullName.trim() || !regPassportNumber.trim()) return;
+
+    setIsRegistering(true);
+    setRegisterError(null);
+
+    try {
+      const res = await api('/api/passports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: regFullName.trim(),
+          passportNumber: regPassportNumber.trim(),
+          passportImageUrl: regPassportImage || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setRegisterError(data.error || 'Failed to register passport');
+        return;
+      }
+
+      mutatePassports(prev => [data, ...(prev || [])]);
+      setRegisterModalOpen(false);
+      setRegFullName('');
+      setRegPassportNumber('');
+      setRegPassportImage(null);
+    } catch (err: any) {
+      setRegisterError(err.message || 'Failed to register passport');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   // Handlers
   const handleOpenTakenModal = (passport: Passport) => {
@@ -163,6 +209,19 @@ export default function AvailablePassportPage() {
             Search, track, and manage registered passports in available or taken categories.
           </p>
         </div>
+        <button
+          onClick={() => {
+            setRegisterError(null);
+            setRegFullName('');
+            setRegPassportNumber('');
+            setRegPassportImage(null);
+            setRegisterModalOpen(true);
+          }}
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold text-sm rounded-xl shadow-lg shadow-primary/20 transition-all cursor-pointer shrink-0"
+        >
+          <Plus size={18} />
+          Register Passport
+        </button>
       </div>
 
       {/* Large Stats Counter Boxes */}
@@ -566,6 +625,127 @@ export default function AvailablePassportPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Register Passport Modal */}
+      {registerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl border border-border shadow-2xl max-w-md w-full p-6 animate-scale-pop relative">
+            <button
+              onClick={() => setRegisterModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-gray-100 text-text-tertiary transition-colors"
+            >
+              <X size={18} />
+            </button>
+
+            <h3 className="text-lg font-bold text-text-primary mb-1 flex items-center gap-2">
+              <FileCheck size={20} className="text-primary" /> Register Passport
+            </h3>
+            <p className="text-xs text-text-tertiary mb-4">
+              Enter candidate passport details to register directly into Available Passports.
+            </p>
+
+            {registerError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{registerError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleRegisterPassportSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. ABEBE KELEMU DEMESSIE"
+                  value={regFullName}
+                  onChange={e => setRegFullName(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-text-primary placeholder:text-text-tertiary/40 uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
+                  Passport Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. EP1234567"
+                  value={regPassportNumber}
+                  onChange={e => setRegPassportNumber(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-2.5 rounded-xl border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-text-primary placeholder:text-text-tertiary/40 uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">
+                  Passport Image <span className="text-text-tertiary font-normal">(Optional)</span>
+                </label>
+                <div className="border border-dashed border-border rounded-xl p-3 bg-gray-50/50 flex flex-col items-center justify-center gap-2">
+                  {regPassportImage ? (
+                    <div className="relative w-full h-32 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center">
+                      <img src={regPassportImage} alt="Passport preview" className="w-full h-full object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => setRegPassportImage(null)}
+                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center gap-1.5 w-full py-4 cursor-pointer">
+                      <Upload size={20} className="text-primary/60" />
+                      <span className="text-xs font-semibold text-text-secondary">Click or drag & drop image</span>
+                      <span className="text-[10px] text-text-tertiary">PNG, JPG or WEBP</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = ev => {
+                              if (ev.target?.result) setRegPassportImage(ev.target.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setRegisterModalOpen(false)}
+                  disabled={isRegistering}
+                  className="px-4 py-2.5 text-xs font-semibold text-text-secondary hover:text-text-primary rounded-xl hover:bg-gray-50 border border-border transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRegistering}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary-dark rounded-xl shadow-md shadow-primary/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isRegistering ? (
+                    <><Loader2 size={14} className="animate-spin" /> Registering...</>
+                  ) : (
+                    <><CheckCircle2 size={14} /> Register Passport</>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
