@@ -683,6 +683,8 @@ export default function AvailableCandidatesPage() {
   // Memoized filtered candidates list (Applied immediately)
   const filteredCandidates = useMemo(() => {
     return candidates.filter(c => {
+      const brokerName = (c.broker?.name || '').toLowerCase().trim();
+      if (brokerName === 'calling') return false;
       // 1. Text Search
       if (searchQuery) {
         const query = searchQuery.toLowerCase();

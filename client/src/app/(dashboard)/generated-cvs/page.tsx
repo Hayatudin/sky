@@ -411,13 +411,17 @@ function GeneratedCVsContent() {
       const data = await res.json();
       // Guard: ensure data is an array before calling .filter()
       const list = Array.isArray(data) ? data : [];
-      setCvs(list.filter((c: any) => 
-        c.candidate &&
-        !c.candidate.isRequested && 
-        c.candidate.personalInfo?.medicalStatus !== 'Unfit' && 
-        c.candidate.medicalStatus !== 'Unfit' && 
-        !c.candidate.visaSelected
-      ));
+      setCvs(list.filter((c: any) => {
+        if (!c.candidate) return false;
+        const brokerName = (c.candidate.broker?.name || c.candidate.personalInfo?.brokerId || '').toLowerCase().trim();
+        if (brokerName === 'calling' || brokerName === 'calling-broker') return false;
+        return (
+          !c.candidate.isRequested && 
+          c.candidate.personalInfo?.medicalStatus !== 'Unfit' && 
+          c.candidate.medicalStatus !== 'Unfit' && 
+          !c.candidate.visaSelected
+        );
+      }));
       setSelectedCVIds(new Set());
     } catch (err: any) {
       console.error('[GeneratedCVs] fetchCVs error:', err?.message || err);

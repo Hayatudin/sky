@@ -258,6 +258,9 @@ export default function CandidatesPage() {
   const filtered = useMemo(() => {
     const safeArr = Array.isArray(candidates) ? candidates : [];
     let result = safeArr.filter((c) => {
+      const brokerName = (c.broker?.name || c.personalInfo?.brokerId || '').toLowerCase().trim();
+      if (brokerName === 'calling' || brokerName === 'calling-broker') return false;
+
       const name = `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''}`.toLowerCase();
       const passport = (c.passportData?.passportNumber ?? '').toLowerCase();
       const shelfId = (c.shelfId || '').toLowerCase();
@@ -271,7 +274,6 @@ export default function CandidatesPage() {
       const matchesGender = genderFilter ? c.passportData?.gender?.toLowerCase() === genderFilter.toLowerCase() : true;
       const matchesReligion = religionFilter ? c.personalInfo?.religion?.toLowerCase() === religionFilter.toLowerCase() : true;
       const matchesAgency = agencyFilter === 'all' ? true : (c.agency?.toLowerCase() === agencyFilter.toLowerCase());
-      const matchesCalling = callingFilter ? c.broker?.name === 'Calling' : true;
 
       let matchesMissingFile = true;
       if (missingFileFilter === 'COC') matchesMissingFile = !c.cocDocumentUrl;
@@ -283,7 +285,7 @@ export default function CandidatesPage() {
       else if (missingFileFilter === 'CandidateID') matchesMissingFile = !c.candidateIdImageUrl;
       else if (missingFileFilter === 'RelativeID') matchesMissingFile = !c.relativeIdImageUrl;
 
-      return matchesSearch && matchesStatus && matchesDate && matchesJob && matchesGender && matchesReligion && matchesMissingFile && matchesAgency && matchesCalling && !c.isRequested;
+      return matchesSearch && matchesStatus && matchesDate && matchesJob && matchesGender && matchesReligion && matchesMissingFile && matchesAgency && !c.isRequested;
     });
     result.sort((a, b) => {
       const dA = new Date(a.registeredAt).getTime(), dB = new Date(b.registeredAt).getTime();

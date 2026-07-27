@@ -94,6 +94,7 @@ const getVisiblePages = (current: number, total: number) => {
 export default function AgencyContractsPage() {
   const { data: session } = useSession();
   const userAgency = getUserMajorAgency(session?.user);
+  const isFenero = userAgency?.toLowerCase().includes('fenero');
   const TEMPLATES = getTemplatesForAgency(userAgency);
   const AGENCIES = [
     { id: 'all', name: 'All Agencies' },
@@ -609,13 +610,30 @@ export default function AgencyContractsPage() {
 
   // CSV/Excel Exporter (Excel/WPS Compatible with Auto-fitting Widths)
   const handleExportCSV = () => {
-    const headers = [
+    const headers = isFenero ? [
+      'no', 'NAME', 'DATE', 'PASS NO', 'LABOUR ID', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DESTINATION', 'DEPLOYMENT DATE'
+    ] : [
       'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DESTINATION', 'DEPLOYMENT DATE'
     ];
 
     const rows = filteredCandidates.map((c, i) => {
       const cocVal = c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE');
-      return [
+      return isFenero ? [
+        String(i + 1),
+        `${c.surname} ${c.givenNames}`.toUpperCase(),
+        formatToMDY(c.visaDate || c.registeredAt),
+        c.passportNumber,
+        c.labourId || '—',
+        c.medicalStatus || 'Pending',
+        cocVal,
+        c.lmisStatus || 'Pending',
+        c.embassyStatus || 'ready to embassy',
+        c.broker?.name || 'calling',
+        getCandidateAgencyName(c),
+        c.sponsorName || '-',
+        c.destination || '-',
+        c.deployedDate ? new Date(c.deployedDate).toLocaleDateString() : '-'
+      ] : [
         String(i + 1),
         `${c.surname} ${c.givenNames}`.toUpperCase(),
         c.passportNumber,
@@ -986,9 +1004,10 @@ export default function AgencyContractsPage() {
               <tr className="bg-gray-50/50 border-b border-border/30 text-[10px] uppercase tracking-wider font-bold text-text-tertiary/90 whitespace-nowrap">
                 <th className="px-2 py-2.5 font-semibold text-center w-12">#</th>
                 <th className="px-2 py-2.5 font-semibold text-left">NAME</th>
+                {isFenero && <th className="px-2 py-2.5 font-semibold text-center">DATE</th>}
                 <th className="px-2 py-2.5 font-semibold text-left">PASS NO</th>
                 <th className="px-2 py-2.5 font-semibold text-left">LABOUR ID</th>
-                <th className="px-2 py-2.5 font-semibold text-center">DATE</th>
+                {!isFenero && <th className="px-2 py-2.5 font-semibold text-center">DATE</th>}
                 <th className="px-2 py-2.5 font-semibold text-center">MEDICAL</th>
                 <th className="px-2 py-2.5 font-semibold text-center">coc</th>
                 <th className="px-2 py-2.5 font-semibold text-center">lmis issue</th>
@@ -1037,6 +1056,13 @@ export default function AgencyContractsPage() {
                         </div>
                       </td>
 
+                      {/* DATE (Fenero) */}
+                      {isFenero && (
+                        <td className="px-2 py-2 text-center font-bold text-text-secondary text-xs whitespace-nowrap">
+                          {formatToMDY(c.visaDate || c.registeredAt)}
+                        </td>
+                      )}
+
                       {/* PASS NO */}
                       <td className="px-2 py-2 font-semibold text-text-primary text-xs font-mono whitespace-nowrap">
                         {c.passportNumber}
@@ -1047,10 +1073,12 @@ export default function AgencyContractsPage() {
                         {c.labourId || '—'}
                       </td>
 
-                      {/* DATE */}
-                      <td className="px-2 py-2 text-center font-bold text-text-secondary text-xs whitespace-nowrap">
-                        {formatToMDY(c.visaDate || c.registeredAt)}
-                      </td>
+                      {/* DATE (Sky / Others) */}
+                      {!isFenero && (
+                        <td className="px-2 py-2 text-center font-bold text-text-secondary text-xs whitespace-nowrap">
+                          {formatToMDY(c.visaDate || c.registeredAt)}
+                        </td>
+                      )}
 
                       {/* MEDICAL */}
                       <td className="px-2 py-2 text-center">

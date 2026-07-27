@@ -153,6 +153,10 @@ router.get('/', async (req: Request, res: Response) => {
           }
         }
         return { ...cv, candidate: formattedCandidateObj };
+      })
+      .filter((cv: any) => {
+        const brokerName = (cv.candidate?.broker?.name || cv.candidate?.personalInfo?.brokerId || '').toLowerCase().trim();
+        return brokerName !== 'calling' && brokerName !== 'calling-broker';
       });
 
     res.json(mappedCVs);
@@ -177,6 +181,13 @@ router.post('/', async (req: Request, res: Response) => {
     
     if (!cand) {
       return res.status(404).json({ error: 'Candidate not found' });
+    }
+
+    if (cand.brokerId) {
+      const b = await db.query.broker.findFirst({ where: eq(broker.id, cand.brokerId) });
+      if (b && b.name.toLowerCase().trim() === 'calling') {
+        return res.status(400).json({ error: 'CV generation and download is disabled for calling candidates.' });
+      }
     }
 
     const duplicateCV = await db.query.generatedCV.findFirst({

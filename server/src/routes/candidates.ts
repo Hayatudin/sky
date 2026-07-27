@@ -221,7 +221,13 @@ router.get('/', async (req: Request, res: Response) => {
       };
     });
 
-    res.json(candidates);
+    const includeCalling = req.query.includeCalling === 'true';
+    const filteredCandidatesList = includeCalling ? candidates : candidates.filter((c: any) => {
+      const brokerName = (c.broker?.name || c.personalInfo?.brokerId || '').toLowerCase().trim();
+      return brokerName !== 'calling' && brokerName !== 'calling-broker';
+    });
+
+    res.json(filteredCandidatesList);
   } catch (error: any) {
     console.error('Failed to fetch candidates:', error);
     const sqlError = error?.sqlMessage || error?.cause?.sqlMessage || error?.cause?.message;
@@ -533,38 +539,7 @@ router.post('/', async (req: Request, res: Response) => {
       throw new Error('Failed to retrieve candidate after creation');
     }
 
-    // Automatically create a GeneratedCV record for Calling candidates with the selected Office
-    if (userRole === 'calling' || body.personalInfo?.brokerId === 'calling-broker' || body.isCalling) {
-      const templateId = body.office || body.templateId || body.agency || '';
-      const validTemplates = ['rawasi', 'azm', 'mazaya'];
-      if (validTemplates.includes(templateId.toLowerCase())) {
-        try {
-          const existingCV = await db.query.generatedCV.findFirst({
-            where: and(
-              eq(generatedCV.candidateId, createdCandidate.id),
-              eq(generatedCV.templateId, templateId.toLowerCase())
-            )
-          });
-          if (!existingCV) {
-            await db.insert(generatedCV).values({
-              candidateId: createdCandidate.id,
-              templateId: templateId.toLowerCase(),
-              facePhotoUrl: facePhotoUrl || null,
-              fullBodyPhotoUrl: null
-            });
-            // Also update cvDeadline
-            const deadline = new Date();
-            deadline.setDate(deadline.getDate() + 30);
-            await db.update(candidate)
-              .set({ cvDeadline: deadline })
-              .where(eq(candidate.id, createdCandidate.id));
-            console.log(`[AUTO-CV] Created initial GeneratedCV for Calling candidate ${createdCandidate.id} using template: ${templateId}`);
-          }
-        } catch (cvErr) {
-          console.error('[AUTO-CV] Failed to create initial GeneratedCV for calling candidate:', cvErr);
-        }
-      }
-    }
+
 
     // If quickRegistrationId is provided, mark it as promoted
     if (body.quickRegistrationId) {

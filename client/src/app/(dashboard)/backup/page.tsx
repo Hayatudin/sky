@@ -329,13 +329,18 @@ export default function BackupPage() {
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
-      setCvs(list.filter((c: any) => 
-        c.candidate?.isRequested || 
-        c.candidate?.medicalStatus === 'Unfit' || 
-        c.candidate?.visaSelected ||
-        c.candidate?.isLocked === true ||
-        c.candidate?.broker?.isLocked === true
-      ));
+      setCvs(list.filter((c: any) => {
+        if (!c.candidate) return false;
+        const brokerName = (c.candidate.broker?.name || c.candidate.personalInfo?.brokerId || '').toLowerCase().trim();
+        if (brokerName === 'calling' || brokerName === 'calling-broker') return false;
+        return (
+          c.candidate?.isRequested || 
+          c.candidate?.medicalStatus === 'Unfit' || 
+          c.candidate?.visaSelected ||
+          c.candidate?.isLocked === true ||
+          c.candidate?.broker?.isLocked === true
+        );
+      }));
     } catch {
       showToast('Failed to load CVs', 'error');
     } finally {

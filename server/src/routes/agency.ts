@@ -323,7 +323,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
     for (const cv of cvs2) { if (!cvsMap2.has(cv.candidateId)) cvsMap2.set(cv.candidateId, []); cvsMap2.get(cv.candidateId)!.push(cv); }
     const brokerMap2 = new Map(brokers2.map((b: any) => [b.id, b]));
 
-    res.json(dbCandidatesList.map((c: any) => {
+    const resultList = dbCandidatesList.map((c: any) => {
       const candidateCVs2 = cvsMap2.get(c.id) || [];
       return {
         id: c.id,
@@ -359,7 +359,12 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         allowVideo: c.allowVideo ?? false,
         visaDate: safeIsoString(c.visaDate)
       };
-    }));
+    }).filter((c: any) => {
+      const bName = (c.broker?.name || '').toLowerCase().trim();
+      return bName !== 'calling';
+    });
+
+    res.json(resultList);
 
   } catch (err: any) {
     console.error('[AGENCY] Failed to fetch available candidates', err);
