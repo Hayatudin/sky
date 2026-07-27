@@ -44,9 +44,9 @@ export function getCleanNationality(candidate: Candidate | any): string {
   const pd = candidate.passportData || candidate;
   const pi = candidate.personalInfo || candidate;
 
-  const raw = pd?.nationality || candidate?.nationality || '';
-  const issuing = pd?.issuingCountry || candidate?.issuingCountry || '';
-  const country = pi?.country || candidate?.country || '';
+  const raw = (pd?.nationality || candidate?.nationality || '').trim();
+  const issuing = (pd?.issuingCountry || candidate?.issuingCountry || '').trim();
+  const country = (pi?.country || candidate?.country || '').trim();
 
   const resolveFromCountry = (c?: string) => {
     if (!c) return '';
@@ -61,21 +61,26 @@ export function getCleanNationality(candidate: Candidate | any): string {
     return upper;
   };
 
-  // Known Gulf / destination countries for employment abroad (work experience locations, not worker nationalities)
-  const destCountries = ['BAHRAIN', 'SAUDI', 'KSA', 'UAE', 'DUBAI', 'ABU DHABI', 'KUWAIT', 'QATAR', 'OMAN', 'JORDAN', 'LEBANON', 'BEIRUT', 'EXPERIENCE'];
+  // Rule: If candidate's address country is Ethiopia, nationality is ETHIOPIAN
+  if (country && (country.toUpperCase().includes('ETHIOPIA') || country.toUpperCase() === 'ETH')) {
+    return 'ETHIOPIAN';
+  }
 
-  // Check if raw nationality string contains an experience pattern or bad value like "Experience" or "BAHRAINYEARS..."
+  // Known Gulf / destination countries for employment abroad (work experience locations, not worker nationalities)
+  const destCountries = ['UNITED ARAB EMIRATES', 'BAHRAIN', 'SAUDI', 'KSA', 'UAE', 'DUBAI', 'ABU DHABI', 'KUWAIT', 'QATAR', 'OMAN', 'JORDAN', 'LEBANON', 'BEIRUT', 'EXPERIENCE'];
+
+  // Check if raw nationality string contains an experience pattern or bad value like "Experience" or "BAHRAIN YEARS..."
   const hasExpPattern = /\b(?:YEARS?\s*(?:OF\s*)?EXPERIENCE|EXPERIENCE)\b/i.test(raw);
 
   if (hasExpPattern) {
     return resolveFromCountry(country) || resolveFromCountry(issuing) || 'ETHIOPIAN';
   }
 
-  let cleaned = raw.trim().toUpperCase();
+  let cleaned = raw.toUpperCase().trim();
   cleaned = cleaned.replace(/[\s\:\-]+$/, '').trim();
 
-  // If nationality itself is a destination country (like BAHRAIN, SAUDI, KUWAIT), it was mistakenly filled with work experience country
-  if (destCountries.some((c) => cleaned === c || cleaned.startsWith(c))) {
+  // If nationality itself contains or starts with a destination country (like UAE, UNITED ARAB EMIRATES, BAHRAIN, SAUDI, KUWAIT), it was mistakenly filled with work experience country
+  if (destCountries.some((c) => cleaned === c || cleaned.startsWith(c) || cleaned.includes(c))) {
     return resolveFromCountry(country) || resolveFromCountry(issuing) || 'ETHIOPIAN';
   }
 

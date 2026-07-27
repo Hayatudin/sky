@@ -38,6 +38,31 @@ const candidateBodySchema = z.object({
 
 const router = Router();
 
+function sanitizeNationality(nat?: string | null, country?: string | null, issuingCountry?: string | null): string {
+  const cUpper = (country || '').trim().toUpperCase();
+  if (cUpper.includes('ETHIOPIA') || cUpper === 'ETH') {
+    return 'ETHIOPIAN';
+  }
+  
+  const raw = (nat || '').trim();
+  const hasExpPattern = /\b(?:YEARS?\s*(?:OF\s*)?EXPERIENCE|EXPERIENCE)\b/i.test(raw);
+  const destCountries = ['UNITED ARAB EMIRATES', 'BAHRAIN', 'SAUDI', 'KSA', 'UAE', 'DUBAI', 'ABU DHABI', 'KUWAIT', 'QATAR', 'OMAN', 'JORDAN', 'LEBANON', 'BEIRUT', 'EXPERIENCE'];
+  const isDest = destCountries.some((c) => raw.toUpperCase().includes(c));
+
+  if (hasExpPattern || isDest) {
+    return 'ETHIOPIAN';
+  }
+
+  if (!raw) {
+    return 'ETHIOPIAN';
+  }
+
+  const rawUpper = raw.toUpperCase();
+  if (rawUpper === 'ETH' || rawUpper.includes('ETHIOPIA')) return 'ETHIOPIAN';
+
+  return raw;
+}
+
 router.get('/test-status', async (req: Request, res: Response) => {
   try {
     const columns = await db.execute(sql`DESCRIBE \`Candidate\``);
@@ -323,6 +348,8 @@ router.post('/promote-from-quick', async (req: Request, res: Response) => {
       updateData.majorAgency = qr.majorAgency;
     }
 
+    updateData.nationality = sanitizeNationality(updateData.nationality || qr.nationality, updateData.country, qr.issuingCountry);
+
     await db.update(candidate)
       .set(updateData)
       .where(eq(candidate.id, targetCandidate.id));
@@ -468,7 +495,7 @@ router.post('/', async (req: Request, res: Response) => {
       givenNames: body.passportData.givenNames,
       dateOfBirth: body.passportData.dateOfBirth ? new Date(body.passportData.dateOfBirth) : new Date(),
       gender: body.passportData.gender,
-      nationality: body.passportData.nationality,
+      nationality: sanitizeNationality(body.passportData?.nationality, body.personalInfo?.country, body.passportData?.issuingCountry),
       issuingCountry: body.passportData.issuingCountry,
       dateOfIssue: body.passportData.dateOfIssue ? new Date(body.passportData.dateOfIssue) : new Date(),
       dateOfExpiry: body.passportData.dateOfExpiry ? new Date(body.passportData.dateOfExpiry) : new Date(),
@@ -806,7 +833,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       givenNames: body.passportData.givenNames,
       dateOfBirth: body.passportData.dateOfBirth ? new Date(body.passportData.dateOfBirth) : new Date(),
       gender: body.passportData.gender,
-      nationality: body.passportData.nationality,
+      nationality: sanitizeNationality(body.passportData?.nationality, body.personalInfo?.country, body.passportData?.issuingCountry),
       issuingCountry: body.passportData.issuingCountry,
       dateOfIssue: body.passportData.dateOfIssue ? new Date(body.passportData.dateOfIssue) : new Date(),
       dateOfExpiry: body.passportData.dateOfExpiry ? new Date(body.passportData.dateOfExpiry) : new Date(),

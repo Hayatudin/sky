@@ -9,6 +9,31 @@ import { createId } from '@paralleldrive/cuid2';
 import { getNextShelfNo } from './passports';
 
 // ── Helper: fetch quickRegistration without lateral joins (MySQL 5.7 compatible) ──
+function sanitizeNationality(nat?: string | null, country?: string | null, issuingCountry?: string | null): string {
+  const cUpper = (country || '').trim().toUpperCase();
+  if (cUpper.includes('ETHIOPIA') || cUpper === 'ETH') {
+    return 'ETHIOPIAN';
+  }
+  
+  const raw = (nat || '').trim();
+  const hasExpPattern = /\b(?:YEARS?\s*(?:OF\s*)?EXPERIENCE|EXPERIENCE)\b/i.test(raw);
+  const destCountries = ['UNITED ARAB EMIRATES', 'BAHRAIN', 'SAUDI', 'KSA', 'UAE', 'DUBAI', 'ABU DHABI', 'KUWAIT', 'QATAR', 'OMAN', 'JORDAN', 'LEBANON', 'BEIRUT', 'EXPERIENCE'];
+  const isDest = destCountries.some((c) => raw.toUpperCase().includes(c));
+
+  if (hasExpPattern || isDest) {
+    return 'ETHIOPIAN';
+  }
+
+  if (!raw) {
+    return 'ETHIOPIAN';
+  }
+
+  const rawUpper = raw.toUpperCase();
+  if (rawUpper === 'ETH' || rawUpper.includes('ETHIOPIA')) return 'ETHIOPIAN';
+
+  return raw;
+}
+
 async function fetchQR(id: string) {
   const [reg] = await db.select().from(quickRegistration).where(eq(quickRegistration.id, id)).limit(1);
   if (!reg) return null;
@@ -259,7 +284,7 @@ router.post('/', async (req: Request, res: Response) => {
         givenNames: body.givenNames || '',
         dateOfBirth: body.dateOfBirth || null,
         gender: body.gender || null,
-        nationality: body.nationality || null,
+        nationality: sanitizeNationality(body.nationality, body.country, body.issuingCountry),
         dateOfExpiry: body.dateOfExpiry || null,
         issuingCountry: body.issuingCountry || null,
         placeOfBirth: body.placeOfBirth || null,
@@ -347,7 +372,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (body.givenNames !== undefined) updateData.givenNames = body.givenNames;
     if (body.dateOfBirth !== undefined) updateData.dateOfBirth = body.dateOfBirth;
     if (body.gender !== undefined) updateData.gender = body.gender;
-    if (body.nationality !== undefined) updateData.nationality = body.nationality;
+    if (body.nationality !== undefined) updateData.nationality = sanitizeNationality(body.nationality, body.country, body.issuingCountry);
     if (body.dateOfExpiry !== undefined) updateData.dateOfExpiry = body.dateOfExpiry;
     if (body.issuingCountry !== undefined) updateData.issuingCountry = body.issuingCountry;
     if (body.placeOfBirth !== undefined) updateData.placeOfBirth = body.placeOfBirth;
