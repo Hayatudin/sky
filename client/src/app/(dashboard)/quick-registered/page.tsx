@@ -160,6 +160,30 @@ export default function QuickRegisteredPage() {
     languages: [] as string[],
   });
 
+  const [modalDragTarget, setModalDragTarget] = useState<string | null>(null);
+
+  const handleModalDragOver = (e: React.DragEvent, field: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setModalDragTarget(field);
+  };
+
+  const handleModalDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setModalDragTarget(null);
+  };
+
+  const handleModalDrop = (e: React.DragEvent, field: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setModalDragTarget(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFileChange(field, file);
+    }
+  };
+
   const handleFileChange = (field: string, file: File | null) => {
     if (!file) return;
     const reader = new FileReader();
@@ -1541,8 +1565,26 @@ export default function QuickRegisteredPage() {
                       { label: 'Candidate Video', field: 'videoUrl', current: editTarget?.videoUrl, accept: 'video/*' },
                     ].map(doc => {
                       const isStaged = (editForm as any)[doc.field] !== undefined;
+                      const isDragging = modalDragTarget === doc.field;
                       return (
-                        <div key={doc.field} className="p-3 bg-gray-50 rounded-xl border border-border flex flex-col justify-between gap-2.5">
+                        <div
+                          key={doc.field}
+                          onDragOver={e => handleModalDragOver(e, doc.field)}
+                          onDragLeave={handleModalDragLeave}
+                          onDrop={e => handleModalDrop(e, doc.field)}
+                          className={cn(
+                            "p-3 rounded-xl border flex flex-col justify-between gap-2.5 transition-all relative overflow-hidden",
+                            isDragging
+                              ? "border-primary bg-primary/10 ring-2 ring-primary/40 shadow-md"
+                              : "bg-gray-50 border-border hover:border-primary/30 hover:bg-gray-100/50"
+                          )}
+                        >
+                          {isDragging && (
+                            <div className="absolute inset-0 bg-primary/15 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1 z-30 pointer-events-none border-2 border-dashed border-primary rounded-xl">
+                              <Upload size={20} className="text-primary animate-bounce" />
+                              <span className="text-[10px] font-bold text-primary">Drop to replace</span>
+                            </div>
+                          )}
                           <div>
                             <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider truncate" title={doc.label}>
                               {doc.label}
@@ -1566,14 +1608,14 @@ export default function QuickRegisteredPage() {
                               </p>
                             )}
                           </div>
-                          <label className="w-full text-center py-1.5 bg-white border border-border rounded-lg text-[10px] font-bold text-text-secondary hover:bg-gray-50 cursor-pointer block transition-colors">
+                          <label className="w-full text-center py-1.5 bg-white border border-border rounded-lg text-[10px] font-bold text-text-secondary hover:bg-primary/5 hover:text-primary hover:border-primary/30 cursor-pointer block transition-colors shadow-2xs">
                             <input
                               type="file"
                               accept={doc.accept}
                               className="hidden"
                               onChange={e => handleFileChange(doc.field, e.target.files?.[0] || null)}
                             />
-                            Replace File
+                            {isStaged ? 'Change Staged File' : 'Click or Drag & Drop File'}
                           </label>
                         </div>
                       );
