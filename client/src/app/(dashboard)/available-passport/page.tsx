@@ -99,19 +99,31 @@ export default function AvailablePassportPage() {
     setIsUpdating(selectedPassport.id);
     setTakenModalOpen(false);
     try {
-      const res = await api(`/api/passports/${selectedPassport.id}/taken`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          takenReason,
-          takenByName: takenByName.trim(),
-          takenByPhone: takenReason === 'Terminate' ? takenByPhone.trim() : undefined,
-        }),
-      });
+      const payload = {
+        takenReason,
+        takenByName: takenByName.trim(),
+        takenByPhone: takenReason === 'Terminate' ? takenByPhone.trim() : undefined,
+      };
+
+      let res: Response;
+      try {
+        res = await api(`/api/passports/${selectedPassport.id}/taken`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (patchErr: any) {
+        console.warn('PATCH failed, falling back to POST:', patchErr);
+        res = await api(`/api/passports/${selectedPassport.id}/taken`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
       if (res.ok) {
-        // Update local state instantly for snappiness
         mutatePassports(prev =>
-          prev.map(p =>
+          (prev || []).map(p =>
             p.id === selectedPassport.id
               ? {
                   ...p,
@@ -124,12 +136,15 @@ export default function AvailablePassportPage() {
           )
         );
       } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Failed to update passport');
+        const text = await res.text().catch(() => '');
+        let data: any = {};
+        try { data = JSON.parse(text); } catch {}
+        const errorMsg = data.error || data.message || text || `HTTP ${res.status} ${res.statusText}`;
+        alert(`Failed to Mark Passport as Taken [HTTP ${res.status}]: ${errorMsg}`);
       }
     } catch (err: any) {
-      console.error(err);
-      alert(err.message || 'Error updating passport status');
+      console.error('Passport mark taken error:', err);
+      alert(`Error Marking Passport as Taken:\n${err?.message || err || 'Unknown Error'}\n\nID: ${selectedPassport.id}\nPassport: ${selectedPassport.passportNumber}`);
     } finally {
       setIsUpdating(null);
       setSelectedPassport(null);
@@ -148,14 +163,23 @@ export default function AvailablePassportPage() {
     setIsUpdating(returnPassport.id);
     setReturnModalOpen(false);
     try {
-      const res = await api(`/api/passports/${returnPassport.id}/return`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      let res: Response;
+      try {
+        res = await api(`/api/passports/${returnPassport.id}/return`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (patchErr: any) {
+        console.warn('PATCH failed, falling back to POST:', patchErr);
+        res = await api(`/api/passports/${returnPassport.id}/return`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       if (res.ok) {
-        // Update local state — restore to Available, keep shelfNo
         mutatePassports(prev =>
-          prev.map(p =>
+          (prev || []).map(p =>
             p.id === returnPassport.id
               ? {
                   ...p,
@@ -168,12 +192,15 @@ export default function AvailablePassportPage() {
           )
         );
       } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Failed to return passport');
+        const text = await res.text().catch(() => '');
+        let data: any = {};
+        try { data = JSON.parse(text); } catch {}
+        const errorMsg = data.error || data.message || text || `HTTP ${res.status} ${res.statusText}`;
+        alert(`Failed to Return Passport [HTTP ${res.status}]: ${errorMsg}`);
       }
     } catch (err: any) {
-      console.error(err);
-      alert(err.message || 'Error returning passport');
+      console.error('Passport return error:', err);
+      alert(`Error Returning Passport:\n${err?.message || err || 'Unknown Error'}\n\nID: ${returnPassport.id}\nPassport: ${returnPassport.passportNumber}`);
     } finally {
       setIsUpdating(null);
       setReturnPassport(null);

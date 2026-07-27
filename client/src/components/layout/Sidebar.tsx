@@ -40,7 +40,7 @@ const allNavItems = [
   { label: 'Available Passport', href: '/available-passport', icon: FolderOpen },
   { label: 'Registration', href: '/registration', icon: UserPlus },
   { label: 'Fit Candidates', href: '/fit-candidates', icon: UserCheck },
-  { label: 'Available Candidates', href: '/agency/available-candidates', icon: Users },
+
   { label: 'Brokers', href: '/brokers', icon: Users },
   { label: 'Settings', href: '/settings', icon: Settings },
   { label: 'Backup CVs', href: '/backup', icon: FolderOpen },

@@ -159,8 +159,8 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// PATCH /api/passports/:id/taken
-router.patch('/:id/taken', async (req: Request, res: Response) => {
+// PATCH or POST /api/passports/:id/taken
+const handleMarkTaken = async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
     const userAgency = getMajorAgencyFromServerUser(session?.user);
@@ -169,7 +169,7 @@ router.patch('/:id/taken', async (req: Request, res: Response) => {
 
     const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
     if (!existing || !isSameAgency(existing.majorAgency, userAgency)) {
-      return res.status(404).json({ error: 'Passport not found' });
+      return res.status(404).json({ error: `Passport ID ${id} not found under ${userAgency} agency` });
     }
 
     if (!takenReason || !['Medical', 'Terminate'].includes(takenReason)) {
@@ -199,10 +199,13 @@ router.patch('/:id/taken', async (req: Request, res: Response) => {
     console.error('Failed to mark passport as taken:', error);
     res.status(500).json({ error: 'Failed to update passport: ' + error.message });
   }
-});
+};
 
-// PATCH /api/passports/:id/return
-router.patch('/:id/return', async (req: Request, res: Response) => {
+router.patch('/:id/taken', handleMarkTaken);
+router.post('/:id/taken', handleMarkTaken);
+
+// PATCH or POST /api/passports/:id/return
+const handleReturnPassport = async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
     const userAgency = getMajorAgencyFromServerUser(session?.user);
@@ -210,7 +213,7 @@ router.patch('/:id/return', async (req: Request, res: Response) => {
 
     const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
     if (!existing || !isSameAgency(existing.majorAgency, userAgency)) {
-      return res.status(404).json({ error: 'Passport not found' });
+      return res.status(404).json({ error: `Passport ID ${id} not found under ${userAgency} agency` });
     }
 
     await db.update(passport)
@@ -227,7 +230,10 @@ router.patch('/:id/return', async (req: Request, res: Response) => {
     console.error('Failed to return passport:', error);
     res.status(500).json({ error: 'Failed to return passport: ' + error.message });
   }
-});
+};
+
+router.patch('/:id/return', handleReturnPassport);
+router.post('/:id/return', handleReturnPassport);
 
 // DELETE /api/passports/:id
 router.delete('/:id', async (req: Request, res: Response) => {
