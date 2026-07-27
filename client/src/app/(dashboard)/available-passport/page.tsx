@@ -124,7 +124,7 @@ export default function AvailablePassportPage() {
           )
         );
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         alert(data.error || 'Failed to update passport');
       }
     } catch (err: any) {
@@ -168,7 +168,7 @@ export default function AvailablePassportPage() {
           )
         );
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         alert(data.error || 'Failed to return passport');
       }
     } catch (err: any) {

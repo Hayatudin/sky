@@ -64,15 +64,21 @@ export const getNextShelfNo = async (): Promise<string> => {
   return shelfNoStr;
 };
 
+const isSameAgency = (itemAgency?: string | null, userAgency?: string) => {
+  if (!itemAgency) return true; // Legacy rows without majorAgency are visible
+  const a1 = itemAgency.toLowerCase().includes('fenero') ? 'Fenero' : 'Sky';
+  const a2 = (userAgency || '').toLowerCase().includes('fenero') ? 'Fenero' : 'Sky';
+  return a1 === a2;
+};
+
 // GET /api/passports
 router.get('/', async (req: Request, res: Response) => {
   try {
     const session = await getSession(req);
     const userAgency = getMajorAgencyFromServerUser(session?.user);
 
-    const passports = await db.select().from(passport)
-      .where(eq(passport.majorAgency, userAgency))
-      .orderBy(desc(passport.createdAt));
+    const allPassports = await db.select().from(passport).orderBy(desc(passport.createdAt));
+    const passports = allPassports.filter(p => isSameAgency(p.majorAgency, userAgency));
     res.json(passports);
   } catch (error: any) {
     console.error('Failed to fetch passports:', error);
@@ -99,27 +105,22 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Check if passport already exists in Passport, QuickRegistration, or Candidate table
     const existingP = await db.query.passport.findFirst({
-      where: (p, { eq, and }) => and(
-        eq(sql`upper(${p.passportNumber})`, cleanPassportNumber),
-        eq(p.majorAgency, userAgency)
-      )
+      where: (p, { eq }) => eq(sql`upper(${p.passportNumber})`, cleanPassportNumber)
     });
 
     const existingQR = await db.query.quickRegistration.findFirst({
-      where: (qr, { eq, and }) => and(
-        eq(sql`upper(${qr.passportNumber})`, cleanPassportNumber),
-        eq(qr.majorAgency, userAgency)
-      )
+      where: (qr, { eq }) => eq(sql`upper(${qr.passportNumber})`, cleanPassportNumber)
     });
 
     const existingCand = await db.query.candidate.findFirst({
-      where: (c, { eq, and }) => and(
-        eq(sql`upper(${c.passportNumber})`, cleanPassportNumber),
-        eq(c.majorAgency, userAgency)
-      )
+      where: (c, { eq }) => eq(sql`upper(${c.passportNumber})`, cleanPassportNumber)
     });
 
-    if (existingP || existingQR || existingCand) {
+    if (
+      (existingP && isSameAgency(existingP.majorAgency, userAgency)) ||
+      (existingQR && isSameAgency(existingQR.majorAgency, userAgency)) ||
+      (existingCand && isSameAgency(existingCand.majorAgency, userAgency))
+    ) {
       return res.status(400).json({ error: 'The passport already exists.' });
     }
 
@@ -167,7 +168,7 @@ router.patch('/:id/taken', async (req: Request, res: Response) => {
     const { takenReason, takenByName, takenByPhone } = req.body;
 
     const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
-    if (!existing || existing.majorAgency !== userAgency) {
+    if (!existing || !isSameAgency(existing.majorAgency, userAgency)) {
       return res.status(404).json({ error: 'Passport not found' });
     }
 
@@ -208,7 +209,7 @@ router.patch('/:id/return', async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
-    if (!existing || existing.majorAgency !== userAgency) {
+    if (!existing || !isSameAgency(existing.majorAgency, userAgency)) {
       return res.status(404).json({ error: 'Passport not found' });
     }
 
@@ -236,7 +237,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const existing = await db.query.passport.findFirst({ where: eq(passport.id, id) });
-    if (!existing || existing.majorAgency !== userAgency) {
+    if (!existing || !isSameAgency(existing.majorAgency, userAgency)) {
       return res.status(404).json({ error: 'Passport not found' });
     }
 
