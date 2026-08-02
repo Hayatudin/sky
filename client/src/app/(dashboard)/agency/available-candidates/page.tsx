@@ -50,6 +50,7 @@ interface AvailableCandidate {
   workExperience?: any;
   skills?: any;
   city?: string | null;
+  processStatus?: string | null;
 }
 
 const SKILL_TAGS = ['WASH & IRON', 'BABY SITTING', 'COOKING', 'CLEANING', 'DRIVING'];
@@ -683,6 +684,7 @@ export default function AvailableCandidatesPage() {
   // Memoized filtered candidates list (Applied immediately)
   const filteredCandidates = useMemo(() => {
     return candidates.filter(c => {
+      if (c.processStatus === 'Arrived') return false;
       const brokerName = (c.broker?.name || '').toLowerCase().trim();
       if (brokerName === 'calling') return false;
       // 1. Text Search

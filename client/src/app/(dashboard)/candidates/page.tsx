@@ -258,6 +258,7 @@ export default function CandidatesPage() {
   const filtered = useMemo(() => {
     const safeArr = Array.isArray(candidates) ? candidates : [];
     let result = safeArr.filter((c) => {
+      if (c.processStatus === 'Arrived') return false;
       const brokerName = (c.broker?.name || c.personalInfo?.brokerId || '').toLowerCase().trim();
       if (brokerName === 'calling' || brokerName === 'calling-broker') return false;
 

@@ -669,14 +669,23 @@ export default function RequestedPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
+  const [processTab, setProcessTab] = useState<'pending' | 'arrived'>('pending');
+
+  const pendingCount = (Array.isArray(candidates) ? candidates : []).filter(c => c.processStatus !== 'Arrived').length;
+  const arrivedCount = (Array.isArray(candidates) ? candidates : []).filter(c => c.processStatus === 'Arrived').length;
+
   const filtered = (Array.isArray(candidates) ? candidates : []).filter(c => {
+    const isArrived = c.processStatus === 'Arrived';
+    if (processTab === 'arrived' && !isArrived) return false;
+    if (processTab === 'pending' && isArrived) return false;
+
     const name = `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''}`.toLowerCase();
     return name.includes(searchQuery.toLowerCase()) || (c.passportData?.passportNumber ?? '').toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, processTab]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -696,7 +705,7 @@ export default function RequestedPage() {
           {/* Add Candidate Button */}
           <button
             onClick={() => setShowDirectRegistrationModal(true)}
-            className="flex items-center justify-center gap-2 bg-white border border-border text-text-primary hover:border-primary/50 font-bold px-5 py-3 rounded-2xl shadow-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0"
+            className="flex items-center justify-center gap-2 bg-white border border-border text-text-primary hover:border-primary/50 font-bold px-5 py-3 rounded-2xl shadow-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shrink-0 cursor-pointer"
           >
             <Plus size={18} />
             <span>Add Candidate</span>
@@ -706,7 +715,7 @@ export default function RequestedPage() {
           <button
             disabled={isGenerating}
             onClick={handleGenerateReport}
-            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark disabled:bg-primary/60 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:cursor-not-allowed shrink-0"
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark disabled:bg-primary/60 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:cursor-not-allowed shrink-0 cursor-pointer"
           >
             {isGenerating ? (
               <>
@@ -723,6 +732,45 @@ export default function RequestedPage() {
         </div>
       </div>
 
+      {/* Process Filter Tabs */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setProcessTab('pending')}
+          className={cn(
+            "flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer",
+            processTab === 'pending'
+              ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]"
+              : "bg-surface text-text-secondary hover:bg-gray-100 border border-border/50"
+          )}
+        >
+          <span>Visa Selected</span>
+          <span className={cn(
+            "px-2.5 py-0.5 rounded-full text-[11px] font-black",
+            processTab === 'pending' ? "bg-white/20 text-white" : "bg-gray-200 text-gray-700"
+          )}>
+            {pendingCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setProcessTab('arrived')}
+          className={cn(
+            "flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer",
+            processTab === 'arrived'
+              ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 scale-[1.02]"
+              : "bg-surface text-text-secondary hover:bg-gray-100 border border-border/50"
+          )}
+        >
+          <span>Arrived</span>
+          <span className={cn(
+            "px-2.5 py-0.5 rounded-full text-[11px] font-black",
+            processTab === 'arrived' ? "bg-white/20 text-white" : "bg-gray-200 text-gray-700"
+          )}>
+            {arrivedCount}
+          </span>
+        </button>
+      </div>
+
       {/* Stats Counter Box */}
       {!isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -732,7 +780,7 @@ export default function RequestedPage() {
             </div>
             <div>
               <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider">Total Candidates</p>
-              <p className="text-2xl font-black text-text-primary mt-0.5">{candidates.length}</p>
+              <p className="text-2xl font-black text-text-primary mt-0.5">{filtered.length}</p>
             </div>
           </div>
         </div>
@@ -754,6 +802,7 @@ export default function RequestedPage() {
                 <th className="px-6 py-4 font-semibold">CV Agency</th>
                 <th className="px-6 py-4 font-semibold hidden xl:table-cell">Selected Date</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
+                <th className="px-6 py-4 font-semibold">Process</th>
                 <th className="px-6 py-4 font-semibold">Medical</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
@@ -881,6 +930,40 @@ export default function RequestedPage() {
                         {c.visaOrContractNumber && (
                           <p className="text-[10px] text-text-tertiary mt-1 max-w-[100px] truncate" title={c.visaOrContractNumber}>No: {c.visaOrContractNumber}</p>
                         )}
+                      </td>
+
+                      {/* Interactive Process Status Select */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <select
+                          value={c.processStatus || 'Pending'}
+                          onChange={async (e) => {
+                            const newProcessStatus = e.target.value;
+                            try {
+                              const res = await api(`/api/candidates/${c.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ processStatus: newProcessStatus }),
+                              });
+                              if (!res.ok) throw new Error();
+                              mutate(prev => prev.map(cand => cand.id === c.id ? { 
+                                ...cand, 
+                                processStatus: newProcessStatus
+                              } : cand));
+                              queryClient.invalidateQueries();
+                            } catch {
+                              alert('Failed to update process status');
+                            }
+                          }}
+                          className={cn(
+                            "px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer focus:outline-none focus:ring-2 whitespace-nowrap",
+                            c.processStatus === 'Arrived'
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500/20"
+                              : "bg-slate-50 text-slate-700 border-slate-200 focus:ring-slate-500/20"
+                          )}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Arrived">Arrived</option>
+                        </select>
                       </td>
 
                       {/* Interactive Medical Status Select */}

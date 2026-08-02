@@ -160,6 +160,7 @@ export default function InvoicePage() {
   };
 
   const filtered = (Array.isArray(invoices) ? invoices : []).filter(inv => {
+    if (inv.candidate?.processStatus === 'Arrived') return false;
     // 0. Filter by statusTab (available/downloaded)
     const matchesStatus = statusTab === 'downloaded' ? inv.isDownloaded : !inv.isDownloaded;
     if (!matchesStatus) return false;

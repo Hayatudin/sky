@@ -232,6 +232,7 @@ router.get('/', async (req: Request, res: Response) => {
         deployedDate: c.deployedDate ? c.deployedDate.toISOString() : null,
         registeredAt: c.registeredAt instanceof Date ? c.registeredAt.toISOString() : c.registeredAt,
         status: c.status,
+        processStatus: c.processStatus || 'Pending',
         visaSelected: c.visaSelected,
         visaDate: c.visaDate ? c.visaDate.toISOString() : null,
         salary: c.salary || '1000SR',
@@ -552,6 +553,7 @@ router.post('/', async (req: Request, res: Response) => {
       isRequested: (req.body.isRequested === true || req.body.isRequested === 'true' || body.isRequested === true),
       visaSelected: (req.body.visaSelected === true || req.body.visaSelected === 'true' || body.visaSelected === true),
       agencyStatus: body.agencyStatus || req.body.agencyStatus || 'Under Process',
+      processStatus: body.processStatus || req.body.processStatus || 'Pending',
       visaOrContractNumber: body.visaOrContractNumber || req.body.visaOrContractNumber || null,
       visaDate: body.visaDate ? new Date(body.visaDate) : (req.body.visaDate ? new Date(req.body.visaDate) : null)
     };
@@ -875,6 +877,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       majorAgency: userAgency,
       visaDate: visaDateVal,
       salary: body.personalInfo?.salary || '1000SR',
+      processStatus: body.processStatus || existingCandidate.processStatus || 'Pending',
       allowVideo: body.allowVideo ? true : false,
       price: priceVal !== undefined ? priceVal : existingCandidate.price
     };
@@ -1051,7 +1054,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       'emergencyContactName', 'emergencyContactRelation', 'emergencyContactPhone',
       'emergencyContactAddress', 'passportImageUrl', 'facePhotoUrl', 'fullBodyPhotoUrl',
       'cocDocumentUrl', 'medicalDocumentUrl', 'candidateIdImageUrl', 'relativeIdImageUrl',
-      'labourId', 'status', 'agency', 'salary', 'price', 'visaOrContractNumber', 'sponsorName', 'destination', 'applicationNumber'
+      'labourId', 'status', 'processStatus', 'agency', 'salary', 'price', 'visaOrContractNumber', 'sponsorName', 'destination', 'applicationNumber'
     ];
 
     stringFields.forEach(f => {

@@ -76,6 +76,7 @@ export interface Candidate {
   sponsorName?: string | null;
   destination?: string | null;
   applicationNumber?: string | null;
+  processStatus?: 'Pending' | 'Arrived' | string;
   lmisStatus?: string | null;
   embassyStatus?: string | null;
   isFlagged?: boolean;

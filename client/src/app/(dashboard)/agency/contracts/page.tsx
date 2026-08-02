@@ -508,7 +508,7 @@ export default function AgencyContractsPage() {
 
   // Filter candidates based on Search + Active Tab + Agency Filters
   const filteredCandidates = useMemo(() => {
-    let list = candidates;
+    let list = candidates.filter((c: any) => c.processStatus !== 'Arrived');
 
     // Apply search filter (Name, Passport, Visa Number)
     if (searchQuery.trim() !== '') {

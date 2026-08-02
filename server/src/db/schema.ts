@@ -127,6 +127,7 @@ export const candidate = mysqlTable('Candidate', {
   sponsorName: varchar('sponsorName', { length: 191 }),
   destination: varchar('destination', { length: 191 }),
   applicationNumber: varchar('applicationNumber', { length: 191 }),
+  processStatus: varchar('processStatus', { length: 191 }).notNull().default('Pending'),
   brokerId: varchar('brokerId', { length: 191 }),
   registeredById: varchar('registeredById', { length: 191 }),
 }, (table) => ({

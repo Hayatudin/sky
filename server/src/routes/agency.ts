@@ -357,11 +357,12 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         workExperience: c.workExperience,
         skills: c.skills,
         allowVideo: c.allowVideo ?? false,
-        visaDate: safeIsoString(c.visaDate)
+        visaDate: safeIsoString(c.visaDate),
+        processStatus: c.processStatus || 'Pending'
       };
     }).filter((c: any) => {
       const bName = (c.broker?.name || '').toLowerCase().trim();
-      return bName !== 'calling';
+      return bName !== 'calling' && c.processStatus !== 'Arrived';
     });
 
     res.json(resultList);

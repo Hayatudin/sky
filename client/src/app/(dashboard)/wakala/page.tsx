@@ -31,6 +31,7 @@ export default function WakalaPage() {
 
   // Filter candidates: Visa Selected only
   const visaSelectedCandidates = (Array.isArray(allCandidates) ? allCandidates : []).filter((c: any) => {
+    if (c.processStatus === 'Arrived') return false;
     return c.isRequested || c.visaSelected || c.status === 'visa selected';
   });
 

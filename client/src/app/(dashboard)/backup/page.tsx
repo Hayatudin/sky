@@ -333,6 +333,7 @@ export default function BackupPage() {
         if (!c.candidate) return false;
         const brokerName = (c.candidate.broker?.name || c.candidate.personalInfo?.brokerId || '').toLowerCase().trim();
         if (brokerName === 'calling' || brokerName === 'calling-broker') return false;
+        if (c.candidate?.processStatus === 'Arrived') return false;
         return (
           c.candidate?.isRequested || 
           c.candidate?.medicalStatus === 'Unfit' || 
