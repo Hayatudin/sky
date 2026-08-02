@@ -40,7 +40,7 @@ function CVGeneratorContent() {
   const queryClient = useQueryClient();
   const nonCallingCandidates = React.useMemo(() => candidates.filter((c: Candidate) => {
     const bName = (c.broker?.name || c.personalInfo?.brokerId || '').toLowerCase().trim();
-    return bName !== 'calling' && bName !== 'calling-broker';
+    return bName !== 'calling' && bName !== 'calling-broker' && c.processStatus !== 'Arrived';
   }), [candidates]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(urlCandidateId);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId);

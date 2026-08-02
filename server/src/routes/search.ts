@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { candidate } from '../db/schema';
-import { or, like, and, eq } from 'drizzle-orm';
+import { or, like, and, eq, ne, isNull } from 'drizzle-orm';
 import { getSession } from '../lib/auth-helper';
 import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
 
@@ -21,6 +21,7 @@ router.get('/', async (req: Request, res: Response) => {
       .where(
         and(
           eq(candidate.majorAgency, userAgency),
+          or(ne(candidate.processStatus, 'Arrived'), isNull(candidate.processStatus)),
           or(
             like(candidate.givenNames, `%${query}%`),
             like(candidate.surname, `%${query}%`),

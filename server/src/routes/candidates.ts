@@ -248,9 +248,12 @@ router.get('/', async (req: Request, res: Response) => {
     });
 
     const includeCalling = req.query.includeCalling === 'true';
-    const filteredCandidatesList = includeCalling ? candidates : candidates.filter((c: any) => {
+    const includeArrived = req.query.includeArrived === 'true';
+    const filteredCandidatesList = candidates.filter((c: any) => {
       const brokerName = (c.broker?.name || c.personalInfo?.brokerId || '').toLowerCase().trim();
-      return brokerName !== 'calling' && brokerName !== 'calling-broker';
+      if (!includeCalling && (brokerName === 'calling' || brokerName === 'calling-broker')) return false;
+      if (!includeArrived && c.processStatus === 'Arrived') return false;
+      return true;
     });
 
     res.json(filteredCandidatesList);

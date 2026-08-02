@@ -7,14 +7,17 @@ export function clearCandidatesCache() {
   queryClient.invalidateQueries({ queryKey: ['candidates'] });
 }
 
-export function useCandidates() {
+export function useCandidates(includeArrived: boolean = false) {
   const queryClient = useQueryClient();
 
+  const queryKey = includeArrived ? ['candidates', 'includeArrived'] : ['candidates'];
+
   const { data: candidates = [], isLoading, error, refetch } = useQuery<Candidate[]>({
-    queryKey: ['candidates'],
+    queryKey,
     queryFn: async () => {
       try {
-        const res = await api('/api/candidates');
+        const url = includeArrived ? '/api/candidates?includeArrived=true' : '/api/candidates';
+        const res = await api(url);
         const json = await res.json();
         // Guard: ensure the result is always an array
         return Array.isArray(json) ? json : (json?.data ?? json?.candidates ?? []);
@@ -32,9 +35,9 @@ export function useCandidates() {
     }
 
     if (typeof updater === 'function') {
-      queryClient.setQueryData<Candidate[]>(['candidates'], (prev = []) => updater(prev));
+      queryClient.setQueryData<Candidate[]>(queryKey, (prev = []) => updater(prev));
     } else {
-      queryClient.setQueryData<Candidate[]>(['candidates'], updater);
+      queryClient.setQueryData<Candidate[]>(queryKey, updater);
     }
   };
 

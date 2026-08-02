@@ -73,6 +73,7 @@ export default function DeploymentsPage() {
   };
 
   const filtered = (Array.isArray(candidates) ? candidates : []).filter(c => {
+    if (c.processStatus === 'Arrived') return false;
     const fullName = `${c.givenNames ?? ''} ${c.surname ?? ''}`.toLowerCase();
     const passport = c.passportNumber?.toLowerCase() || '';
     const broker = c.broker?.name?.toLowerCase() || '';

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { invoice, candidate, generatedCV, templatePrice } from '../db/schema';
-import { eq, desc, inArray, and } from 'drizzle-orm';
+import { eq, desc, inArray, and, ne, or, isNull } from 'drizzle-orm';
 import { uploadToLocal } from '../lib/upload';
 import { getSession } from '../lib/auth-helper';
 import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
@@ -77,7 +77,10 @@ router.get('/', async (req: Request, res: Response) => {
     })
     .from(invoice)
     .innerJoin(candidate, eq(invoice.candidateId, candidate.id))
-    .where(eq(candidate.majorAgency, userAgency))
+    .where(and(
+      eq(candidate.majorAgency, userAgency),
+      or(ne(candidate.processStatus, 'Arrived'), isNull(candidate.processStatus))
+    ))
     .orderBy(desc(invoice.createdAt));
 
     if (rows.length === 0) return res.json([]);

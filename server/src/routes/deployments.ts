@@ -22,6 +22,7 @@ router.get('/', async (req: Request, res: Response) => {
       LEFT JOIN \`Broker\` b ON c.brokerId = b.id
       WHERE c.visaSelected = 1
         AND c.deployedDate IS NOT NULL
+        AND (c.processStatus IS NULL OR c.processStatus != 'Arrived')
         AND c.major_agency = ${userAgency}
       ORDER BY c.deployedDate DESC
     `))[0] as unknown as any[];
@@ -78,6 +79,7 @@ router.post('/export', async (req: Request, res: Response) => {
       LEFT JOIN \`Broker\` b ON c.brokerId = b.id
       WHERE c.visaSelected = 1
         AND c.deployedDate IS NOT NULL
+        AND (c.processStatus IS NULL OR c.processStatus != 'Arrived')
         AND c.major_agency = ${userAgency}
       ORDER BY c.deployedDate DESC
     `))[0] as unknown as any[];

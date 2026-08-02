@@ -156,7 +156,7 @@ router.get('/', async (req: Request, res: Response) => {
       })
       .filter((cv: any) => {
         const brokerName = (cv.candidate?.broker?.name || cv.candidate?.personalInfo?.brokerId || '').toLowerCase().trim();
-        return brokerName !== 'calling' && brokerName !== 'calling-broker';
+        return brokerName !== 'calling' && brokerName !== 'calling-broker' && cv.candidate?.processStatus !== 'Arrived';
       });
 
     res.json(mappedCVs);

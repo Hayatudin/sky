@@ -316,7 +316,7 @@ export default function RequestedPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const TEMPLATES = getTemplateOptionsForAgency(getUserMajorAgency(session?.user));
-  const { candidates: allCandidates, isLoading, mutate } = useCandidates();
+  const { candidates: allCandidates, isLoading, mutate } = useCandidates(true);
   const { brokers } = useBrokers();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
