@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { candidate, generatedCV, notification, user, broker, invoice } from '../db/schema';
-import { eq, and, or, sql, inArray } from 'drizzle-orm';
+import { eq, and, or, sql, inArray, ne, isNull } from 'drizzle-orm';
 import { getSession } from '../lib/auth-helper';
 import { encryptPath } from '../lib/crypto';
 import { getMajorAgencyFromServerUser } from '../lib/agency-helper';
@@ -154,6 +154,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
     const { agency } = req.query;
     const conditions: any[] = [
       eq(candidate.majorAgency, userAgency),
+      or(ne(candidate.processStatus, 'Arrived'), isNull(candidate.processStatus)),
       or(
         eq(candidate.agencySelected, true),
         eq(candidate.visaSelected, true),
