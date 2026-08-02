@@ -29,7 +29,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { getFileUrl, getDownloadUrl, cleanLabourId } from '@/lib/utils';
+import { getFileUrl, getDownloadUrl, cleanLabourId, cn } from '@/lib/utils';
 import { Candidate } from '@/types';
 import { useSession } from '@/lib/auth-client';
 
@@ -616,9 +616,15 @@ export default function AgencyContractsPage() {
       'no', 'NAME', 'PASS NO', 'LABOUR ID', 'DATE', 'MEDICAL', 'coc', 'LMIS issue', 'Embassy Status', 'ID NAME', 'office', 'SPONSOR NAME', 'DESTINATION', 'DEPLOYMENT DATE'
     ];
 
-    const rows = filteredCandidates.map((c, i) => {
+    const officeColIndex = headers.indexOf('office');
+
+    const rowData = filteredCandidates.map((c, i) => {
       const cocVal = c.cocStatus === 'Yes' ? 'DONE' : (c.cocStatus === 'No' ? 'NONE' : c.cocStatus || 'NONE');
-      return isFenero ? [
+      const agencyName = getCandidateAgencyName(c);
+      const isNotOnline = c.cocStatus === 'NOT ONLINE';
+      const isNorthOffice = agencyName.toUpperCase().includes('NORTH');
+
+      const values = isFenero ? [
         String(i + 1),
         `${c.surname} ${c.givenNames}`.toUpperCase(),
         formatToMDY(c.visaDate || c.registeredAt),
@@ -629,7 +635,7 @@ export default function AgencyContractsPage() {
         c.lmisStatus || 'Pending',
         c.embassyStatus || 'ready to embassy',
         c.broker?.name || 'calling',
-        getCandidateAgencyName(c),
+        agencyName,
         c.sponsorName || '-',
         c.destination || '-',
         c.deployedDate ? new Date(c.deployedDate).toLocaleDateString() : '-'
@@ -644,12 +650,16 @@ export default function AgencyContractsPage() {
         c.lmisStatus || 'Pending',
         c.embassyStatus || 'ready to embassy',
         c.broker?.name || 'calling',
-        getCandidateAgencyName(c),
+        agencyName,
         c.sponsorName || '-',
         c.destination || '-',
         c.deployedDate ? new Date(c.deployedDate).toLocaleDateString() : '-'
       ];
+
+      return { values, isNotOnline, isNorthOffice };
     });
+
+    const rows = rowData.map(r => r.values);
 
     // Calculate custom column widths based on the maximum string length of each column's values
     const colWidths = headers.map((header, colIndex) => {
@@ -700,9 +710,19 @@ export default function AgencyContractsPage() {
             </tr>
           </thead>
           <tbody>
-            ${rows.map(row => `
-              <tr>
-                ${row.map(val => `<td>${val === null || val === undefined ? '' : String(val)}</td>`).join('')}
+            ${rowData.map(item => `
+              <tr ${item.isNotOnline ? 'style="background-color: #fef08a; color: #713f12;"' : ''}>
+                ${item.values.map((val, colIdx) => {
+                  let cellStyle = '';
+                  if (item.isNotOnline) {
+                    cellStyle = 'background-color: #fef08a; color: #713f12; font-weight: bold;';
+                  }
+                  if (colIdx === officeColIndex && item.isNorthOffice) {
+                    cellStyle = 'background-color: #dcfce7; color: #166534; font-weight: bold;';
+                  }
+                  const styleAttr = cellStyle ? ` style="${cellStyle}"` : '';
+                  return `<td${styleAttr}>${val === null || val === undefined ? '' : String(val)}</td>`;
+                }).join('')}
               </tr>
             `).join('')}
           </tbody>
@@ -1036,8 +1056,20 @@ export default function AgencyContractsPage() {
                     updatingField?.candidateId === c.id && updatingField.fieldName === fieldName;
                   const canEdit = ['super_admin', 'agency', 'processor', 'coordinator'].includes(userRole);
 
+                  const isNotOnline = c.cocStatus === 'NOT ONLINE';
+                  const agencyName = getCandidateAgencyName(c);
+                  const isNorthOffice = agencyName.toUpperCase().includes('NORTH');
+
                   return (
-                    <tr key={c.id} className="hover:bg-gray-50/30 transition-colors group">
+                    <tr 
+                      key={c.id} 
+                      className={cn(
+                        "transition-colors group",
+                        isNotOnline 
+                          ? "bg-yellow-200/90 hover:bg-yellow-300/90 text-yellow-950 font-semibold" 
+                          : "hover:bg-gray-50/30"
+                      )}
+                    >
                       
                       {/* Roll Number */}
                       <td className="px-2 py-2 text-center font-bold text-text-tertiary text-xs">
@@ -1245,8 +1277,13 @@ export default function AgencyContractsPage() {
 
                       {/* office */}
                       <td className="px-2 py-2">
-                        <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-100 uppercase whitespace-nowrap">
-                          {getCandidateAgencyName(c)}
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 text-[10px] font-extrabold rounded-xl border uppercase whitespace-nowrap",
+                          isNorthOffice
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 shadow-xs"
+                            : "bg-cyan-50 text-cyan-700 border-cyan-100"
+                        )}>
+                          {agencyName}
                         </span>
                       </td>
 
