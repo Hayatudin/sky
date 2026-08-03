@@ -33,6 +33,7 @@ export interface QuickReg {
   agency?: string | null;
   passportType?: string | null;
   languages?: string[] | null;
+  musanedHoldImageUrl?: string | null;
 }
 
 export function useQuickRegistrations() {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
@@ -84,7 +84,7 @@ export default function QuickRegisteredPage() {
   const { brokers, isLoading: loadingBrokers } = useBrokers();
   const loading = loadingRegistrations || loadingBrokers;
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'promoted'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'promoted' | 'musaned_hold'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | '1d' | '1w' | '1m'>('all');
   const [missingFileFilter, setMissingFileFilter] = useState<string>('');
   const [expandedRegId, setExpandedRegId] = useState<string | null>(null);
@@ -107,6 +107,56 @@ export default function QuickRegisteredPage() {
   const [isPromoting, setIsPromoting] = useState(false);
   const [promoteSuccess, setPromoteSuccess] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
+
+  // Musaned Hold Modal State
+  const [musanedHoldTarget, setMusanedHoldTarget] = useState<QuickReg | null>(null);
+  const [musanedHoldFile, setMusanedHoldFile] = useState<File | null>(null);
+  const [musanedHoldPreview, setMusanedHoldPreview] = useState<string | null>(null);
+  const [isMusanedHoldDrag, setIsMusanedHoldDrag] = useState(false);
+  const [isSavingMusanedHold, setIsSavingMusanedHold] = useState(false);
+  const musanedFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleMusanedHoldFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (PNG, JPG, WEBP)');
+      return;
+    }
+    setMusanedHoldFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setMusanedHoldPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submitMusanedHold = async () => {
+    if (!musanedHoldTarget || !musanedHoldPreview) return;
+    setIsSavingMusanedHold(true);
+    try {
+      const res = await api(`/api/quick-registrations/${musanedHoldTarget.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          verificationStatus: 'Musaned Hold',
+          musanedHoldImageUrl: musanedHoldPreview,
+        }),
+      });
+
+      const updated = await res.json();
+      if (!res.ok) throw new Error(updated.error || 'Failed to update status');
+
+      mutateRegistrations(prev => prev.map(r => r.id === musanedHoldTarget.id ? updated : r));
+      queryClient.invalidateQueries({ queryKey: ['quick-registrations'] });
+
+      setMusanedHoldTarget(null);
+      setMusanedHoldFile(null);
+      setMusanedHoldPreview(null);
+    } catch (err: any) {
+      alert(err.message || 'Error updating status to Musaned Hold');
+    } finally {
+      setIsSavingMusanedHold(false);
+    }
+  };
 
   // Edit and dropdown state
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
@@ -209,8 +259,9 @@ export default function QuickRegisteredPage() {
       if (!matchesSearch) return false;
     }
 
-    if (statusFilter === 'pending' && isPromoted(r)) return false;
+    if (statusFilter === 'pending' && (isPromoted(r) || r.verificationStatus === 'Musaned Hold')) return false;
     if (statusFilter === 'promoted' && !isPromoted(r)) return false;
+    if (statusFilter === 'musaned_hold' && r.verificationStatus !== 'Musaned Hold') return false;
 
     const cutoff = getDateCutoffMs(dateFilter);
     if (cutoff !== null && new Date(r.createdAt).getTime() > cutoff) return false;
@@ -765,6 +816,14 @@ export default function QuickRegisteredPage() {
         </span>
       );
     }
+    if (status === 'Musaned Hold') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          Musaned Hold
+        </span>
+      );
+    }
     if (status === 'verified') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-100">
@@ -812,12 +871,13 @@ export default function QuickRegisteredPage() {
         </div>
         <select
           value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as 'all' | 'pending' | 'promoted')}
+          onChange={e => setStatusFilter(e.target.value as 'all' | 'pending' | 'promoted' | 'musaned_hold')}
           className="h-[42px] px-4 text-sm rounded-xl border border-border bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[150px]"
         >
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
           <option value="promoted">Promoted</option>
+          <option value="musaned_hold">Musaned Hold</option>
         </select>
         <select
           value={dateFilter}
@@ -998,6 +1058,18 @@ export default function QuickRegisteredPage() {
                                         className="w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
                                       >
                                         <ShieldCheck size={14} className="text-emerald-600" /> Verify with CV
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          setActiveDropdownId(null);
+                                          setMusanedHoldTarget(r);
+                                          setMusanedHoldFile(null);
+                                          setMusanedHoldPreview(r.musanedHoldImageUrl || null);
+                                        }}
+                                        className="w-full px-4 py-2.5 text-sm text-amber-700 hover:text-amber-900 hover:bg-amber-50 transition-colors flex items-center gap-2 font-semibold"
+                                      >
+                                        <FolderOpen size={14} className="text-amber-600" /> Mark as Musaned Hold
                                       </button>
                                       
                                       <button
@@ -1648,6 +1720,128 @@ export default function QuickRegisteredPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Musaned Hold Modal */}
+      {musanedHoldTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-surface border border-border rounded-3xl p-6 max-w-md w-full shadow-2xl relative">
+            <button
+              onClick={() => {
+                setMusanedHoldTarget(null);
+                setMusanedHoldFile(null);
+                setMusanedHoldPreview(null);
+              }}
+              className="absolute top-4 right-4 p-2 rounded-xl text-text-tertiary hover:text-text-primary hover:bg-gray-100 transition-all cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-600 rounded-2xl">
+                <FolderOpen size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-text-primary">Musaned Hold</h3>
+                <p className="text-xs text-text-secondary">
+                  Candidate: <span className="font-bold">{musanedHoldTarget.givenNames} {musanedHoldTarget.surname}</span>
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 font-semibold">
+              ⚠️ Uploading a photo/document is <strong>strictly required</strong> to mark this candidate as Musaned Hold.
+            </p>
+
+            {/* Drag and Drop Dropzone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsMusanedHoldDrag(true); }}
+              onDragLeave={() => setIsMusanedHoldDrag(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsMusanedHoldDrag(false);
+                const file = e.dataTransfer.files?.[0];
+                if (file) handleMusanedHoldFile(file);
+              }}
+              className={cn(
+                "border-2 border-dashed rounded-2xl p-6 text-center transition-all flex flex-col items-center justify-center gap-3 cursor-pointer relative overflow-hidden",
+                isMusanedHoldDrag ? "border-amber-500 bg-amber-500/10 scale-95" : "border-border hover:border-amber-500/40 hover:bg-amber-50/30"
+              )}
+              onClick={() => musanedFileInputRef.current?.click()}
+            >
+              <input
+                ref={musanedFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleMusanedHoldFile(file);
+                }}
+              />
+
+              {musanedHoldPreview ? (
+                <div className="relative w-full h-44 rounded-xl overflow-hidden border border-amber-200">
+                  <img src={musanedHoldPreview.startsWith('http') || musanedHoldPreview.startsWith('data:') || musanedHoldPreview.startsWith('/uploads') ? getFileUrl(musanedHoldPreview) : musanedHoldPreview} alt="Hold Photo Preview" className="w-full h-full object-contain bg-slate-900" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMusanedHoldFile(null);
+                      setMusanedHoldPreview(null);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md cursor-pointer"
+                    title="Remove photo"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="p-3 bg-amber-100 text-amber-700 rounded-full">
+                    <Upload size={24} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-text-primary">Drag & drop Musaned Hold image here</p>
+                    <p className="text-[10px] text-text-tertiary mt-0.5">PNG, JPG or WEBP (Required)</p>
+                  </div>
+                  <span className="px-3 py-1 bg-white border border-border text-xs font-bold text-text-secondary rounded-lg shadow-xs hover:bg-gray-50">
+                    Browse Image
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Modal Buttons */}
+            <div className="flex items-center gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setMusanedHoldTarget(null);
+                  setMusanedHoldFile(null);
+                  setMusanedHoldPreview(null);
+                }}
+                className="flex-1 py-2.5 px-4 border border-border text-text-secondary font-bold rounded-xl text-xs hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!musanedHoldPreview || isSavingMusanedHold}
+                onClick={submitMusanedHold}
+                className="flex-1 py-2.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-md shadow-amber-600/20 cursor-pointer"
+              >
+                {isSavingMusanedHold ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Confirm Musaned Hold'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

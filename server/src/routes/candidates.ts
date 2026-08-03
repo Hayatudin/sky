@@ -589,7 +589,8 @@ router.post('/', async (req: Request, res: Response) => {
           .set({
             promotedAt: new Date(),
             promotedCandidateId: createdCandidate.id,
-            verificationStatus: 'promoted'
+            verificationStatus: 'promoted',
+            musanedHoldImageUrl: null
           })
           .where(eq(quickRegistration.id, body.quickRegistrationId));
       } catch (promotionError) {

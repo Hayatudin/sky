@@ -269,6 +269,7 @@ export const quickRegistration = mysqlTable('QuickRegistration', {
   createdAt: timestamp('createdAt', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
   verificationStatus: varchar('verificationStatus', { length: 191 }).notNull().default('pending'),
   musanedCvUrl: longtext('musanedCvUrl'),
+  musanedHoldImageUrl: longtext('musanedHoldImageUrl'),
   verificationNotes: varchar('verificationNotes', { length: 191 }),
   verifiedAt: datetime('verifiedAt', { fsp: 3 }),
   promotedAt: datetime('promotedAt', { fsp: 3 }),

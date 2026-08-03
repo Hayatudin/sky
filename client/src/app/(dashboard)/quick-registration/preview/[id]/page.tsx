@@ -36,6 +36,8 @@ interface QuickRegistration {
   agency?: string | null;
   passportType?: string | null;
   languages?: string[] | null;
+  verificationStatus?: string | null;
+  musanedHoldImageUrl?: string | null;
 }
 
 function CopyField({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
@@ -84,6 +86,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
   const [candidateIdImg, setCandidateIdImg] = useState<string | null>(null);
   const [relativeIdImg, setRelativeIdImg] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<string | null>(null);
+  const [musanedHoldImg, setMusanedHoldImg] = useState<string | null>(null);
   const [isSavingDocs, setIsSavingDocs] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -150,6 +153,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
         setCandidateIdImg(json.candidateIdImageUrl);
         setRelativeIdImg(json.relativeIdImageUrl);
         setVideoFile(json.videoUrl);
+        setMusanedHoldImg(json.musanedHoldImageUrl || null);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -352,7 +356,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
     setDragTarget(null);
   };
 
-  const handleDrop = (e: React.DragEvent, field: 'coc' | 'labour' | 'candidateId' | 'relativeId' | 'video') => {
+  const handleDrop = (e: React.DragEvent, field: 'coc' | 'labour' | 'candidateId' | 'relativeId' | 'video' | 'musanedHold') => {
     e.preventDefault();
     e.stopPropagation();
     setDragTarget(null);
@@ -362,7 +366,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
     }
   };
 
-  const handleFileChange = (field: 'coc' | 'labour' | 'candidateId' | 'relativeId' | 'video', file: File) => {
+  const handleFileChange = (field: 'coc' | 'labour' | 'candidateId' | 'relativeId' | 'video' | 'musanedHold', file: File) => {
     const limit = 50 * 1024 * 1024;
     if (file.size > limit) {
       alert(`Max file size is ${limit / (1024 * 1024)}MB`);
@@ -377,6 +381,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
         if (field === 'candidateId') setCandidateIdImg(base64);
         if (field === 'relativeId') setRelativeIdImg(base64);
         if (field === 'video') setVideoFile(base64);
+        if (field === 'musanedHold') setMusanedHoldImg(base64);
       }
     };
     reader.readAsDataURL(file);
@@ -395,6 +400,7 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
           candidateIdImageUrl: candidateIdImg,
           relativeIdImageUrl: relativeIdImg,
           videoUrl: videoFile,
+          musanedHoldImageUrl: musanedHoldImg,
         }),
       });
       if (!res.ok) {
@@ -408,6 +414,8 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
       setCandidateIdImg(updated.candidateIdImageUrl);
       setRelativeIdImg(updated.relativeIdImageUrl);
       setVideoFile(updated.videoUrl);
+      setMusanedHoldImg(updated.musanedHoldImageUrl || null);
+      queryClient.invalidateQueries({ queryKey: ['quick-registrations'] });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
@@ -417,13 +425,33 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
     }
   };
 
+  const handleRemoveMusanedHoldPhoto = async () => {
+    if (!confirm('Are you sure you want to remove the Musaned Hold photo?')) return;
+    setMusanedHoldImg(null);
+    try {
+      const res = await api(`/api/quick-registrations/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ musanedHoldImageUrl: null }),
+      });
+      if (!res.ok) throw new Error('Failed to remove photo');
+      const updated = await res.json();
+      setData(updated);
+      setMusanedHoldImg(null);
+      queryClient.invalidateQueries({ queryKey: ['quick-registrations'] });
+    } catch (err: any) {
+      alert(err.message || 'Error removing photo');
+    }
+  };
+
   const hasUnsavedChanges =
     data && (
       cocDoc !== data.cocDocumentUrl ||
       labourId !== data.labourId ||
       candidateIdImg !== data.candidateIdImageUrl ||
       relativeIdImg !== data.relativeIdImageUrl ||
-      videoFile !== data.videoUrl
+      videoFile !== data.videoUrl ||
+      musanedHoldImg !== data.musanedHoldImageUrl
     );
 
   if (loading) {
@@ -535,6 +563,66 @@ export default function QuickRegistrationPreviewPage({ params }: { params: Promi
           )}
         </div>
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Musaned Hold Photo */}
+          <div
+            onDragOver={(e) => handleDragOver(e, 'musanedHold')}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, 'musanedHold')}
+            className={cn(
+              "border rounded-xl p-4 bg-amber-50/40 border-amber-200 flex flex-col justify-between group transition-all sm:col-span-2 relative overflow-hidden",
+              dragTarget === 'musanedHold' ? "border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/30" : "hover:border-amber-400"
+            )}
+          >
+            {dragTarget === 'musanedHold' && (
+              <div className="absolute inset-0 bg-amber-500/10 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1.5 z-20 pointer-events-none border-2 border-dashed border-amber-500 rounded-xl">
+                <Upload size={28} className="text-amber-600 animate-bounce" />
+                <span className="text-xs font-bold text-amber-700">Drop Musaned Hold photo here</span>
+              </div>
+            )}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-900">Musaned Hold Photo</p>
+                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-amber-200 text-amber-900">Required for Hold</span>
+                </div>
+                {musanedHoldImg && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveMusanedHoldPhoto}
+                    className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <Trash2 size={12} /> Remove Photo
+                  </button>
+                )}
+              </div>
+              <div className="h-44 bg-slate-100 rounded-xl overflow-hidden relative border border-dashed border-amber-300 flex items-center justify-center">
+                {musanedHoldImg ? (
+                  <img src={getFileUrl(musanedHoldImg)} alt="Musaned Hold Photo" className="w-full h-full object-contain bg-slate-900" />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-1.5 text-center p-4">
+                    <AlertCircle className="text-amber-500/80" size={24} />
+                    <span className="text-xs font-semibold text-text-tertiary">No Musaned Hold photo uploaded</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-all cursor-pointer shadow-sm">
+                <Upload size={14} />
+                {musanedHoldImg ? 'Change Musaned Hold Photo' : 'Upload Musaned Hold Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileChange('musanedHold', file);
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
           {/* COC Document */}
           <div
             onDragOver={(e) => handleDragOver(e, 'coc')}

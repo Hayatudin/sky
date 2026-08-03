@@ -357,13 +357,15 @@ router.put('/:id', async (req: Request, res: Response) => {
       cocDocumentUrl,
       candidateIdImageUrl,
       relativeIdImageUrl,
-      videoUrl
+      videoUrl,
+      musanedHoldImageUrl
     ] = await Promise.all([
       body.passportImageUrl !== undefined ? uploadToLocal(body.passportImageUrl, 'passports') : undefined,
       body.cocDocumentUrl !== undefined ? uploadToLocal(body.cocDocumentUrl, 'coc') : undefined,
       body.candidateIdImageUrl !== undefined ? uploadToLocal(body.candidateIdImageUrl, 'candidate-id') : undefined,
       body.relativeIdImageUrl !== undefined ? uploadToLocal(body.relativeIdImageUrl, 'relative-id') : undefined,
       body.videoUrl !== undefined ? uploadToLocal(body.videoUrl, 'videos') : undefined,
+      body.musanedHoldImageUrl ? uploadToLocal(body.musanedHoldImageUrl, 'musaned-hold') : (body.musanedHoldImageUrl === null || body.musanedHoldImageUrl === '' ? null : undefined),
     ]);
 
     const updateData: any = {};
@@ -394,6 +396,16 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (body.passportType !== undefined) updateData.passportType = body.passportType || 'original';
     if (body.languages !== undefined) updateData.languages = body.languages || null;
     if (body.allowVideo !== undefined) updateData.allowVideo = body.allowVideo ? true : false;
+
+    if (body.verificationStatus !== undefined) {
+      updateData.verificationStatus = body.verificationStatus;
+      if (body.verificationStatus === 'promoted') {
+        updateData.musanedHoldImageUrl = null;
+      }
+    }
+    if (musanedHoldImageUrl !== undefined) {
+      updateData.musanedHoldImageUrl = musanedHoldImageUrl;
+    }
 
     let updated: any = null;
 
