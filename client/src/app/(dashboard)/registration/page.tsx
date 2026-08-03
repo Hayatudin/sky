@@ -15,6 +15,7 @@ import { useCandidates } from '@/hooks/useCandidates';
 import { useBrokers } from '@/hooks/useBrokers';
 import { authClient } from '@/lib/auth-client';
 import { useQueryClient } from '@tanstack/react-query';
+import { getUserMajorAgency } from '@/lib/cv-templates';
 
 const preprocessImageForOcr = (dataUrl: string): Promise<string> => {
   return new Promise((resolve) => {
@@ -110,6 +111,13 @@ function RegistrationContent() {
   const editId = searchParams.get('edit');
   const isEditMode = !!editId;
 
+  const { data: session } = authClient.useSession();
+  const userMajorAgency = getUserMajorAgency(session?.user);
+  const isFenero = userMajorAgency.toLowerCase().includes('fenero');
+  const userEmail = session?.user?.email;
+  const isRihana = userEmail?.toLowerCase() === 'rihana@fenero.com';
+  const isDocRequired = !isFenero || isRihana;
+
   const [step, setStep] = useState<RegistrationStep>(isEditMode ? 2 : 1);
   const [passportImage, setPassportImage] = useState<string | null>(null);
   const [facePhoto, setFacePhoto] = useState<string | null>(null);
@@ -137,7 +145,6 @@ function RegistrationContent() {
   const [candidateExists, setCandidateExists] = useState(false);
   const musanedFileRef = React.useRef<HTMLInputElement>(null);
 
-  const { data: session } = authClient.useSession();
   const { candidates } = useCandidates();
   const queryClient = useQueryClient();
 
@@ -637,6 +644,43 @@ function RegistrationContent() {
 
       if (!facePhoto || !fullBodyPhoto) {
         alert('Face Photo and Full Body Photo are required.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const userEmail = session?.user?.email;
+      const isRihana = userEmail?.toLowerCase() === 'rihana@fenero.com';
+      const isDocRequired = !isFenero || isRihana;
+
+      if (isDocRequired && !personalInfo.cocDocumentUrl) {
+        alert('COC Document is required.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!personalInfo.labourId || !personalInfo.labourId.trim()) {
+        alert('Labour ID Number is required.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (isFenero) {
+        const cleanLabour = personalInfo.labourId.trim();
+        if (!/^[a-zA-Z0-9]{10}$/.test(cleanLabour)) {
+          alert('Labour ID must be exactly 10 characters (letters and numbers).');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      if (isDocRequired && !personalInfo.candidateIdImageUrl) {
+        alert('Candidate ID Image is required.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (isDocRequired && !personalInfo.relativeIdImageUrl) {
+        alert('Relative ID Image is required.');
         setIsSubmitting(false);
         return;
       }

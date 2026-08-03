@@ -71,9 +71,12 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
   const { data: session } = useSession();
   const userMajorAgency = getUserMajorAgency(session?.user);
   const isFenero = userMajorAgency.toLowerCase().includes('fenero');
+  const userEmail = session?.user?.email;
+  const isRihana = userEmail?.toLowerCase() === 'rihana@fenero.com';
+  const isDocRequired = !isFenero || isRihana;
   const OFFICES = getTemplateOptionsForAgency(userMajorAgency);
   const isCalling = forceCalling || (session?.user as any)?.role === 'calling';
-  const isKadra = session?.user?.email === 'kadra@gmail.com';
+  const isKadra = userEmail === 'kadra@gmail.com';
 
   // Passport state
   const [passportImage, setPassportImage] = useState<string | null>(null);
@@ -347,7 +350,7 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
       return;
     }
 
-    if (!isFenero && !cocDocumentUrl) {
+    if (isDocRequired && !cocDocumentUrl) {
       setError('COC (Certificate of Competence) document is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -368,20 +371,18 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
       }
     }
 
-    if (!isFenero && !candidateIdImageUrl) {
+    if (isDocRequired && !candidateIdImageUrl) {
       setError('Candidate ID image is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    if (!isFenero && !relativeIdImageUrl) {
+    if (isDocRequired && !relativeIdImageUrl) {
       setError('Relative ID image is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    const userEmail = session?.user?.email;
-    const isKadra = userEmail === 'kadra@gmail.com';
     if (!isFenero && isKadra && !videoUrl) {
       setError('Candidate Video is required.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -919,7 +920,7 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCocDocumentUrl(base64))}
               onClear={() => setCocDocumentUrl(null)}
               helperText="COC Document — Max 50MB"
-              required={!isFenero}
+              required={isDocRequired}
             />
             <div>
               <Input
@@ -955,7 +956,7 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setCandidateIdImageUrl(base64))}
               onClear={() => setCandidateIdImageUrl(null)}
               helperText="Candidate ID Image — Max 50MB"
-              required={!isFenero}
+              required={isDocRequired}
             />
             <FileUpload
               label="Relative ID"
@@ -965,9 +966,9 @@ export default function QuickRegistrationForm({ forceCalling }: { forceCalling?:
               onFileSelect={(file) => handleFileAsDataURL(file, (base64) => setRelativeIdImageUrl(base64))}
               onClear={() => setRelativeIdImageUrl(null)}
               helperText="Relative ID Image — Max 50MB"
-              required={!isFenero}
+              required={isDocRequired}
             />
-            {!isCalling && !isFenero && (
+            {!isCalling && isDocRequired && (
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">Candidate Video {isKadra && <span className="text-red-500">*</span>}</label>
                 {videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) ? (
