@@ -254,13 +254,19 @@ export default function CandidatesPage() {
     return Array.from(jobs).map(j => ({ value: j as string, label: j as string }));
   }, [candidates]);
 
+  const isCallingCand = (c: Candidate) => {
+    const brokerName = (c.broker?.name || c.brokerId || c.personalInfo?.brokerId || '').toLowerCase().trim();
+    return brokerName === 'calling' || brokerName === 'calling-broker' || c.personalInfo?.job === 'Calling';
+  };
+
   // Filter and sort
   const filtered = useMemo(() => {
     const safeArr = Array.isArray(candidates) ? candidates : [];
     let result = safeArr.filter((c) => {
       if (c.processStatus === 'Arrived') return false;
-      const brokerName = (c.broker?.name || c.personalInfo?.brokerId || '').toLowerCase().trim();
-      if (brokerName === 'calling' || brokerName === 'calling-broker') return false;
+      if (callingFilter) {
+        if (!isCallingCand(c)) return false;
+      }
 
       const name = `${c.passportData?.givenNames ?? ''} ${c.passportData?.surname ?? ''}`.toLowerCase();
       const passport = (c.passportData?.passportNumber ?? '').toLowerCase();
@@ -376,7 +382,7 @@ export default function CandidatesPage() {
             "inline-flex items-center justify-center min-w-5 h-5 px-1 text-[10px] font-black rounded-full",
             callingFilter ? "bg-white/20 text-white" : "bg-primary-50 text-primary border border-primary-100"
           )}>
-            {(Array.isArray(candidates) ? candidates : []).filter(c => c.broker?.name === 'Calling').length}
+            {(Array.isArray(candidates) ? candidates : []).filter(c => isCallingCand(c)).length}
           </span>
         </button>
       </div>

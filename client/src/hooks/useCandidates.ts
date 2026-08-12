@@ -7,16 +7,20 @@ export function clearCandidatesCache() {
   queryClient.invalidateQueries({ queryKey: ['candidates'] });
 }
 
-export function useCandidates(includeArrived: boolean = false) {
+export function useCandidates(includeArrived: boolean = false, includeCalling: boolean = true) {
   const queryClient = useQueryClient();
 
-  const queryKey = includeArrived ? ['candidates', 'includeArrived'] : ['candidates'];
+  const queryKey = ['candidates', { includeArrived, includeCalling }];
 
   const { data: candidates = [], isLoading, error, refetch } = useQuery<Candidate[]>({
     queryKey,
     queryFn: async () => {
       try {
-        const url = includeArrived ? '/api/candidates?includeArrived=true' : '/api/candidates';
+        const params = new URLSearchParams();
+        if (includeArrived) params.append('includeArrived', 'true');
+        if (!includeCalling) params.append('includeCalling', 'false');
+        const queryString = params.toString();
+        const url = `/api/candidates${queryString ? `?${queryString}` : ''}`;
         const res = await api(url);
         const json = await res.json();
         // Guard: ensure the result is always an array
