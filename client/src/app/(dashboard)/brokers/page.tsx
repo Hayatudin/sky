@@ -127,6 +127,56 @@ export default function BrokersPage() {
   const [bulkTargetLeaderId, setBulkTargetLeaderId] = useState('');
   const [isBulkMoving, setIsBulkMoving] = useState(false);
 
+  const handleOpenBroker = (brokerId: string) => {
+    try {
+      sessionStorage.setItem('brokers_page_state', JSON.stringify({
+        searchQuery,
+        scrollY: window.scrollY,
+        lastOpenedBrokerId: brokerId
+      }));
+    } catch (e) {}
+    router.push(`/brokers/${brokerId}/candidates`);
+  };
+
+  // Restore state and scroll position on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('brokers_page_state');
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.searchQuery !== undefined) setSearchQuery(p.searchQuery);
+        if (p.scrollY && p.scrollY > 0) {
+          setTimeout(() => {
+            window.scrollTo({ top: p.scrollY, behavior: 'instant' });
+          }, 100);
+        }
+        if (p.lastOpenedBrokerId) {
+          setTimeout(() => {
+            const el = document.getElementById(`broker-card-${p.lastOpenedBrokerId}`) || 
+                       document.getElementById(`broker-item-${p.lastOpenedBrokerId}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 150);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  // Track scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      try {
+        const raw = sessionStorage.getItem('brokers_page_state');
+        const parsed = raw ? JSON.parse(raw) : {};
+        parsed.scrollY = window.scrollY;
+        sessionStorage.setItem('brokers_page_state', JSON.stringify(parsed));
+      } catch (e) {}
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Close menu when clicking outside, scrolling, or resizing
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -636,7 +686,7 @@ export default function BrokersPage() {
             </p>
           </div>
           <button
-            onClick={() => router.push(`/brokers/${broker.id}/candidates`)}
+            onClick={() => handleOpenBroker(broker.id)}
             className="px-4 py-2 text-xs font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm hover:shadow-primary/20"
           >
             Open
@@ -730,7 +780,7 @@ export default function BrokersPage() {
                     </button>
                   )}
                   <button
-                    onClick={() => router.push(`/brokers/${broker.id}/candidates`)}
+                    onClick={() => handleOpenBroker(broker.id)}
                     className="px-3 py-1.5 text-xs font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:shadow-primary/20"
                   >
                     Open

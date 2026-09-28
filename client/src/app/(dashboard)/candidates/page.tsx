@@ -8,7 +8,7 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Candidate } from '@/types';
-import { cn, cleanLabourId, getFileUrl } from '@/lib/utils';
+import { cn, cleanLabourId, getFileUrl, hasWorkExperience } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { authClient } from '@/lib/auth-client';
@@ -46,6 +46,7 @@ export default function CandidatesPage() {
   const [jobFilter, setJobFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [religionFilter, setReligionFilter] = useState('');
+  const [experienceFilter, setExperienceFilter] = useState('');
   const [missingFileFilter, setMissingFileFilter] = useState('');
   const [agencyFilter, setAgencyFilter] = useState('all');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -59,6 +60,81 @@ export default function CandidatesPage() {
   const [cancelVisaNumberInput, setCancelVisaNumberInput] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const isInitialMount = useRef(true);
+
+  // Restore state from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('candidates_page_state');
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.currentPage) setCurrentPage(p.currentPage);
+        if (p.searchQuery !== undefined) setSearchQuery(p.searchQuery);
+        if (p.statusFilter !== undefined) setStatusFilter(p.statusFilter);
+        if (p.experienceFilter !== undefined) setExperienceFilter(p.experienceFilter);
+        if (p.jobFilter !== undefined) setJobFilter(p.jobFilter);
+        if (p.genderFilter !== undefined) setGenderFilter(p.genderFilter);
+        if (p.religionFilter !== undefined) setReligionFilter(p.religionFilter);
+        if (p.missingFileFilter !== undefined) setMissingFileFilter(p.missingFileFilter);
+        if (p.agencyFilter !== undefined) setAgencyFilter(p.agencyFilter);
+        if (p.callingFilter !== undefined) setCallingFilter(p.callingFilter);
+        if (p.sortOrder !== undefined) setSortOrder(p.sortOrder);
+        if (p.customDate !== undefined) setCustomDate(p.customDate);
+      }
+    } catch (e) {}
+  }, []);
+
+  // Save state on change
+  useEffect(() => {
+    try {
+      const stateToSave = {
+        currentPage,
+        searchQuery,
+        statusFilter,
+        experienceFilter,
+        jobFilter,
+        genderFilter,
+        religionFilter,
+        missingFileFilter,
+        agencyFilter,
+        callingFilter,
+        sortOrder,
+        customDate,
+        scrollY: window.scrollY
+      };
+      sessionStorage.setItem('candidates_page_state', JSON.stringify(stateToSave));
+    } catch (e) {}
+  }, [currentPage, searchQuery, statusFilter, experienceFilter, jobFilter, genderFilter, religionFilter, missingFileFilter, agencyFilter, callingFilter, sortOrder, customDate]);
+
+  // Track scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      try {
+        const raw = sessionStorage.getItem('candidates_page_state');
+        const parsed = raw ? JSON.parse(raw) : {};
+        parsed.scrollY = window.scrollY;
+        sessionStorage.setItem('candidates_page_state', JSON.stringify(parsed));
+      } catch (e) {}
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Restore scroll position when candidates loaded
+  useEffect(() => {
+    if (isLoading) return;
+    try {
+      const saved = sessionStorage.getItem('candidates_page_state');
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.scrollY && p.scrollY > 0) {
+          setTimeout(() => {
+            window.scrollTo({ top: p.scrollY, behavior: 'instant' });
+          }, 60);
+        }
+      }
+    } catch (e) {}
+  }, [isLoading]);
 
   const [selectedCandidateForAgency, setSelectedCandidateForAgency] = useState<string | null>(null);
   const [isSettingAgency, setIsSettingAgency] = useState(false);
@@ -292,17 +368,27 @@ export default function CandidatesPage() {
       else if (missingFileFilter === 'CandidateID') matchesMissingFile = !c.candidateIdImageUrl;
       else if (missingFileFilter === 'RelativeID') matchesMissingFile = !c.relativeIdImageUrl;
 
-      return matchesSearch && matchesStatus && matchesDate && matchesJob && matchesGender && matchesReligion && matchesMissingFile && matchesAgency && !c.isRequested;
+      let matchesExperience = true;
+      if (experienceFilter === 'experienced') matchesExperience = hasWorkExperience(c);
+      else if (experienceFilter === 'new') matchesExperience = !hasWorkExperience(c);
+
+      return matchesSearch && matchesStatus && matchesDate && matchesJob && matchesGender && matchesReligion && matchesExperience && matchesMissingFile && matchesAgency && !c.isRequested;
     });
     result.sort((a, b) => {
       const dA = new Date(a.registeredAt).getTime(), dB = new Date(b.registeredAt).getTime();
       return sortOrder === 'new_to_old' ? dB - dA : dA - dB;
     });
     return result;
-  }, [candidates, searchQuery, statusFilter, sortOrder, customDate, jobFilter, genderFilter, religionFilter, missingFileFilter, agencyFilter, callingFilter]);
+  }, [candidates, searchQuery, statusFilter, sortOrder, customDate, jobFilter, genderFilter, religionFilter, experienceFilter, missingFileFilter, agencyFilter, callingFilter]);
 
-  // Reset to page 1 whenever filters change
-  React.useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, sortOrder, customDate, jobFilter, genderFilter, religionFilter, missingFileFilter, agencyFilter, callingFilter]);
+  // Reset to page 1 whenever filters change by user action
+  React.useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, sortOrder, customDate, jobFilter, genderFilter, religionFilter, experienceFilter, missingFileFilter, agencyFilter, callingFilter]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginatedCandidates = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -422,6 +508,18 @@ export default function CandidatesPage() {
           <div className="w-full md:w-40">
             <Select placeholder="All Religions" value={religionFilter} onChange={setReligionFilter} options={[{ value: '', label: 'All Religions' }, { value: 'muslim', label: 'Muslim' }, { value: 'christian', label: 'Christian' }, { value: 'other', label: 'Other' }]} />
           </div>
+          <div className="w-full md:w-44">
+            <Select 
+              placeholder="All Experience" 
+              value={experienceFilter} 
+              onChange={setExperienceFilter} 
+              options={[
+                { value: '', label: 'All Experience' },
+                { value: 'experienced', label: 'Experienced' },
+                { value: 'new', label: 'New / No Experience' }
+              ]} 
+            />
+          </div>
           <div className="w-full md:w-48">
             <Select 
               placeholder="Missing Documents" 
@@ -440,8 +538,8 @@ export default function CandidatesPage() {
               ]} 
             />
           </div>
-          {(jobFilter || genderFilter || religionFilter || statusFilter || customDate || searchQuery || missingFileFilter || agencyFilter !== 'all' || callingFilter) && (
-            <button onClick={() => { setJobFilter(''); setGenderFilter(''); setReligionFilter(''); setStatusFilter(''); setCustomDate(''); setSearchQuery(''); setMissingFileFilter(''); setAgencyFilter('all'); setCallingFilter(false); }} className="text-sm text-text-tertiary hover:text-danger font-medium px-3 transition-colors">
+          {(jobFilter || genderFilter || religionFilter || experienceFilter || statusFilter || customDate || searchQuery || missingFileFilter || agencyFilter !== 'all' || callingFilter) && (
+            <button onClick={() => { setJobFilter(''); setGenderFilter(''); setReligionFilter(''); setExperienceFilter(''); setStatusFilter(''); setCustomDate(''); setSearchQuery(''); setMissingFileFilter(''); setAgencyFilter('all'); setCallingFilter(false); }} className="text-sm text-text-tertiary hover:text-danger font-medium px-3 transition-colors">
               Clear Filters
             </button>
           )}

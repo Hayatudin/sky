@@ -114,6 +114,72 @@ export default function BrokerCandidatesPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const isInitialMount = useRef(true);
+
+  // Restore state on mount
+  useEffect(() => {
+    if (!brokerId) return;
+    try {
+      const saved = sessionStorage.getItem('broker_candidates_state_' + brokerId);
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.currentPage) setCurrentPage(p.currentPage);
+        if (p.searchQuery !== undefined) setSearchQuery(p.searchQuery);
+        if (p.visaFilter !== undefined) setVisaFilter(p.visaFilter);
+        if (p.religionFilter !== undefined) setReligionFilter(p.religionFilter);
+        if (p.flaggedFilter !== undefined) setFlaggedFilter(p.flaggedFilter);
+        if (p.agencyFilter !== undefined) setAgencyFilter(p.agencyFilter);
+      }
+    } catch (e) {}
+  }, [brokerId]);
+
+  // Save state on change
+  useEffect(() => {
+    if (!brokerId) return;
+    try {
+      const stateToSave = {
+        currentPage,
+        searchQuery,
+        visaFilter,
+        religionFilter,
+        flaggedFilter,
+        agencyFilter,
+        scrollY: window.scrollY
+      };
+      sessionStorage.setItem('broker_candidates_state_' + brokerId, JSON.stringify(stateToSave));
+    } catch (e) {}
+  }, [brokerId, currentPage, searchQuery, visaFilter, religionFilter, flaggedFilter, agencyFilter]);
+
+  // Track scroll position
+  useEffect(() => {
+    if (!brokerId) return;
+    const handleScroll = () => {
+      try {
+        const raw = sessionStorage.getItem('broker_candidates_state_' + brokerId);
+        const parsed = raw ? JSON.parse(raw) : {};
+        parsed.scrollY = window.scrollY;
+        sessionStorage.setItem('broker_candidates_state_' + brokerId, JSON.stringify(parsed));
+      } catch (e) {}
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [brokerId]);
+
+  // Restore scroll position when loading finishes
+  useEffect(() => {
+    if (isLoading || !brokerId) return;
+    try {
+      const saved = sessionStorage.getItem('broker_candidates_state_' + brokerId);
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.scrollY && p.scrollY > 0) {
+          setTimeout(() => {
+            window.scrollTo({ top: p.scrollY, behavior: 'instant' });
+          }, 60);
+        }
+      }
+    } catch (e) {}
+  }, [isLoading, brokerId]);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -980,6 +1046,10 @@ export default function BrokerCandidatesPage() {
 
   // Reset pagination on filter changes
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     setCurrentPage(1);
     setSelectedIds([]);
   }, [searchQuery, visaFilter, religionFilter, flaggedFilter, agencyFilter]);

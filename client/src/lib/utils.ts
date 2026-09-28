@@ -92,3 +92,32 @@ export function cleanLabourId(val: string | null | undefined): string {
   }
   return clean;
 }
+
+export function hasWorkExperience(candidate: any): boolean {
+  if (!candidate) return false;
+  let exps = candidate.personalInfo?.workExperience || candidate.workExperience;
+  if (!exps) return false;
+
+  if (typeof exps === 'string') {
+    try {
+      exps = JSON.parse(exps);
+    } catch {
+      exps = [];
+    }
+  }
+
+  if (!Array.isArray(exps) || exps.length === 0) return false;
+
+  return exps.some((exp: any) => {
+    if (!exp) return false;
+    const status = (exp.experienceStatus || '').toLowerCase().trim();
+    if (status === 'have experience' || status === 'experienced') return true;
+    if (exp.country && String(exp.country).trim().length > 0) return true;
+    if (exp.yearsOfExperience) {
+      const yrs = parseFloat(String(exp.yearsOfExperience));
+      if (!isNaN(yrs) && yrs > 0) return true;
+    }
+    return false;
+  });
+}
+
