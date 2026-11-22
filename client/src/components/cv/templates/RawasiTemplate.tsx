@@ -8,6 +8,7 @@ import {
   getExperienceSummary,
   isExperienced,
 } from '../cvHelpers';
+import PassportPage from '../shared/PassportPage';
 
 interface CVTemplateProps {
   candidate: Candidate;
@@ -15,10 +16,10 @@ interface CVTemplateProps {
   fullBodyPhoto: string | null;
 }
 
-/* ─── shared cell styles ─── */
-const cell = 'border border-black px-2 py-[3px] text-[11px] leading-tight';
-const redLabel = `${cell} font-bold text-red-700`;
-const labelAr = `${cell} font-bold text-right`;
+/* ─── shared cell styles — larger font + bold ─── */
+const cell = 'border border-black px-2 py-[4px] text-[13px] leading-tight font-bold';
+const redLabel = `${cell} text-red-700`;
+const labelAr = `${cell} text-right`;
 const valueCell = `${cell} text-center`;
 
 export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: CVTemplateProps) {
@@ -38,6 +39,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
       dir="ltr"
       style={{ fontFamily: "'Roboto', 'Arial', sans-serif" }}
     >
+      {/* ═══════════════ PAGE 1 — CV ═══════════════ */}
       <div className="min-h-[297mm] box-border relative page-break-after-always">
         {/* ─── Background image with low opacity ─── */}
         <div
@@ -55,38 +57,36 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
         <div className="relative z-10 px-[10mm]" style={{ paddingTop: '160px' }}>
 
           {/* ═══════ TOP TABLE: Position / Country / CV NO / Full Name / Mobile ═══════ */}
-          {/* This table only extends ~75% width to stop at the face photo area */}
           <table className="border-collapse mb-0" style={{ width: '72%' }}>
             <tbody>
               <tr>
                 <td className={`${redLabel} w-[18%]`}>Position:</td>
-                <td className={`${cell} font-bold uppercase w-[27%]`}>
+                <td className={`${cell} uppercase w-[27%]`}>
                   {candidate.personalInfo?.job || 'HOUSE MAID'}
                 </td>
                 <td className={`${redLabel} w-[15%]`}>Country:</td>
-                <td className={`${cell} font-bold w-[12%]`}>KSA</td>
+                <td className={`${cell} w-[12%]`}>KSA</td>
                 <td className={`${redLabel} w-[13%]`}>CV NO :</td>
                 <td className={`${cell} w-[15%]`}>{candidate.labourId || ''}</td>
               </tr>
               <tr>
                 <td className={redLabel}>Full Name:</td>
-                <td className={`${cell} font-bold uppercase`} colSpan={3}>{fullName}</td>
-                <td className={`${cell} text-right font-bold`} colSpan={2} dir="rtl">الاسم بالكامل</td>
+                <td className={`${cell} uppercase`} colSpan={3}>{fullName}</td>
+                <td className={`${cell} text-right`} colSpan={2} dir="rtl">الاسم بالكامل</td>
               </tr>
               <tr>
                 <td className={redLabel}>Mobile No.:</td>
-                <td className={`${cell}`} colSpan={3}>{phone}</td>
-                <td className={`${cell} font-bold`}>REF:NO.</td>
-                <td className={`${cell}`}></td>
+                <td className={cell} colSpan={3}>{phone}</td>
+                <td className={cell}>REF:NO.</td>
+                <td className={cell}></td>
               </tr>
             </tbody>
           </table>
 
           {/* ═══════ PASSPORT DETAILS + FACE PHOTO ═══════ */}
           <div className="flex mt-3 gap-0 items-start">
-            {/* Left: Passport Details — constrained width */}
             <div style={{ width: '72%' }}>
-              <div className="font-bold text-[12px] mb-1 flex items-center gap-3">
+              <div className="font-bold text-[14px] mb-1 flex items-center gap-3">
                 <span>PASSPORT DETAILS</span>
                 <span dir="rtl" className="font-bold">بيانات جـواز السـفـر</span>
               </div>
@@ -130,13 +130,12 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
 
           {/* ═══════ APPLICANTS DETAILS + FULL BODY PHOTO ═══════ */}
           <div className="flex mt-2 gap-0 items-start">
-            {/* Left: Applicant details — constrained width */}
             <div style={{ width: '72%' }}>
-              <div className="font-bold text-[12px] mb-1 flex items-center gap-3">
+              <div className="font-bold text-[14px] mb-1 flex items-center gap-3">
                 <span>APPLICANTS</span>
                 <span dir="rtl" className="font-bold">بيانات صــاحب الطـلـب</span>
               </div>
-              <div className="text-[10px] italic mb-1 font-bold">DETAILSOF</div>
+              <div className="text-[11px] italic mb-1 font-bold">DETAILSOF</div>
               <table className="w-full border-collapse">
                 <tbody>
                   <tr>
@@ -238,15 +237,15 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
 
           {/* ═══════ PREVIOUS EMPLOYMENT ABROAD ═══════ */}
           <div className="mt-5">
-            <div className="font-bold text-[12px] mb-1 underline">PREVIOUS EMPLOYMENT ABROAD</div>
+            <div className="font-bold text-[14px] mb-1 underline">PREVIOUS EMPLOYMENT ABROAD</div>
             <table className="border-collapse" style={{ width: '72%' }}>
               <thead>
                 <tr>
-                  <td className={`${cell} font-bold w-[50%]`}>
+                  <td className={`${cell} w-[50%]`}>
                     <span className="text-red-700">Country</span>
                     <span dir="rtl" className="float-right font-bold">الـبـــلـد</span>
                   </td>
-                  <td className={`${cell} font-bold w-[50%]`}>
+                  <td className={`${cell} w-[50%]`}>
                     <span className="text-red-700">Period</span>
                     <span dir="rtl" className="float-right font-bold">المــدة</span>
                   </td>
@@ -267,31 +266,30 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
 
           {/* ═══════ LANGUAGE SECTION ═══════ */}
           <div className="mt-5 flex gap-6">
-            {/* Left: English / Arabic language table */}
             <div style={{ width: '50%' }}>
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className={`${cell} text-left font-bold w-[33%]`}>ENGLISH</th>
-                    <th className={`${cell} text-center font-bold w-[34%]`}></th>
-                    <th className={`${cell} text-right font-bold w-[33%]`} dir="rtl">اللـغــة الـعـربـيـة</th>
+                    <th className={`${cell} text-left w-[33%]`}>ENGLISH</th>
+                    <th className={`${cell} text-center w-[34%]`}></th>
+                    <th className={`${cell} text-right w-[33%]`} dir="rtl">اللـغــة الـعـربـيـة</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className={`${cell} text-red-700 font-bold`}>Fair</td>
+                    <td className={`${cell} text-red-700`}>Fair</td>
                     <td className={`${cell} text-center`}>{!experienced ? '✓' : ''}</td>
-                    <td className={`${cell} text-right font-bold`} dir="rtl">وسـط</td>
+                    <td className={`${cell} text-right`} dir="rtl">وسـط</td>
                   </tr>
                   <tr>
-                    <td className={`${cell} text-red-700 font-bold`}>Good</td>
+                    <td className={`${cell} text-red-700`}>Good</td>
                     <td className={`${cell} text-center`}>{experienced ? '✓' : ''}</td>
-                    <td className={`${cell} text-right font-bold`} dir="rtl">جـيـــد</td>
+                    <td className={`${cell} text-right`} dir="rtl">جـيـــد</td>
                   </tr>
                   <tr>
-                    <td className={`${cell} text-red-700 font-bold`}>Fluent</td>
+                    <td className={`${cell} text-red-700`}>Fluent</td>
                     <td className={`${cell} text-center`}></td>
-                    <td className={`${cell} text-right font-bold`} dir="rtl">ممـتـاز</td>
+                    <td className={`${cell} text-right`} dir="rtl">ممـتـاز</td>
                   </tr>
                 </tbody>
               </table>
@@ -299,7 +297,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
 
             {/* Right: Remarks */}
             <div style={{ width: '45%' }}>
-              <div className="font-bold text-[12px] mb-2">REMARKS:──────────────</div>
+              <div className="font-bold text-[14px] mb-2">REMARKS:──────────────</div>
               <div className="border-b border-black mb-3 w-full">&nbsp;</div>
               <div className="border-b border-black mb-3 w-full">&nbsp;</div>
               <div className="border-b border-black mb-3 w-full">&nbsp;</div>
@@ -307,6 +305,9 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
           </div>
         </div>
       </div>
+
+      {/* ═══════════════ PAGE 2 — Passport ═══════════════ */}
+      <PassportPage candidate={candidate} />
     </div>
   );
 }
