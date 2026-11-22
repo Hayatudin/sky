@@ -57,27 +57,27 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
         <div className="relative z-10 px-[10mm]" style={{ paddingTop: '160px' }}>
 
           {/* ═══════ TOP TABLE: Position / Country / CV NO / Full Name / Mobile ═══════ */}
-          <table className="border-collapse mb-0" style={{ width: '72%' }}>
+          <table className="border-collapse mb-0" style={{ width: '75%' }}>
             <tbody>
               <tr>
-                <td className={`${redLabel} w-[18%]`}>Position:</td>
+                <td className={`${redLabel} whitespace-nowrap w-[18%]`}>Position:</td>
                 <td className={`${cell} uppercase w-[27%]`}>
                   {candidate.personalInfo?.job || 'HOUSE MAID'}
                 </td>
-                <td className={`${redLabel} w-[15%]`}>Country:</td>
+                <td className={`${redLabel} whitespace-nowrap w-[15%]`}>Country:</td>
                 <td className={`${cell} w-[12%]`}>KSA</td>
-                <td className={`${redLabel} w-[13%]`}>CV NO :</td>
+                <td className={`${redLabel} whitespace-nowrap w-[13%]`}>CV NO :</td>
                 <td className={`${cell} w-[15%]`}>{candidate.labourId || ''}</td>
               </tr>
               <tr>
-                <td className={redLabel}>Full Name:</td>
+                <td className={`${redLabel} whitespace-nowrap`}>Full Name:</td>
                 <td className={`${cell} uppercase`} colSpan={3}>{fullName}</td>
-                <td className={`${cell} text-right`} colSpan={2} dir="rtl">الاسم بالكامل</td>
+                <td className={`${cell} text-right whitespace-nowrap`} colSpan={2} dir="rtl">الاسم بالكامل</td>
               </tr>
               <tr>
-                <td className={redLabel}>Mobile No.:</td>
+                <td className={`${redLabel} whitespace-nowrap`}>Mobile No.:</td>
                 <td className={cell} colSpan={3}>{phone}</td>
-                <td className={cell}>REF:NO.</td>
+                <td className={`${cell} whitespace-nowrap`}>REF:NO.</td>
                 <td className={cell}></td>
               </tr>
             </tbody>
