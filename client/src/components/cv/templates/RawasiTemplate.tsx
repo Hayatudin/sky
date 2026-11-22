@@ -17,7 +17,7 @@ interface CVTemplateProps {
 }
 
 /* ─── shared cell styles — larger font + bold ─── */
-const cell = 'border border-black px-2 py-[4px] text-[13px] leading-tight font-bold';
+const cell = 'border border-black px-2 py-[4px] text-[15px] leading-tight font-bold';
 const redLabel = `${cell} text-red-700`;
 const labelAr = `${cell} text-right`;
 const valueCell = `${cell} text-center`;
@@ -86,7 +86,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
           {/* ═══════ PASSPORT DETAILS + FACE PHOTO ═══════ */}
           <div className="flex mt-3 gap-0 items-start">
             <div style={{ width: '72%' }}>
-              <div className="font-bold text-[14px] mb-1 flex items-center gap-3">
+              <div className="font-bold text-[16px] mb-1 flex items-center gap-3">
                 <span>PASSPORT DETAILS</span>
                 <span dir="rtl" className="font-bold">بيانات جـواز السـفـر</span>
               </div>
@@ -131,11 +131,11 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
           {/* ═══════ APPLICANTS DETAILS + FULL BODY PHOTO ═══════ */}
           <div className="flex mt-2 gap-0 items-start">
             <div style={{ width: '72%' }}>
-              <div className="font-bold text-[14px] mb-1 flex items-center gap-3">
+              <div className="font-bold text-[16px] mb-1 flex items-center gap-3">
                 <span>APPLICANTS</span>
                 <span dir="rtl" className="font-bold">بيانات صــاحب الطـلـب</span>
               </div>
-              <div className="text-[11px] italic mb-1 font-bold">DETAILSOF</div>
+              <div className="text-[13px] italic mb-1 font-bold">DETAILSOF</div>
               <table className="w-full border-collapse">
                 <tbody>
                   <tr>
@@ -237,7 +237,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
 
           {/* ═══════ PREVIOUS EMPLOYMENT ABROAD ═══════ */}
           <div className="mt-5">
-            <div className="font-bold text-[14px] mb-1 underline">PREVIOUS EMPLOYMENT ABROAD</div>
+            <div className="font-bold text-[16px] mb-1 underline">PREVIOUS EMPLOYMENT ABROAD</div>
             <table className="border-collapse" style={{ width: '72%' }}>
               <thead>
                 <tr>
@@ -297,7 +297,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
 
             {/* Right: Remarks */}
             <div style={{ width: '45%' }}>
-              <div className="font-bold text-[14px] mb-2">REMARKS:──────────────</div>
+              <div className="font-bold text-[16px] mb-2">REMARKS:──────────────</div>
               <div className="border-b border-black mb-3 w-full">&nbsp;</div>
               <div className="border-b border-black mb-3 w-full">&nbsp;</div>
               <div className="border-b border-black mb-3 w-full">&nbsp;</div>
