@@ -47,12 +47,12 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            opacity: 0.38,
+            opacity: 0.5,
           }}
         />
 
         {/* ─── Content on top of background ─── */}
-        <div className="relative z-10 px-[10mm]" style={{ paddingTop: '125px' }}>
+        <div className="relative z-10 px-[10mm]" style={{ paddingTop: '140px' }}>
 
           {/* ═══════ TOP TABLE: Position / Country / CV NO / Full Name / Mobile ═══════ */}
           {/* This table only extends ~75% width to stop at the face photo area */}
@@ -201,7 +201,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
                     <td className={labelAr} dir="rtl"></td>
                   </tr>
                   <tr>
-                    <td className={redLabel}>In case of<br/>Emergency:</td>
+                    <td className={redLabel}>In case of<br />Emergency:</td>
                     <td className={valueCell}>
                       {candidate.personalInfo?.emergencyContactName}
                       {candidate.personalInfo?.emergencyContactPhone ? ` - ${candidate.personalInfo.emergencyContactPhone}` : ''}
@@ -230,7 +230,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
                 {fullBodyPhoto ? (
                   <img src={fullBodyPhoto} className="w-full h-full object-cover" alt="Full Body" />
                 ) : (
-                  <div className="text-xs text-gray-400 text-center">Full Body<br/>Photo</div>
+                  <div className="text-xs text-gray-400 text-center">Full Body<br />Photo</div>
                 )}
               </div>
             </div>
