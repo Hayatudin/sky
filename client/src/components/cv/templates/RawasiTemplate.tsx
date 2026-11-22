@@ -49,7 +49,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            opacity: 0.5,
+            opacity: 0.7,
           }}
         />
 
@@ -307,7 +307,11 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
       </div>
 
       {/* ═══════════════ PAGE 2 — Passport ═══════════════ */}
-      <PassportPage candidate={candidate} />
+      <PassportPage
+        candidate={candidate}
+        backgroundImage="/rewasi.jpg"
+        bgOpacity={0.7}
+      />
     </div>
   );
 }
