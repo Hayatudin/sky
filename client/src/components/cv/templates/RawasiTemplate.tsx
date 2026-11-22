@@ -52,7 +52,7 @@ export default function RawasiTemplate({ candidate, facePhoto, fullBodyPhoto }: 
         />
 
         {/* ─── Content on top of background ─── */}
-        <div className="relative z-10 px-[10mm]" style={{ paddingTop: '140px' }}>
+        <div className="relative z-10 px-[10mm]" style={{ paddingTop: '160px' }}>
 
           {/* ═══════ TOP TABLE: Position / Country / CV NO / Full Name / Mobile ═══════ */}
           {/* This table only extends ~75% width to stop at the face photo area */}
