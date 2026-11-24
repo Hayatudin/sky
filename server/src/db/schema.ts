@@ -31,6 +31,7 @@ export const leader = mysqlTable('Leader', {
 export const broker = mysqlTable('Broker', {
   id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
   name: varchar('name', { length: 191 }).notNull(),
+  phone: varchar('phone', { length: 191 }),
   isLocked: boolean('isLocked').notNull().default(false),
   majorAgency: varchar('major_agency', { length: 191 }).default('Sky'),
   isVip: boolean('isVip').notNull().default(false),

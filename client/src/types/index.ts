@@ -116,6 +116,7 @@ export interface Leader {
 export interface Broker {
   id: string;
   name: string;
+  phone?: string | null;
   leaderId?: string | null;
   leader?: Leader | null;
   candidates?: Candidate[];

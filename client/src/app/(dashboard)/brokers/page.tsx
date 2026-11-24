@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { 
   Users, Plus, Search, Folder, FolderOpen,
   TrendingUp, Award, Clock, ArrowUpRight, 
-  Lock, Unlock, MoreVertical, ArrowRightLeft, Trash2, X, Loader2, Edit3, ArrowRight, LayoutTemplate, Check
+  Lock, Unlock, MoreVertical, ArrowRightLeft, Trash2, X, Loader2, Edit3, ArrowRight, LayoutTemplate, Check, Phone
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -85,8 +85,14 @@ export default function BrokersPage() {
   const [isAddingLeader, setIsAddingLeader] = useState(false);
   
   const [newBrokerName, setNewBrokerName] = useState('');
+  const [newBrokerPhone, setNewBrokerPhone] = useState('');
   const [newLeaderName, setNewLeaderName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Edit broker phone modal state
+  const [editPhoneBroker, setEditPhoneBroker] = useState<Broker | null>(null);
+  const [editPhoneInput, setEditPhoneInput] = useState('');
+  const [isUpdatingPhone, setIsUpdatingPhone] = useState(false);
 
   // Action menu state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -258,10 +264,11 @@ export default function BrokersPage() {
       const res = await api('/api/brokers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newBrokerName.trim() }),
+        body: JSON.stringify({ name: newBrokerName.trim(), phone: newBrokerPhone.trim() || undefined }),
       });
       const newBroker = await res.json();
       setNewBrokerName('');
+      setNewBrokerPhone('');
       setShowAddForm(false);
       fetchData();
     } catch (err: any) {
@@ -581,6 +588,25 @@ export default function BrokersPage() {
                       <>
                         <div className="border-t border-border/40 my-1" />
 
+                        {/* Edit Phone */}
+                        <button
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuCoords(null);
+                            setEditPhoneBroker(broker);
+                            setEditPhoneInput(broker.phone || '');
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-text-primary hover:bg-primary/5 hover:text-primary transition-colors text-left cursor-pointer"
+                        >
+                          <Phone size={16} />
+                          <div>
+                            <p>Edit Phone</p>
+                            <p className="text-[10px] font-normal text-text-tertiary">{broker.phone || 'Add phone number'}</p>
+                          </div>
+                        </button>
+
+                        <div className="border-t border-border/40 my-1" />
+
                         {/* Lock / Unlock */}
                         <button
                           onClick={() => {
@@ -628,17 +654,13 @@ export default function BrokersPage() {
 
         <div className="flex-1 relative z-10">
           <h3 className="text-xl font-bold text-text-primary group-hover:text-primary transition-colors duration-300 mb-2">{broker.name}</h3>
-          <div className="flex flex-col gap-1 text-text-tertiary">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <Clock size={14} />
-                <span className="text-xs font-medium">Est. {new Date(broker.createdAt).getFullYear()}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Award size={14} className="text-amber-500" />
-                <span className="text-xs font-medium">Partner</span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 text-text-tertiary">
+            <Phone size={13} className="text-primary/70 shrink-0" />
+            {broker.phone ? (
+              <span className="text-xs font-bold text-text-primary tracking-wide">{broker.phone}</span>
+            ) : (
+              <span className="text-xs text-text-tertiary italic">No phone added</span>
+            )}
           </div>
         </div>
 
@@ -749,6 +771,15 @@ export default function BrokersPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
+                      {broker.phone ? (
+                        <>
+                          <span className="text-[10px] text-text-primary font-bold flex items-center gap-1">
+                            <Phone size={10} className="text-primary/70" />
+                            {broker.phone}
+                          </span>
+                          <span className="text-[10px] text-text-tertiary">•</span>
+                        </>
+                      ) : null}
                       <span className="text-[10px] text-text-tertiary">{broker._count?.candidates || 0} candidate(s)</span>
                       {(() => {
                         const templates = getBrokerTemplates(broker);
@@ -944,6 +975,14 @@ export default function BrokersPage() {
                 value={newBrokerName}
                 onChange={e => setNewBrokerName(e.target.value)}
                 required
+                className="h-12 rounded-xl"
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                placeholder="Phone Number (optional)..."
+                value={newBrokerPhone}
+                onChange={e => setNewBrokerPhone(e.target.value)}
                 className="h-12 rounded-xl"
               />
             </div>
@@ -1376,6 +1415,63 @@ export default function BrokersPage() {
           isLoading={isChangingTemplate}
           templates={getTemplateOptionsForAgency(getUserMajorAgency(session?.user))}
         />
+      )}
+
+      {/* Edit Broker Phone Modal */}
+      {editPhoneBroker && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fade-in" onClick={() => setEditPhoneBroker(null)}>
+          <div className="bg-white rounded-[1.5rem] shadow-2xl max-w-md w-full overflow-hidden scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-border bg-gray-50">
+              <h3 className="font-bold text-text-primary text-lg flex items-center gap-2">
+                <Phone className="text-primary" size={20} /> Broker Phone Number
+              </h3>
+              <button onClick={() => setEditPhoneBroker(null)} className="text-text-tertiary hover:text-text-primary p-1 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-text-secondary">
+                Set or update the contact phone number for <strong>{editPhoneBroker.name}</strong>.
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Phone Number</label>
+                <Input
+                  autoFocus
+                  placeholder="e.g. +251 91 123 4567"
+                  value={editPhoneInput}
+                  onChange={(e) => setEditPhoneInput(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="p-5 border-t border-border flex justify-end gap-3 bg-gray-50">
+              <button onClick={() => setEditPhoneBroker(null)} className="px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <Button
+                loading={isUpdatingPhone}
+                onClick={async () => {
+                  try {
+                    setIsUpdatingPhone(true);
+                    const res = await api(`/api/brokers/${editPhoneBroker.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ phone: editPhoneInput.trim() || null })
+                    });
+                    if (!res.ok) throw new Error('Failed to update phone');
+                    setEditPhoneBroker(null);
+                    fetchData();
+                  } catch (err: any) {
+                    alert(err.message || 'Failed to update phone');
+                  } finally {
+                    setIsUpdatingPhone(false);
+                  }
+                }}
+                className="px-6 py-2 text-sm font-bold cursor-pointer"
+              >
+                Save Phone
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import {
   Users, Loader2, Search, ArrowLeft, FileText,
   ChevronRight, Filter, Download, Trash2, Briefcase,
   Lock, FileDown, ImageIcon, LayoutTemplate, Check, X, AlertCircle,
-  MoreVertical, CheckCircle, Eye, ChevronDown, ArrowRightLeft, Flag, ArrowRight, Video
+  MoreVertical, CheckCircle, Eye, ChevronDown, ArrowRightLeft, Flag, ArrowRight, Video, Phone, Edit3
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import Button from '@/components/ui/Button';
@@ -110,6 +110,31 @@ export default function BrokerCandidatesPage() {
   const [visaNumberInput, setVisaNumberInput] = useState('');
   const [cancelVisaModalId, setCancelVisaModalId] = useState<string | null>(null);
   const [cancelVisaNumberInput, setCancelVisaNumberInput] = useState('');
+
+  // Broker Phone Number Modal State
+  const [editPhoneModalOpen, setEditPhoneModalOpen] = useState(false);
+  const [editPhoneInput, setEditPhoneInput] = useState('');
+  const [isUpdatingPhone, setIsUpdatingPhone] = useState(false);
+
+  const handleSaveBrokerPhone = async () => {
+    if (!brokerId) return;
+    setIsUpdatingPhone(true);
+    try {
+      const res = await api(`/api/brokers/${brokerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: editPhoneInput.trim() || null })
+      });
+      if (!res.ok) throw new Error('Failed to update phone number');
+      setBroker(prev => prev ? { ...prev, phone: editPhoneInput.trim() || null } : prev);
+      setEditPhoneModalOpen(false);
+      showToast('Broker phone number updated!');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update phone number', 'error');
+    } finally {
+      setIsUpdatingPhone(false);
+    }
+  };
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -1123,6 +1148,37 @@ export default function BrokerCandidatesPage() {
                 </div>
               )}
             </h1>
+
+            {/* Phone Number on Header */}
+            <div className="flex items-center gap-2 mt-2">
+              {broker?.phone ? (
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-gray-50 border border-border/70 rounded-xl text-sm font-bold text-text-primary shadow-sm">
+                  <Phone size={14} className="text-primary" />
+                  <span>{broker.phone}</span>
+                  <button
+                    onClick={() => {
+                      setEditPhoneInput(broker.phone || '');
+                      setEditPhoneModalOpen(true);
+                    }}
+                    className="ml-1 text-text-tertiary hover:text-primary transition-colors p-0.5 rounded cursor-pointer"
+                    title="Edit Phone Number"
+                  >
+                    <Edit3 size={13} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditPhoneInput('');
+                    setEditPhoneModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+                >
+                  <Phone size={13} />
+                  <span>+ Add Phone Number</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1659,6 +1715,35 @@ export default function BrokerCandidatesPage() {
                                 <span>Insert Video</span>
                               </button>
 
+                              {/* Visa Action: Cancel Visa or Visa Selected */}
+                              {candidate.visaSelected ? (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setMenuCoords(null);
+                                    setCancelVisaModalId(candidate.id);
+                                    setCancelVisaNumberInput('');
+                                  }}
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-red-50 text-red-600 transition-colors font-semibold cursor-pointer"
+                                >
+                                  <X size={16} className="text-red-500" />
+                                  <span>Cancel Visa</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setMenuCoords(null);
+                                    setVisaModalId(candidate.id);
+                                    setVisaNumberInput('');
+                                  }}
+                                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-emerald-50 text-emerald-700 transition-colors font-semibold cursor-pointer"
+                                >
+                                  <CheckCircle size={16} className="text-emerald-600" />
+                                  <span>Visa Selected</span>
+                                </button>
+                              )}
+
                               <button
                                 onClick={() => handleToggleFlag(candidate.id, candidate.isFlagged || false)}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors text-text-primary font-semibold cursor-pointer"
@@ -2147,6 +2232,46 @@ export default function BrokerCandidatesPage() {
                 {isSavingVideo ? <Loader2 size={13} className="animate-spin" /> : null}
                 Save Video
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Broker Phone Modal */}
+      {editPhoneModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setEditPhoneModalOpen(false)}>
+          <div className="bg-white rounded-[1.5rem] shadow-2xl max-w-md w-full overflow-hidden scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-border bg-gray-50">
+              <h3 className="font-bold text-text-primary text-lg flex items-center gap-2">
+                <Phone className="text-primary" size={20} /> Broker Phone Number
+              </h3>
+              <button onClick={() => setEditPhoneModalOpen(false)} className="text-text-tertiary hover:text-text-primary p-1 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-text-secondary">
+                Set or update the contact phone number for <strong>{broker?.name}</strong>.
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Phone Number</label>
+                <Input 
+                  autoFocus
+                  placeholder="e.g. +251 91 123 4567" 
+                  value={editPhoneInput} 
+                  onChange={(e) => setEditPhoneInput(e.target.value)} 
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="p-5 border-t border-border flex justify-end gap-3 bg-gray-50">
+              <button onClick={() => setEditPhoneModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <Button 
+                loading={isUpdatingPhone}
+                onClick={handleSaveBrokerPhone}
+                className="px-6 py-2 text-sm font-bold cursor-pointer"
+              >
+                Save Phone
+              </Button>
             </div>
           </div>
         </div>

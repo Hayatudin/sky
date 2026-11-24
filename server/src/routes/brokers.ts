@@ -102,6 +102,7 @@ router.get('/', async (req: Request, res: Response) => {
     const augmented = brokersList.map((b: any) => ({
       id: b.id,
       name: b.name,
+      phone: b.phone ?? null,
       leaderId: b.leaderId,
       isLocked: lockMap[b.id] ?? b.isLocked ?? false,
       isVip: b.isVip,
@@ -127,7 +128,7 @@ router.post('/', async (req: Request, res: Response) => {
     const role = (session?.user as any)?.role;
     const isSuperAdmin = role === 'super_admin';
 
-    const { name, isVip } = req.body;
+    const { name, isVip, phone } = req.body;
     
     if (!name) return res.status(400).json({ error: 'Broker name is required' });
 
@@ -153,6 +154,7 @@ router.post('/', async (req: Request, res: Response) => {
     await db.insert(broker).values({
       id: brokerId,
       name: name.trim(),
+      phone: phone ? phone.trim() : null,
       majorAgency: finalAgency,
       isVip: finalIsVip,
     });
@@ -317,6 +319,7 @@ router.get('/:id/candidates', async (req: Request, res: Response) => {
 
     const augmentedBroker = {
       ...brokerRecord,
+      phone: brokerRecord.phone ?? null,
       isLocked,
       candidates: candidatesList.map((c: any) => ({
         ...c,
@@ -421,6 +424,39 @@ router.delete('/:id', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Failed to delete broker:', error);
     res.status(500).json({ error: error.message || 'Failed to delete broker' });
+  }
+});
+
+// PATCH /api/brokers/:id — Update broker details (e.g. phone, name)
+router.patch('/:id', async (req: Request, res: Response) => {
+  try {
+    const session = await getSession(req);
+    const userAgency = (session?.user as any)?.majorAgency || 'Sky';
+    const { id } = req.params;
+    const { phone, name } = req.body;
+
+    const brokerRecord = await db.query.broker.findFirst({ where: eq(broker.id, id) });
+    if (!brokerRecord || (!brokerRecord.isVip && brokerRecord.majorAgency !== userAgency)) {
+      return res.status(404).json({ error: 'Broker not found' });
+    }
+
+    const updateData: any = {};
+    if (phone !== undefined) {
+      updateData.phone = phone ? phone.trim() : null;
+    }
+    if (name !== undefined && name.trim()) {
+      updateData.name = name.trim();
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await db.update(broker).set(updateData).where(eq(broker.id, id));
+    }
+
+    const updated = await db.query.broker.findFirst({ where: eq(broker.id, id) });
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Failed to update broker:', error);
+    res.status(500).json({ error: error.message || 'Failed to update broker' });
   }
 });
 
