@@ -135,6 +135,9 @@ export default function InvoicePage() {
         throw new Error(err.error || 'Failed to delete invoice');
       }
       mutateInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('invoice-changed'));
+      }
     } catch (err: any) {
       alert(err.message || 'Something went wrong while deleting');
     } finally {

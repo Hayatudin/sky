@@ -160,7 +160,8 @@ router.get('/candidates', async (req: Request, res: Response) => {
         eq(candidate.visaSelected, true),
         eq(candidate.isRequested, true),
         eq(candidate.status, 'visa selected')
-      )
+      ),
+      sql`NOT EXISTS (SELECT 1 FROM \`Invoice\` WHERE \`Invoice\`.\`candidateId\` = ${candidate.id})`
     ];
  
     if (role === 'agency') {
@@ -282,7 +283,8 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
     const conditions: any[] = [
       eq(candidate.majorAgency, userAgency),
       eq(candidate.agencySelected, false),
-      sql`exists (select 1 from ${generatedCV} where \`candidateId\` = ${candidate.id})`
+      sql`exists (select 1 from ${generatedCV} where \`candidateId\` = ${candidate.id})`,
+      sql`NOT EXISTS (SELECT 1 FROM \`Invoice\` WHERE \`Invoice\`.\`candidateId\` = ${candidate.id})`
     ];
  
     if (role === 'agency') {

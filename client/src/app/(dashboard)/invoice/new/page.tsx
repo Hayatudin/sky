@@ -102,6 +102,9 @@ function NewInvoiceContent() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('invoice-changed'));
+      }
       router.push('/invoice');
     } catch (err: any) {
       setError(err.message || 'Something went wrong');

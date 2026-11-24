@@ -352,6 +352,17 @@ export default function AgencyContractsPage() {
 
   useEffect(() => {
     fetchCandidates(selectedAgency);
+
+    const handleRefresh = () => {
+      fetchCandidates(selectedAgency);
+    };
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('invoice-changed', handleRefresh);
+    return () => {
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('invoice-changed', handleRefresh);
+    };
   }, [selectedAgency]);
 
   useEffect(() => {
