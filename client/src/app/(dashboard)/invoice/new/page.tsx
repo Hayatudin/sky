@@ -33,8 +33,13 @@ function NewInvoiceContent() {
 
     async function fetchCandidate() {
       try {
+        setLoadingCandidate(true);
+        setError(null);
         const res = await api(`/api/candidates/${candidateId}`);
-        if (!res.ok) throw new Error('Candidate not found');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || errData.error || 'Candidate not found');
+        }
         const data = await res.json();
         setCandidate(data);
       } catch (err: any) {
@@ -131,10 +136,37 @@ function NewInvoiceContent() {
           <AlertCircle size={32} />
         </div>
         <h2 className="text-xl font-bold text-text-primary">Error Loading Candidate</h2>
-        <p className="text-text-secondary">{error}</p>
-        <Button onClick={() => router.push('/requested')} icon={<ArrowLeft size={16} />}>
-          Back to Visa Selected
-        </Button>
+        <p className="text-text-secondary text-sm max-w-sm mx-auto">{error}</p>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setError(null);
+              setLoadingCandidate(true);
+              if (candidateId) {
+                api(`/api/candidates/${candidateId}`)
+                  .then(r => r.json())
+                  .then(data => setCandidate(data))
+                  .catch((e: any) => setError(e.message || 'Failed to fetch candidate details'))
+                  .finally(() => setLoadingCandidate(false));
+              }
+            }}
+          >
+            Try Again
+          </Button>
+          <Button 
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push('/deployments');
+              }
+            }} 
+            icon={<ArrowLeft size={16} />}
+          >
+            Go Back
+          </Button>
+        </div>
       </div>
     );
   }
@@ -144,10 +176,16 @@ function NewInvoiceContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => router.push('/requested')}
-          className="flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-primary transition-colors"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/deployments');
+            }
+          }}
+          className="flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer"
         >
-          <ArrowLeft size={16} /> Back to Visa Selected
+          <ArrowLeft size={16} /> Back
         </button>
         <div className="text-right">
           <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Proceed Candidate</p>
@@ -278,7 +316,16 @@ function NewInvoiceContent() {
 
           {/* Form Actions */}
           <div className="flex justify-end gap-3 pt-6 border-t border-border">
-            <Button variant="outline" onClick={() => router.push('/requested')}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push('/deployments');
+                }
+              }}
+            >
               Cancel
             </Button>
             <Button

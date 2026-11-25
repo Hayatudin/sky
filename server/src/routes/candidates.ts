@@ -652,34 +652,68 @@ router.get('/:id', async (req: Request, res: Response) => {
       where: eq(candidate.id, id),
     });
 
-    if (!c || c.majorAgency !== userAgency) return res.status(404).json({ error: 'Not found' });
+    if (!c) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
 
-    // Fetch related data separately (MySQL 5.7 — no lateral joins)
-    const [brokerData, latestCV, registeredByData] = await Promise.all([
-      c.brokerId ? db.query.broker.findFirst({ where: eq(broker.id, c.brokerId) }) : Promise.resolve(null),
-      db.select({ id: generatedCV.id, templateId: generatedCV.templateId })
+    if (!isSuperAdmin && c.majorAgency && userAgency && c.majorAgency.toLowerCase() !== userAgency.toLowerCase()) {
+      return res.status(404).json({ error: 'Candidate not found in your agency' });
+    }
+
+    // Fetch related data safely without allowing auxiliary failures to crash candidate retrieval
+    let brokerData: any = null;
+    let latestCV: any[] = [];
+    let registeredByData: any[] = [];
+
+    try {
+      if (c.brokerId) {
+        brokerData = await db.query.broker.findFirst({ where: eq(broker.id, c.brokerId) });
+      }
+    } catch (e) {
+      console.warn('[CANDIDATES] Warning fetching broker:', e);
+    }
+
+    try {
+      latestCV = await db.select({ id: generatedCV.id, templateId: generatedCV.templateId })
         .from(generatedCV).where(eq(generatedCV.candidateId, id))
-        .orderBy(sql`${generatedCV.createdAt} DESC`).limit(1),
-      c.registeredById ? db.select({ name: user.name }).from(user).where(eq(user.id, c.registeredById)).limit(1) : Promise.resolve([]),
-    ]);
+        .orderBy(sql`${generatedCV.createdAt} DESC`).limit(1);
+    } catch (e) {
+      console.warn('[CANDIDATES] Warning fetching latest CV:', e);
+    }
 
-    // Look up the linked QuickRegistration by passport number to use as a
-    // fallback video source when the Candidate's own quickVideoUrl is null.
-    const passportUpper = (c.passportNumber || '').trim().toUpperCase();
-    const linkedQr = await db.query.quickRegistration.findFirst({
-      where: (qr, { and, isNotNull }) =>
-        and(
-          isNotNull(qr.videoUrl),
-          eq(sql`upper(${qr.passportNumber})`, passportUpper)
-        ),
-      columns: { videoUrl: true }
-    });
-    const entryVideoUrl = linkedQr?.videoUrl ?? null;
+    try {
+      if (c.registeredById) {
+        registeredByData = await db.select({ name: user.name }).from(user).where(eq(user.id, c.registeredById)).limit(1);
+      }
+    } catch (e) {
+      console.warn('[CANDIDATES] Warning fetching registeredBy user:', e);
+    }
+
+    // Look up linked QuickRegistration safely if available
+    let entryVideoUrl: string | null = null;
+    try {
+      if (c.passportNumber) {
+        const passportUpper = c.passportNumber.trim().toUpperCase();
+        const [linkedQr] = await db.select({ videoUrl: quickRegistration.videoUrl })
+          .from(quickRegistration)
+          .where(sql`UPPER(${quickRegistration.passportNumber}) = ${passportUpper} AND ${quickRegistration.videoUrl} IS NOT NULL`)
+          .limit(1);
+        entryVideoUrl = linkedQr?.videoUrl ?? null;
+      }
+    } catch (qrErr) {
+      console.warn('[CANDIDATES] Warning fetching linked QuickRegistration video:', qrErr);
+    }
 
     const formatDate = (date: Date | string | null | undefined) => {
       if (!date) return '';
       const d = new Date(date);
       return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+    };
+
+    const safeIsoString = (dateVal: any): string | null => {
+      if (!dateVal) return null;
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? null : d.toISOString();
     };
 
     const formatted = {
@@ -751,7 +785,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       // Fall back to the Entry video if the candidate's own quickVideoUrl is absent
       quickVideoUrl: encryptPath(c.quickVideoUrl ?? entryVideoUrl),
       deployedDate: c.deployedDate ? formatDate(c.deployedDate) : null,
-      registeredAt: c.registeredAt instanceof Date ? c.registeredAt.toISOString() : String(c.registeredAt),
+      registeredAt: safeIsoString(c.registeredAt) || '',
       broker: brokerData || null,
       visaSelected: c.visaSelected,
       visaDate: c.visaDate ? formatDate(c.visaDate) : null,
@@ -765,9 +799,12 @@ router.get('/:id', async (req: Request, res: Response) => {
       price: isSuperAdmin ? c.price : null,
     };
     res.json(formatted);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to get candidate:', error);
-    res.status(500).json({ error: 'Failed' });
+    res.status(500).json({ 
+      error: error?.message || 'Failed to load candidate',
+      details: error?.stack || String(error)
+    });
   }
 });
 
