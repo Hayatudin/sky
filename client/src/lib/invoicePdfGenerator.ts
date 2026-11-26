@@ -9,13 +9,19 @@ interface InvoiceCandidate {
 }
 
 async function loadImageAsBase64(url: string): Promise<string> {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
-  });
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn(`[INVOICE-PDF] Failed to load image from ${url}:`, err);
+    return '';
+  }
 }
 
 export async function generateInvoicePdf(
@@ -30,10 +36,10 @@ export async function generateInvoicePdf(
   const marginR = 10;
   const contentW = pageW - marginL - marginR;
 
-  // Load signature & stamp images (Header image removed as requested)
+  // Load signature & stamp images from public folder
   const [signatureImg, stampImg] = await Promise.all([
-    loadImageAsBase64('/coolstaff-signature.png'),
-    loadImageAsBase64('/coolstaff-stamp.png'),
+    loadImageAsBase64('/sign.png'),
+    loadImageAsBase64('/stamp.png'),
   ]);
 
   // ── Header Heading Text ──
@@ -201,37 +207,43 @@ export async function generateInvoicePdf(
   y += rowH + 5;
 
   // ── Signature & Stamp Section ──
-  // Check if we need a new page for signature
-  if (y + 45 > 290) {
+  // Check if we need a new page for signature & stamp (needs ~45mm)
+  if (y + 45 > 280) {
     doc.addPage();
     y = 20;
   }
 
-  // Signature
+  const sectionTopY = y;
+
+  // Signature (left side)
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.text('SIGNATURE', marginL, y);
+  doc.text('SIGNATURE', marginL, sectionTopY);
 
-  y += 4;
-  const sigW = 30;
-  const sigH = 15;
-  doc.addImage(signatureImg, 'PNG', marginL, y, sigW, sigH);
+  const sigW = 32;
+  const sigH = 22; // Natural aspect ratio for sign.png (1635x1121 -> 1.458:1)
+  if (signatureImg) {
+    doc.addImage(signatureImg, 'PNG', marginL, sectionTopY + 4, sigW, sigH);
+  }
 
-  const textY = y + sigH + 5;
+  const textY = sectionTopY + 4 + sigH + 5;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.text('G. MANAGER IBRAHIM ABDURAHMAN', marginL, textY);
 
-  // Stamp (positioned to the right)
-  const stampW = 35;
-  const stampH = 35;
+  // Stamp (right side, aligned with signature section)
+  const stampW = 34;
+  const stampH = 32.5; // Natural aspect ratio for stamp.png (1623x1550 -> 1.047:1)
   const stampX = pageW - marginR - stampW;
-  const stampY = y - 4; // Position stamp alongside the signature
+  const stampY = sectionTopY + 4;
 
-  doc.text('STAMP', stampX + stampW / 2, stampY - 2, { align: 'center' });
-  doc.addImage(stampImg, 'PNG', stampX, stampY, stampW, stampH);
+  doc.text('STAMP', stampX + stampW / 2, sectionTopY, { align: 'center' });
+  if (stampImg) {
+    doc.addImage(stampImg, 'PNG', stampX, stampY, stampW, stampH);
+  }
 
   // ── Download ──
-  const fileName = `COOLSTAFF_INVOICE_${invoiceNumber}_${dateStr.replace(/ /g, '_')}.pdf`;
+  const agencyFilePrefix = isFenero ? 'FENERO_INVOICE' : 'SKY_INVOICE';
+  const fileName = `${agencyFilePrefix}_${invoiceNumber}_${dateStr.replace(/ /g, '_')}.pdf`;
   doc.save(fileName);
 }

@@ -562,6 +562,17 @@ export async function ensureDatabaseSchema() {
     }
   }
 
+  // Broker phone number (shown on broker list + broker detail header)
+  try {
+    await db.execute(sql`ALTER TABLE \`Broker\` ADD COLUMN \`phone\` VARCHAR(191) NULL`);
+    console.log(`✅ Successfully added column 'phone' to Broker table.`);
+  } catch (e: any) {
+    const msg = e.message || String(e);
+    if (!msg.includes('Duplicate column') && !msg.includes('already exists')) {
+      console.warn(`⚠️ Broker column fallback update warning for 'phone':`, msg);
+    }
+  }
+
   try {
     await db.execute(sql`ALTER TABLE \`Broker\` ADD COLUMN \`leaderId\` VARCHAR(191) NULL`);
     console.log(`✅ Successfully added column 'leaderId' to Broker table.`);
