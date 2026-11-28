@@ -229,7 +229,7 @@ export async function generateInvoicePdf(
   const textY = sectionTopY + 4 + sigH + 5;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('G. MANAGER IBRAHIM ABDURAHMAN', marginL, textY);
+  doc.text('G. MANAGER ZEMZEM ABDURAHMAN', marginL, textY);
 
   // Stamp (right side, aligned with signature section)
   const stampW = 34;
