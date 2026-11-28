@@ -33,7 +33,7 @@ import { getFileUrl, getDownloadUrl, cleanLabourId, cn } from '@/lib/utils';
 import { Candidate } from '@/types';
 import { useSession } from '@/lib/auth-client';
 
-import { getTemplatesForAgency, getTemplateOptionsForAgency, getUserMajorAgency, CV_TEMPLATE_NAMES, getTemplateComponent } from '@/lib/cv-templates';
+import { getTemplatesForAgency, getTemplateOptionsForAgency, getUserMajorAgency, CV_TEMPLATE_NAMES, getTemplateComponent, resolveCandidateOfficeName } from '@/lib/cv-templates';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 
 const AGENCY_MAP: Record<string, string> = CV_TEMPLATE_NAMES;
@@ -73,8 +73,7 @@ interface AgencyCandidate {
 }
 
 const getCandidateAgencyName = (c: AgencyCandidate) => {
-  const rawAgency = c.latestCVTemplate?.replace('tmpl-', '').toLowerCase() || c.agency?.toLowerCase() || '';
-  return AGENCY_MAP[rawAgency] || rawAgency.toUpperCase() || '—';
+  return resolveCandidateOfficeName(c);
 };
 
 const formatToMDY = (dateStr: string | null | undefined) => {
@@ -137,6 +136,7 @@ export default function AgencyContractsPage() {
       if (dropdownType === 'embassy') estimatedHeight = 160;
       if (dropdownType === 'lmis') estimatedHeight = 200;
       if (dropdownType === 'coc') estimatedHeight = 200;
+      if (dropdownType === 'office') estimatedHeight = 200;
       
       const spaceBelow = window.innerHeight - rect.bottom;
       const alignUp = spaceBelow < estimatedHeight && rect.top > estimatedHeight;
@@ -450,7 +450,8 @@ export default function AgencyContractsPage() {
           embassyStatus: updatedData.embassyStatus ?? c.embassyStatus,
           sponsorName: updatedData.sponsorName ?? c.sponsorName,
           destination: updatedData.destination ?? c.destination,
-          visaOrContractNumber: updatedData.visaOrContractNumber ?? c.visaOrContractNumber
+          visaOrContractNumber: updatedData.visaOrContractNumber ?? c.visaOrContractNumber,
+          agency: updatedData.agency ?? c.agency
         } : c)
       );
     } catch (err: any) {
@@ -827,6 +828,22 @@ export default function AgencyContractsPage() {
             >
               <span className="capitalize">{status}</span>
               {(cand.embassyStatus === status || (!cand.embassyStatus && status === 'ready to embassy')) && <Check size={12} className="text-primary" />}
+            </button>
+          ))}
+        </div>
+      );
+    } else if (type === 'office') {
+      const currentOfficeId = (cand.latestCVTemplate?.replace('tmpl-', '').toLowerCase() || cand.agency?.toLowerCase() || '').trim();
+      menuContent = (
+        <div className="py-1">
+          {TEMPLATES.map((tmpl) => (
+            <button
+              key={tmpl.id}
+              onClick={() => handleUpdateCandidate(cand.id, { agency: tmpl.id })}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer font-bold"
+            >
+              <span>{tmpl.name}</span>
+              {currentOfficeId === tmpl.id.toLowerCase() && <Check size={12} className="text-primary" />}
             </button>
           ))}
         </div>
@@ -1288,14 +1305,39 @@ export default function AgencyContractsPage() {
 
                       {/* office */}
                       <td className="px-2 py-2">
-                        <span className={cn(
-                          "inline-flex items-center px-2 py-0.5 text-[10px] font-extrabold rounded-xl border uppercase whitespace-nowrap",
-                          isNorthOffice
-                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 shadow-xs"
-                            : "bg-cyan-50 text-cyan-700 border-cyan-100"
-                        )}>
-                          {agencyName}
-                        </span>
+                        {['super_admin', 'processor', 'coordinator', 'genaral'].includes(userRole) && !c.latestCVTemplate ? (
+                          <button
+                            disabled={updatingField !== null}
+                            onClick={(e) => toggleDropdown('office', c.id, e)}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold rounded-xl border uppercase whitespace-nowrap cursor-pointer transition-all disabled:opacity-50",
+                              agencyName === '—'
+                                ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                : isNorthOffice
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-300 shadow-xs hover:bg-emerald-200"
+                                : "bg-cyan-50 text-cyan-700 border-cyan-100 hover:bg-cyan-100"
+                            )}
+                            title="Select or change office"
+                          >
+                            {isUpdating('agency') ? (
+                              <Loader2 size={10} className="animate-spin" />
+                            ) : (
+                              <>
+                                <span>{agencyName === '—' ? 'Select Office' : agencyName}</span>
+                                <ChevronDown size={10} className="opacity-60" />
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <span className={cn(
+                            "inline-flex items-center px-2 py-0.5 text-[10px] font-extrabold rounded-xl border uppercase whitespace-nowrap",
+                            isNorthOffice
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-300 shadow-xs"
+                              : "bg-cyan-50 text-cyan-700 border-cyan-100"
+                          )}>
+                            {agencyName}
+                          </span>
+                        )}
                       </td>
 
                       {/* SPONSOR NAME */}

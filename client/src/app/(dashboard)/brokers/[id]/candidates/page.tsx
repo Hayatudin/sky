@@ -17,7 +17,7 @@ import { api } from '@/lib/api';
 import { getFileUrl, cn } from '@/lib/utils';
 import { useSession } from '@/lib/auth-client';
 
-import { getTemplatesForAgency, getTemplateOptionsForAgency, getUserMajorAgency, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId } from '@/lib/cv-templates';
+import { getTemplatesForAgency, getTemplateOptionsForAgency, getUserMajorAgency, DEFAULT_CV_TEMPLATE_ID, getTemplateComponent, normalizeTemplateId, resolveCandidateOfficeId } from '@/lib/cv-templates';
 import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 
 interface BrokerCandidate {
@@ -48,6 +48,7 @@ interface BrokerCandidate {
   price?: string | null;
   videoUrl?: string | null;
   allowVideo?: boolean;
+  agency?: string | null;
 }
 
 export default function BrokerCandidatesPage() {
@@ -252,16 +253,24 @@ export default function BrokerCandidatesPage() {
     setIsSettingAgency(true);
     try {
       const cand = candidates.find(c => c.id === candidateId);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/generated-cvs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          candidateId,
-          templateId,
-          facePhotoUrl: cand?.facePhotoUrl || null,
-          fullBodyPhotoUrl: cand?.fullBodyPhotoUrl || null
-        })
-      });
+      const isCalling = broker?.name?.toLowerCase().trim() === 'calling' || cand?.job === 'Calling';
+
+      const res = isCalling
+        ? await api(`/api/candidates/${candidateId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agency: templateId })
+          })
+        : await api('/api/generated-cvs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              candidateId,
+              templateId,
+              facePhotoUrl: cand?.facePhotoUrl || null,
+              fullBodyPhotoUrl: cand?.fullBodyPhotoUrl || null
+            })
+          });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to set agency');
@@ -397,9 +406,10 @@ export default function BrokerCandidatesPage() {
   const getNormalizedTemplateId = (c: BrokerCandidate) => {
     const cvs = c.generatedCVs || [];
     const firstCV = cvs[0];
-    if (!firstCV) return null;
-    const templateId = firstCV.templateId;
-    return templateId ? normalizeTemplateId(templateId) : null;
+    if (firstCV?.templateId) {
+      return normalizeTemplateId(firstCV.templateId);
+    }
+    return resolveCandidateOfficeId(c);
   };
 
   // Open single CV preview modal (fetching details dynamically)

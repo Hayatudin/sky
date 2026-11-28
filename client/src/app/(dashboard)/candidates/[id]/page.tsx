@@ -6,7 +6,7 @@ import { Candidate } from '@/types';
 import {
   ArrowLeft, Edit3, Trash2, Calendar, MapPin, Phone, Mail, User, Briefcase,
   Heart, GraduationCap, Globe, FileText, Eye, Loader2, Clock, Download, ExternalLink,
-  Lock, Video
+  Lock, Video, Building
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
@@ -15,6 +15,7 @@ import { makeSafeCandidate } from '@/components/cv/CVTemplateRenderer';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/auth-client';
 import { getCleanNationality } from '@/components/cv/cvHelpers';
+import { resolveCandidateOfficeName } from '@/lib/cv-templates';
 
 const InfoItem = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number | undefined }) => (
   <div className="group flex flex-col py-3 px-4 rounded-2xl hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10 min-w-0">
@@ -490,6 +491,24 @@ export default function CandidateDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Office (Calling candidates) */}
+          {(c.broker?.name === 'Calling' || pi.job === 'Calling') && (
+            <div className="bg-surface rounded-[2rem] border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
+              <h2 className="text-lg font-bold text-text-primary mb-6 flex items-center gap-2">
+                <Building size={20} className="text-cyan-600" /> Office
+              </h2>
+              <div className="flex items-center gap-3 p-4 bg-cyan-50/60 rounded-[1.25rem] border border-cyan-100">
+                <div className="p-2.5 bg-cyan-100 text-cyan-700 rounded-xl">
+                  <Building size={18} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-cyan-700/70 uppercase tracking-[0.1em] font-bold">Assigned Office</p>
+                  <span className="text-[15px] font-bold text-cyan-800 uppercase">{resolveCandidateOfficeName(c)}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Generated CV */}
           {c.broker?.name !== 'Calling' && (

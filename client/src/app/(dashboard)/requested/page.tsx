@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { useCandidates } from '@/hooks/useCandidates';
 import { useBrokers } from '@/hooks/useBrokers';
 import { useQueryClient } from '@tanstack/react-query';
-import { getTemplateOptionsForAgency, getUserMajorAgency } from '@/lib/cv-templates';
+import { getTemplateOptionsForAgency, getUserMajorAgency, resolveCandidateOfficeId } from '@/lib/cv-templates';
 import { useSession } from '@/lib/auth-client';
 
 function DirectRegistrationModal({ onClose, onSuccess, brokers }: { onClose: () => void, onSuccess: () => void, brokers: any[] }) {
@@ -339,16 +339,25 @@ export default function RequestedPage() {
     setIsSettingAgency(true);
     try {
       const cand = allCandidates.find(c => c.id === candidateId);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/generated-cvs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          candidateId,
-          templateId,
-          facePhotoUrl: cand?.facePhotoUrl || null,
-          fullBodyPhotoUrl: cand?.fullBodyPhotoUrl || null
-        })
-      });
+      const brokerName = (cand?.broker?.name || cand?.personalInfo?.brokerId || '').toLowerCase().trim();
+      const isCalling = brokerName === 'calling' || brokerName === 'calling-broker' || cand?.personalInfo?.job === 'Calling';
+
+      const res = isCalling
+        ? await api(`/api/candidates/${candidateId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agency: templateId })
+          })
+        : await api('/api/generated-cvs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              candidateId,
+              templateId,
+              facePhotoUrl: cand?.facePhotoUrl || null,
+              fullBodyPhotoUrl: cand?.fullBodyPhotoUrl || null
+            })
+          });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to set agency');
@@ -875,19 +884,16 @@ export default function RequestedPage() {
 
                       {/* CV Agency */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {c.latestCVTemplate ? (
-                          <span className="px-2.5 py-1 text-[10px] uppercase font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg shadow-sm">
-                            {(() => {
-                              const templateId = c.latestCVTemplate.replace('tmpl-', '').toLowerCase();
-                              const templateObj = TEMPLATES.find(t => t.id === templateId);
-                              return templateObj ? templateObj.name : c.latestCVTemplate.toUpperCase();
-                            })()}
-                          </span>
-                        ) : (
-                          <>
-                            {selectedCandidateForAgency === c.id ? (
+                        {(() => {
+                          const officeId = resolveCandidateOfficeId(c);
+                          const templateObj = officeId ? TEMPLATES.find(t => t.id === officeId) : null;
+                          const brokerName = (c.broker?.name || c.personalInfo?.brokerId || '').toLowerCase().trim();
+                          const isCalling = brokerName === 'calling' || brokerName === 'calling-broker' || c.personalInfo?.job === 'Calling';
+
+                          if (selectedCandidateForAgency === c.id) {
+                            return (
                               <select
-                                value=""
+                                value={officeId || ''}
                                 disabled={isSettingAgency}
                                 onChange={async (e) => {
                                   const val = e.target.value;
@@ -895,6 +901,7 @@ export default function RequestedPage() {
                                     await handleSetAgency(c.id, val);
                                   }
                                 }}
+                                onBlur={() => setSelectedCandidateForAgency(null)}
                                 className="px-2.5 py-1 text-[10px] uppercase font-bold bg-white text-text-primary border border-border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 cursor-pointer"
                               >
                                 <option value="" disabled>Select Agency...</option>
@@ -902,16 +909,36 @@ export default function RequestedPage() {
                                   <option key={t.id} value={t.id}>{t.name}</option>
                                 ))}
                               </select>
-                            ) : (
-                              <button
-                                onClick={() => setSelectedCandidateForAgency(c.id)}
-                                className="px-2.5 py-1 text-[10px] uppercase font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg shadow-sm transition-all"
-                              >
-                                Set Agency
-                              </button>
-                            )}
-                          </>
-                        )}
+                            );
+                          }
+                          if (officeId) {
+                            const label = templateObj ? templateObj.name : officeId.toUpperCase();
+                            if (isCalling && !c.latestCVTemplate) {
+                              return (
+                                <button
+                                  onClick={() => setSelectedCandidateForAgency(c.id)}
+                                  className="px-2.5 py-1 text-[10px] uppercase font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg shadow-sm transition-all cursor-pointer"
+                                  title="Click to change office"
+                                >
+                                  {label}
+                                </button>
+                              );
+                            }
+                            return (
+                              <span className="px-2.5 py-1 text-[10px] uppercase font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg shadow-sm">
+                                {label}
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => setSelectedCandidateForAgency(c.id)}
+                              className="px-2.5 py-1 text-[10px] uppercase font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg shadow-sm transition-all cursor-pointer"
+                            >
+                              Set Agency
+                            </button>
+                          );
+                        })()}
                       </td>
 
                       {/* Selected Date (Days Ago) */}

@@ -168,7 +168,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
       const agencyStr = agencyName!.toLowerCase();
       conditions.push(
         or(
-          eq(candidate.agency, agencyStr),
+          sql`LOWER(${candidate.agency}) = ${agencyStr}`,
           sql`exists (select 1 from ${generatedCV} where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
         )
       );
@@ -177,7 +177,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
         const agencyStr = String(agency).toLowerCase();
         conditions.push(
           or(
-            eq(candidate.agency, agencyStr),
+            sql`LOWER(${candidate.agency}) = ${agencyStr}`,
             sql`exists (select 1 from ${generatedCV} where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
           )
         );
@@ -229,7 +229,7 @@ router.get('/candidates', async (req: Request, res: Response) => {
         agencyStatus: c.agencyStatus || 'Under Process',
         latestCVTemplate: candidateCVs[0]?.templateId || null,
         broker: c.brokerId ? (brokerMap1.get(c.brokerId) || null) : null,
-        agency: c.agency,
+        agency: (c.agency && !['daera', 'daira'].includes(c.agency.trim().toLowerCase())) ? c.agency : null,
         religion: c.religion,
         job: c.job,
         city: c.city,
@@ -291,7 +291,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
       const agencyStr = agencyName!.toLowerCase();
       conditions.push(
         or(
-          eq(candidate.agency, agencyStr),
+          sql`LOWER(${candidate.agency}) = ${agencyStr}`,
           sql`exists (select 1 from ${generatedCV} where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
         )
       );
@@ -300,7 +300,7 @@ router.get('/available-candidates', async (req: Request, res: Response) => {
         const agencyStr = String(agency).toLowerCase();
         conditions.push(
           or(
-            eq(candidate.agency, agencyStr),
+            sql`LOWER(${candidate.agency}) = ${agencyStr}`,
             sql`exists (select 1 from ${generatedCV} where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyStr}%`})`
           )
         );
@@ -475,7 +475,8 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       sponsorName,
       destination,
       applicationNumber,
-      deployedDate
+      deployedDate,
+      agency
     } = req.body;
 
     const agencyName = await resolveAndHealAgency(session.user);
@@ -484,10 +485,14 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
       if (!agencyName) {
         return res.status(400).json({ error: 'User is not assigned to any agency' });
       }
+      const agencyLower = agencyName.toLowerCase();
       const hasAccess = await db.query.candidate.findFirst({
         where: and(
           eq(candidate.id, id),
-          sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyName.toLowerCase()}%`})`
+          or(
+            sql`LOWER(${candidate.agency}) = ${agencyLower}`,
+            sql`exists (select 1 from \`GeneratedCV\` where \`candidateId\` = ${candidate.id} and \`templateId\` like ${`%${agencyLower}%`})`
+          )
         )
       });
       if (!hasAccess) {
@@ -514,6 +519,14 @@ router.patch('/candidates/:id', async (req: Request, res: Response) => {
     if (destination !== undefined) updateData.destination = destination;
     if (applicationNumber !== undefined) updateData.applicationNumber = applicationNumber;
     if (deployedDate !== undefined) updateData.deployedDate = deployedDate;
+    if (agency !== undefined && role !== 'agency') {
+      const cleanedAgency = typeof agency === 'string'
+        ? agency.trim().replace(/^tmpl-/i, '').toLowerCase()
+        : '';
+      if (cleanedAgency && cleanedAgency !== 'daera' && cleanedAgency !== 'daira') {
+        updateData.agency = cleanedAgency;
+      }
+    }
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No valid candidate fields recognized for update. Received payload: ' + JSON.stringify(req.body) });

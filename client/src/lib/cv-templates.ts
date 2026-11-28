@@ -188,3 +188,36 @@ export function getTemplateName(id?: string | null): string {
 }
 
 export const VALID_TEMPLATE_IDS = CV_TEMPLATES.map((t) => t.id);
+
+/**
+ * Resolve the display office/template ID for a candidate, checking latestCVTemplate (or generatedCVs[0])
+ * first and falling back to candidate.agency when it represents a valid office/template (not Sky/Fenero/daera).
+ */
+export function resolveCandidateOfficeId(candidate: {
+  latestCVTemplate?: string | null;
+  generatedCVs?: Array<string | { templateId?: string | null }> | null;
+  agency?: string | null;
+}): string | null {
+  const firstCv = candidate.generatedCVs?.[0];
+  const fromCv = candidate.latestCVTemplate || (typeof firstCv === 'string' ? firstCv : firstCv?.templateId);
+  const cleanCv = fromCv ? fromCv.replace(/^tmpl-/i, '').trim().toLowerCase() : '';
+  if (cleanCv && !['daera', 'daira', 'sky', 'fenero'].includes(cleanCv)) {
+    return cleanCv;
+  }
+  const cleanAgency = candidate.agency ? candidate.agency.replace(/^tmpl-/i, '').trim().toLowerCase() : '';
+  if (cleanAgency && !['daera', 'daira', 'sky', 'fenero'].includes(cleanAgency)) {
+    return cleanAgency;
+  }
+  return null;
+}
+
+/** Resolve the human-readable office/template name for a candidate. */
+export function resolveCandidateOfficeName(candidate: {
+  latestCVTemplate?: string | null;
+  generatedCVs?: Array<string | { templateId?: string | null }> | null;
+  agency?: string | null;
+}): string {
+  const id = resolveCandidateOfficeId(candidate);
+  if (!id) return '—';
+  return (CV_TEMPLATE_NAMES as Record<string, string>)[id] || id.toUpperCase();
+}

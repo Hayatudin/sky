@@ -802,6 +802,31 @@ export async function ensureDatabaseSchema() {
     console.warn('⚠️ FENERO/SKY database segregation migrations failed:', segErr.message || segErr);
   }
 
+  // 14b. Clean up obsolete 'daera' default & rows on Candidate / QuickRegistration
+  try {
+    await db.execute(sql`ALTER TABLE \`Candidate\` ALTER COLUMN \`agency\` SET DEFAULT 'Sky'`);
+    await db.execute(sql`ALTER TABLE \`QuickRegistration\` ALTER COLUMN \`agency\` SET DEFAULT 'Sky'`);
+    await db.execute(sql`
+      UPDATE \`Candidate\` c
+      INNER JOIN \`GeneratedCV\` g ON g.\`candidateId\` = c.\`id\`
+      SET c.\`agency\` = LOWER(REPLACE(g.\`templateId\`, 'tmpl-', ''))
+      WHERE LOWER(c.\`agency\`) IN ('daera', 'daira')
+    `);
+    await db.execute(sql`
+      UPDATE \`Candidate\`
+      SET \`agency\` = NULL
+      WHERE LOWER(\`agency\`) IN ('daera', 'daira')
+    `);
+    await db.execute(sql`
+      UPDATE \`QuickRegistration\`
+      SET \`agency\` = COALESCE(NULLIF(\`major_agency\`, ''), 'Sky')
+      WHERE LOWER(\`agency\`) IN ('daera', 'daira')
+    `);
+    console.log('✅ Verified Candidate/QuickRegistration agency defaults & cleaned legacy daera values.');
+  } catch (agencyCleanErr: any) {
+    console.warn('⚠️ Candidate agency cleanup warning:', agencyCleanErr.message || agencyCleanErr);
+  }
+
   // 15. Performance Indexes for Fast Search & Retrieval
   try {
     console.log('⚡ Ensuring database performance indexes exist...');

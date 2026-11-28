@@ -28,6 +28,8 @@ const candidateBodySchema = z.object({
   visaOrContractNumber: z.string().optional().nullable(),
   visaDate: z.string().optional().nullable(),
   agency: z.string().optional().nullable(),
+  office: z.string().optional().nullable(),
+  isCalling: z.boolean().optional().nullable(),
   allowVideo: z.boolean().optional().nullable(),
   sponsorName: z.string().optional().nullable(),
   destination: z.string().optional().nullable(),
@@ -37,6 +39,22 @@ const candidateBodySchema = z.object({
 }).partial().passthrough();
 
 const router = Router();
+
+function normalizeOfficeOrAgency(val?: string | null): string | null {
+  if (!val || typeof val !== 'string') return null;
+  const clean = val.trim().replace(/^tmpl-/i, '').toLowerCase();
+  if (!clean || clean === 'daera' || clean === 'daira') return null;
+  if (clean === 'north gate' || clean === 'north-gate') return 'northgate';
+  if (clean === 'daeyman alawael' || clean === 'daeyman-alawael') return 'daeyman';
+  return clean;
+}
+
+function getSafeAgencyDisplay(rawAgency?: string | null, majorAgency?: string | null): string {
+  if (rawAgency && !['daera', 'daira'].includes(rawAgency.trim().toLowerCase())) {
+    return rawAgency;
+  }
+  return majorAgency || 'Sky';
+}
 
 function sanitizeNationality(nat?: string | null, country?: string | null, issuingCountry?: string | null): string {
   const cUpper = (country || '').trim().toUpperCase();
@@ -242,7 +260,7 @@ router.get('/', async (req: Request, res: Response) => {
         registeredBy: registeredByName,
         hasInvoice: candidateInvoices.length > 0,
         isInvoiceDelivered: candidateInvoices.some((i: any) => i.isDelivered) || false,
-        agency: c.agency || 'Sky',
+        agency: getSafeAgencyDisplay(c.agency, c.majorAgency),
         allowVideo: c.allowVideo ?? false,
       };
     });
@@ -491,6 +509,12 @@ router.post('/', async (req: Request, res: Response) => {
 
     const generatedId = createId();
 
+    // Calling / Entry selects `office` (e.g. 'rawasi', 'azm', 'mazaya'); prioritize `office` over default `agency`
+    const resolvedAgency =
+      normalizeOfficeOrAgency(body.office) ||
+      normalizeOfficeOrAgency(body.agency) ||
+      userAgency;
+
     const candidateValues: any = {
       id: generatedId,
       shelfId: nextShelfId,
@@ -546,6 +570,7 @@ router.post('/', async (req: Request, res: Response) => {
       videoUrl: videoUrl || null,
       quickVideoUrl: videoUrl && !videoUrl.startsWith('http') ? videoUrl : null,
       status: (req.body.isRequested || req.body.visaSelected || req.body.status === 'visa selected' || body.isRequested || body.visaSelected || body.status === 'visa selected') ? 'visa selected' : 'pending',
+      agency: resolvedAgency,
       majorAgency: userAgency,
       salary: body.personalInfo?.salary || '1000SR',
       allowVideo: (body.allowVideo || req.body.allowVideo) ? true : false,
@@ -794,7 +819,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       cvDownloaded: c.cvDownloaded ?? false,
       latestCVTemplate: latestCV[0]?.templateId || null,
       registeredBy: registeredByData[0]?.name || 'Admin',
-      agency: c.agency || 'Sky',
+      agency: getSafeAgencyDisplay(c.agency, c.majorAgency),
       allowVideo: c.allowVideo ?? false,
       price: isSuperAdmin ? c.price : null,
     };
@@ -942,6 +967,13 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     if (!existingCandidate.registeredById && registeredById) {
       updateData.registeredById = registeredById;
+    }
+
+    const updatedAgency = normalizeOfficeOrAgency(body.office) || normalizeOfficeOrAgency(body.agency);
+    if (updatedAgency) {
+      updateData.agency = updatedAgency;
+    } else if (!existingCandidate.agency || ['daera', 'daira'].includes(existingCandidate.agency.trim().toLowerCase())) {
+      updateData.agency = userAgency;
     }
 
     await db.update(candidate)
@@ -1101,6 +1133,15 @@ router.patch('/:id', async (req: Request, res: Response) => {
     stringFields.forEach(f => {
       if (body[f] !== undefined) updateData[f] = body[f];
     });
+
+    if (body.office !== undefined || body.agency !== undefined) {
+      const normalized = normalizeOfficeOrAgency(body.office ?? body.agency);
+      if (normalized) {
+        updateData.agency = normalized;
+      } else {
+        delete updateData.agency;
+      }
+    }
 
     const dateFields = ['dateOfBirth', 'dateOfIssue', 'dateOfExpiry', 'medicalDate', 'biometricDate', 'cvDeadline'];
     dateFields.forEach(f => {

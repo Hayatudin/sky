@@ -14,7 +14,7 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { authClient } from '@/lib/auth-client';
 
 import { useCandidates } from '@/hooks/useCandidates';
-import { getTemplateOptionsForAgency, getUserMajorAgency } from '@/lib/cv-templates';
+import { getTemplateOptionsForAgency, getUserMajorAgency, resolveCandidateOfficeId } from '@/lib/cv-templates';
 
 function isLabourIdFile(val: string | null | undefined): boolean {
   if (!val) return false;
@@ -179,16 +179,24 @@ export default function CandidatesPage() {
     setIsSettingAgency(true);
     try {
       const cand = candidates.find(c => c.id === candidateId);
-      const res = await api('/api/generated-cvs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          candidateId,
-          templateId,
-          facePhotoUrl: cand?.facePhotoUrl || null,
-          fullBodyPhotoUrl: cand?.fullBodyPhotoUrl || null
-        })
-      });
+      const isCalling = cand ? isCallingCand(cand) : false;
+
+      const res = isCalling
+        ? await api(`/api/candidates/${candidateId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agency: templateId })
+          })
+        : await api('/api/generated-cvs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              candidateId,
+              templateId,
+              facePhotoUrl: cand?.facePhotoUrl || null,
+              fullBodyPhotoUrl: cand?.fullBodyPhotoUrl || null
+            })
+          });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to set agency');
@@ -634,19 +642,13 @@ export default function CandidatesPage() {
 
                     {/* CV Agency */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {candidate.latestCVTemplate ? (
-                        <span className="px-2.5 py-1 text-[10px] uppercase font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg shadow-sm">
-                          {(() => {
-                            const templateId = candidate.latestCVTemplate.replace('tmpl-', '').toLowerCase();
-                            const templateObj = TEMPLATES.find(t => t.id === templateId);
-                            return templateObj ? templateObj.name : candidate.latestCVTemplate.toUpperCase();
-                          })()}
-                        </span>
-                      ) : (
-                        <>
-                          {selectedCandidateForAgency === candidate.id ? (
+                      {(() => {
+                        const officeId = resolveCandidateOfficeId(candidate);
+                        const templateObj = officeId ? TEMPLATES.find(t => t.id === officeId) : null;
+                        if (selectedCandidateForAgency === candidate.id) {
+                          return (
                             <select
-                              value=""
+                              value={officeId || ''}
                               disabled={isSettingAgency}
                               onChange={async (e) => {
                                 const val = e.target.value;
@@ -654,6 +656,7 @@ export default function CandidatesPage() {
                                   await handleSetAgency(candidate.id, val);
                                 }
                               }}
+                              onBlur={() => setSelectedCandidateForAgency(null)}
                               className="px-2.5 py-1 text-[10px] uppercase font-bold bg-white text-text-primary border border-border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 cursor-pointer"
                             >
                               <option value="" disabled>Select Agency...</option>
@@ -661,16 +664,36 @@ export default function CandidatesPage() {
                                 <option key={t.id} value={t.id}>{t.name}</option>
                               ))}
                             </select>
-                          ) : (
-                            <button
-                              onClick={() => setSelectedCandidateForAgency(candidate.id)}
-                              className="px-2.5 py-1 text-[10px] uppercase font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg shadow-sm transition-all"
-                            >
-                              Set Agency
-                            </button>
-                          )}
-                        </>
-                      )}
+                          );
+                        }
+                        if (officeId) {
+                          const label = templateObj ? templateObj.name : officeId.toUpperCase();
+                          if (isCallingCand(candidate) && !candidate.latestCVTemplate) {
+                            return (
+                              <button
+                                onClick={() => setSelectedCandidateForAgency(candidate.id)}
+                                className="px-2.5 py-1 text-[10px] uppercase font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg shadow-sm transition-all cursor-pointer"
+                                title="Click to change office"
+                              >
+                                {label}
+                              </button>
+                            );
+                          }
+                          return (
+                            <span className="px-2.5 py-1 text-[10px] uppercase font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg shadow-sm">
+                              {label}
+                            </span>
+                          );
+                        }
+                        return (
+                          <button
+                            onClick={() => setSelectedCandidateForAgency(candidate.id)}
+                            className="px-2.5 py-1 text-[10px] uppercase font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg shadow-sm transition-all cursor-pointer"
+                          >
+                            Set Agency
+                          </button>
+                        );
+                      })()}
                     </td>
 
                     {/* Broker */}
